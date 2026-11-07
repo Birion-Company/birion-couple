@@ -1774,3 +1774,116 @@ html.theme-switching *::after {
     animation: none;
   }
 }
+
+/* ---------- Conta: botão do usuário e Sair ---------- */
+.side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.user-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--field-edge);
+  border-radius: 12px;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.user-btn:hover,
+.user-btn[aria-expanded="true"] {
+  border-color: var(--tile-edge);
+  background: var(--tile-bg);
+}
+.user-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(26, 196, 219, 0.28);
+}
+.user-btn.compact {
+  width: auto;
+  padding: 3px;
+  border-radius: 999px;
+}
+.user-btn-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.user-btn-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-btn-email {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-btn-chevron {
+  flex: none;
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+.user-btn[aria-expanded="true"] .user-btn-chevron {
+  transform: rotate(180deg);
+}
+.user-menu {
+  padding: 6px;
+}
+.user-menu-item {
+  color: var(--text);
+  text-decoration: none;
+}
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+  outline: none;
+  background: var(--tile-bg);
+  color: var(--brand-strong);
+}
+.logout-btn {
+  width: 100%;
+  min-height: 40px;
+  color: var(--neg) !important;
+  border-color: color-mix(in srgb, var(--neg) 40%, transparent) !important;
+  background: transparent !important;
+}
+.logout-btn:hover {
+  background: var(--neg-soft) !important;
+}
+.topbar .logout-btn {
+  width: auto;
+  min-height: 34px;
+}
+.theme-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--field-edge);
+  border-radius: 12px;
+}
+.side-foot .theme-row {
+  gap: 8px;
+}
+.tile-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--brand-strong);
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-edge);
+}

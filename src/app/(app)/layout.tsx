@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { BottomNav, SideNav } from "@/components/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
 
 function Brand({ household }: { household: string }) {
@@ -25,15 +26,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <Brand household={auth.householdName} />
         <SideNav />
         <div className="side-foot">
-          <p className="faint">{auth.userName}</p>
+          <UserMenu name={auth.userName} email={auth.email} />
           <div className="theme-row">
-            <form action={logout}>
-              <button className="btn ghost small" style={{ paddingLeft: 0 }}>
-                <LogOut size={15} strokeWidth={1.6} /> Sair
+            <form action={logout} style={{ flex: 1 }}>
+              <button className="btn logout-btn">
+                <LogOut size={16} strokeWidth={1.8} /> Sair
               </button>
             </form>
-            <span style={{ flex: 1 }} />
-            <ThemeToggle />
+            <ThemeToggle className="icon-btn theme-btn" />
           </div>
         </div>
       </aside>
@@ -42,9 +42,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <Brand household={auth.householdName} />
           <span className="spacer" />
           <ThemeToggle />
+          <UserMenu name={auth.userName} email={auth.email} compact />
           <form action={logout}>
-            <button className="icon-btn" aria-label="Sair" title="Sair">
-              <LogOut size={18} strokeWidth={1.6} />
+            <button className="btn small logout-btn">
+              <LogOut size={15} strokeWidth={1.8} /> Sair
             </button>
           </form>
         </header>
