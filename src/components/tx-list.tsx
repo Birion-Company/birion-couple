@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Inbox, X } from "lucide-react";
 import { bulkUpdate, deleteTransactions, setTransactionsStatus } from "@/app/actions/transactions";
 import type { Lookups, TxRow } from "@/lib/queries";
+import { Select } from "./select";
 import { toastResult } from "./toaster";
 import { amountTone, txMeta } from "./tx-row";
 import { Dot, Money, formatDate } from "./ui";
@@ -127,45 +128,40 @@ export function TxList({ rows, lookups, currency }: { rows: TxRow[]; lookups: Lo
           </button>
           <strong style={{ fontWeight: 500, fontSize: "0.9rem" }}>{selected.size} selecionado(s)</strong>
           <span style={{ flex: 1 }} />
-          <select
-            className="select"
-            aria-label="Marcar como"
+          <Select
+            variant="bulk"
+            ariaLabel="Marcar como"
             value=""
+            placeholder="Marcar como…"
             disabled={pending}
-            onChange={(e) => e.target.value && run(() => setTransactionsStatus(ids, e.target.value))}
-          >
-            <option value="">Marcar como…</option>
-            {activeStatuses.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <select
-            className="select"
-            aria-label="Mudar categoria"
+            options={activeStatuses.map((s) => ({ value: s.id, label: s.name, color: s.color }))}
+            onChange={(v) => run(() => setTransactionsStatus(ids, v))}
+          />
+          <Select
+            variant="bulk"
+            ariaLabel="Mudar categoria"
             value=""
+            placeholder="Categoria…"
             disabled={pending}
-            onChange={(e) => e.target.value && run(() => bulkUpdate(ids, { categoryId: e.target.value === "none" ? null : e.target.value }))}
-          >
-            <option value="">Categoria…</option>
-            {lookups.categories.filter((c) => !c.archived).map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-            <option value="none">Sem categoria</option>
-          </select>
+            options={[
+              ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color })),
+              { value: "none", label: "Sem categoria" },
+            ]}
+            onChange={(v) => run(() => bulkUpdate(ids, { categoryId: v === "none" ? null : v }))}
+          />
           {lookups.projects.some((p) => !p.archived) && (
-            <select
-              className="select"
-              aria-label="Mudar projeto"
+            <Select
+              variant="bulk"
+              ariaLabel="Mudar projeto"
               value=""
+              placeholder="Projeto…"
               disabled={pending}
-              onChange={(e) => e.target.value && run(() => bulkUpdate(ids, { projectId: e.target.value === "none" ? null : e.target.value }))}
-            >
-              <option value="">Projeto…</option>
-              {lookups.projects.filter((p) => !p.archived).map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-              <option value="none">Sem projeto</option>
-            </select>
+              options={[
+                ...lookups.projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color })),
+                { value: "none", label: "Sem projeto" },
+              ]}
+              onChange={(v) => run(() => bulkUpdate(ids, { projectId: v === "none" ? null : v }))}
+            />
           )}
           <button
             className="btn small"

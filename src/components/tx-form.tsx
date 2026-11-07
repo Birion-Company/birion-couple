@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 import { deleteTransactions, saveTransaction } from "@/app/actions/transactions";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
+import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Avatar } from "./ui";
 
@@ -176,24 +177,24 @@ export function TxForm({
         </label>
         <label className="field">
           <span>{payerLabel}</span>
-          <select className="select" value={payerId} onChange={(e) => setPayerId(e.target.value)} required={kind === "transfer"}>
-            {kind !== "transfer" && <option value="">Ninguém ainda</option>}
-            {people.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          <Select
+            value={payerId}
+            onChange={setPayerId}
+            options={[...(kind !== "transfer" ? [{ value: "", label: "Ninguém ainda" }] : []), ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
+            placeholder="Escolha"
+          />
         </label>
       </div>
 
       {kind === "transfer" ? (
         <label className="field">
           <span>Para quem</span>
-          <select className="select" value={splitIds[0] ?? ""} onChange={(e) => setSplitIds(e.target.value ? [e.target.value] : [])} required>
-            <option value="">Escolha</option>
-            {people.filter((p) => p.id !== payerId).map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          <Select
+            value={splitIds[0] ?? ""}
+            onChange={(v) => setSplitIds(v ? [v] : [])}
+            options={people.filter((p) => p.id !== payerId).map((p) => ({ value: p.id, label: p.name, color: p.color }))}
+            placeholder="Escolha"
+          />
           <span className="faint">Um acerto abate o que uma pessoa deve para a outra.</span>
         </label>
       ) : (
@@ -260,34 +261,40 @@ export function TxForm({
         {kind !== "transfer" && (
           <label className="field">
             <span>Categoria</span>
-            <select className="select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="">Sem categoria</option>
-              {lookups.categories.filter((c) => !c.archived || c.id === categoryId).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <Select
+              value={categoryId}
+              onChange={setCategoryId}
+              options={[
+                { value: "", label: "Sem categoria" },
+                ...lookups.categories.filter((c) => !c.archived || c.id === categoryId).map((c) => ({ value: c.id, label: c.name, color: c.color })),
+              ]}
+            />
           </label>
         )}
         <label className="field">
           <span>Status</span>
-          <select className="select" value={statusId} onChange={(e) => setStatusId(e.target.value)}>
-            <option value="">Sem status</option>
-            {lookups.statuses.filter((s) => !s.archived || s.id === statusId).map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <Select
+            value={statusId}
+            onChange={setStatusId}
+            options={[
+              { value: "", label: "Sem status" },
+              ...lookups.statuses.filter((s) => !s.archived || s.id === statusId).map((s) => ({ value: s.id, label: s.name, color: s.color })),
+            ]}
+          />
         </label>
       </div>
 
       {lookups.projects.length > 0 && (
         <label className="field">
           <span>Projeto</span>
-          <select className="select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            <option value="">Nenhum</option>
-            {lookups.projects.filter((p) => !p.archived || p.id === projectId).map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          <Select
+            value={projectId}
+            onChange={setProjectId}
+            options={[
+              { value: "", label: "Nenhum" },
+              ...lookups.projects.filter((p) => !p.archived || p.id === projectId).map((p) => ({ value: p.id, label: p.name, color: p.color })),
+            ]}
+          />
         </label>
       )}
 

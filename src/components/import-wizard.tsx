@@ -7,6 +7,7 @@ import { commitImport, previewImport, savePreset, type PreviewResult, type Previ
 import type { CsvMapping } from "@/lib/import/types";
 import { formatMoney } from "@/lib/money";
 import type { Lookups } from "@/lib/queries";
+import { Select, type SelectOption } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Avatar, formatDate } from "./ui";
 
@@ -132,11 +133,15 @@ export function ImportWizard({
     );
   }
 
-  const colOptions = (preview?.headers ?? []).map((h, i) => (
-    <option key={i} value={i}>
-      {mapping?.hasHeader && h ? h : `Coluna ${i + 1}`}
-    </option>
-  ));
+  const colOptions: SelectOption[] = (preview?.headers ?? []).map((h, i) => ({
+    value: String(i),
+    label: mapping?.hasHeader && h ? h : `Coluna ${i + 1}`,
+  }));
+  const colOrNone: SelectOption[] = [{ value: "-1", label: "Nenhuma" }, ...colOptions];
+  const catOptions: SelectOption[] = [
+    { value: "", label: "Sem categoria" },
+    ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color })),
+  ];
 
   return (
     <>
@@ -174,21 +179,17 @@ export function ImportWizard({
           <div className="card-head">
             <h2 id="map">Como ler este CSV</h2>
             {presets.length > 0 && (
-              <select
-                className="select"
+              <Select
+                ariaLabel="Usar modelo salvo"
                 style={{ width: "auto", minHeight: 36 }}
-                aria-label="Usar modelo salvo"
                 value=""
-                onChange={(e) => {
-                  const p = presets.find((x) => x.id === e.target.value);
+                placeholder="Usar modelo salvo…"
+                options={presets.map((p) => ({ value: p.id, label: p.name }))}
+                onChange={(v) => {
+                  const p = presets.find((x) => x.id === v);
                   if (p) setMap(p.mapping as CsvMapping);
                 }}
-              >
-                <option value="">Usar modelo salvo…</option>
-                {presets.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              />
             )}
           </div>
           <p className="faint" style={{ marginBottom: 12 }}>Já tentei adivinhar. Confira as colunas olhando o exemplo abaixo.</p>
@@ -196,20 +197,24 @@ export function ImportWizard({
             <div className="field-row">
               <label className="field">
                 <span>Data</span>
-                <select className="select" value={mapping.dateColumn} onChange={(e) => setMap({ dateColumn: Number(e.target.value) })}>{colOptions}</select>
+                <Select value={String(mapping.dateColumn)} onChange={(v) => setMap({ dateColumn: Number(v) })} options={colOptions} />
               </label>
               <label className="field">
                 <span>Formato da data</span>
-                <select className="select" value={mapping.dateFormat} onChange={(e) => setMap({ dateFormat: e.target.value as CsvMapping["dateFormat"] })}>
-                  <option value="DD/MM/YYYY">dia/mês/ano</option>
-                  <option value="YYYY-MM-DD">ano-mês-dia</option>
-                  <option value="MM/DD/YYYY">mês/dia/ano</option>
-                </select>
+                <Select
+                  value={mapping.dateFormat}
+                  onChange={(v) => setMap({ dateFormat: v as CsvMapping["dateFormat"] })}
+                  options={[
+                    { value: "DD/MM/YYYY", label: "dia/mês/ano" },
+                    { value: "YYYY-MM-DD", label: "ano-mês-dia" },
+                    { value: "MM/DD/YYYY", label: "mês/dia/ano" },
+                  ]}
+                />
               </label>
             </div>
             <label className="field">
               <span>Descrição</span>
-              <select className="select" value={mapping.descriptionColumn} onChange={(e) => setMap({ descriptionColumn: Number(e.target.value) })}>{colOptions}</select>
+              <Select value={String(mapping.descriptionColumn)} onChange={(v) => setMap({ descriptionColumn: Number(v) })} options={colOptions} />
             </label>
             <div className="segmented" role="group" aria-label="Colunas de valor">
               <button type="button" aria-pressed={mapping.amountColumn >= 0} onClick={() => setMap({ amountColumn: Math.max(0, mapping.debitColumn, mapping.amountColumn), debitColumn: -1, creditColumn: -1 })}>Uma coluna de valor</button>
@@ -219,41 +224,43 @@ export function ImportWizard({
               <div className="field-row">
                 <label className="field">
                   <span>Valor</span>
-                  <select className="select" value={mapping.amountColumn} onChange={(e) => setMap({ amountColumn: Number(e.target.value) })}>{colOptions}</select>
+                  <Select value={String(mapping.amountColumn)} onChange={(v) => setMap({ amountColumn: Number(v) })} options={colOptions} />
                 </label>
                 <label className="field">
                   <span>Valores positivos são</span>
-                  <select className="select" value={mapping.positiveIsExpense ? "out" : "in"} onChange={(e) => setMap({ positiveIsExpense: e.target.value === "out" })}>
-                    <option value="in">Entradas (extrato de conta)</option>
-                    <option value="out">Saídas (fatura de cartão)</option>
-                  </select>
+                  <Select
+                    value={mapping.positiveIsExpense ? "out" : "in"}
+                    onChange={(v) => setMap({ positiveIsExpense: v === "out" })}
+                    options={[
+                      { value: "in", label: "Entradas (extrato de conta)" },
+                      { value: "out", label: "Saídas (fatura de cartão)" },
+                    ]}
+                  />
                 </label>
               </div>
             ) : (
               <div className="field-row">
                 <label className="field">
                   <span>Débito (saídas)</span>
-                  <select className="select" value={mapping.debitColumn} onChange={(e) => setMap({ debitColumn: Number(e.target.value) })}>
-                    <option value={-1}>Nenhuma</option>
-                    {colOptions}
-                  </select>
+                  <Select value={String(mapping.debitColumn)} onChange={(v) => setMap({ debitColumn: Number(v) })} options={colOrNone} />
                 </label>
                 <label className="field">
                   <span>Crédito (entradas)</span>
-                  <select className="select" value={mapping.creditColumn} onChange={(e) => setMap({ creditColumn: Number(e.target.value) })}>
-                    <option value={-1}>Nenhuma</option>
-                    {colOptions}
-                  </select>
+                  <Select value={String(mapping.creditColumn)} onChange={(v) => setMap({ creditColumn: Number(v) })} options={colOrNone} />
                 </label>
               </div>
             )}
             <div className="field-row">
               <label className="field">
                 <span>Separador de centavos</span>
-                <select className="select" value={mapping.decimal} onChange={(e) => setMap({ decimal: e.target.value as "," | "." })}>
-                  <option value=",">Vírgula (1.234,56)</option>
-                  <option value=".">Ponto (1,234.56)</option>
-                </select>
+                <Select
+                  value={mapping.decimal}
+                  onChange={(v) => setMap({ decimal: v as "," | "." })}
+                  options={[
+                    { value: ",", label: "Vírgula (1.234,56)" },
+                    { value: ".", label: "Ponto (1,234.56)" },
+                  ]}
+                />
               </label>
               <label className="check" style={{ alignSelf: "end" }}>
                 <input type="checkbox" checked={mapping.hasHeader} onChange={(e) => setMap({ hasHeader: e.target.checked })} />
@@ -308,20 +315,19 @@ export function ImportWizard({
               <div className="field-row">
                 <label className="field">
                   <span>Quem pagou / recebeu</span>
-                  <select className="select" value={payerId} onChange={(e) => setPayerId(e.target.value)}>
-                    <option value="">Ninguém ainda</option>
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                  <Select
+                    value={payerId}
+                    onChange={setPayerId}
+                    options={[{ value: "", label: "Ninguém ainda" }, ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
+                  />
                 </label>
                 <label className="field">
                   <span>Status</span>
-                  <select className="select" value={statusId} onChange={(e) => setStatusId(e.target.value)}>
-                    {lookups.statuses.filter((s) => !s.archived).map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  <Select
+                    value={statusId}
+                    onChange={setStatusId}
+                    options={lookups.statuses.filter((s) => !s.archived).map((s) => ({ value: s.id, label: s.name, color: s.color }))}
+                  />
                 </label>
               </div>
               <div className="field">
@@ -347,12 +353,14 @@ export function ImportWizard({
               {lookups.projects.some((p) => !p.archived) && (
                 <label className="field">
                   <span>Projeto</span>
-                  <select className="select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-                    <option value="">Nenhum</option>
-                    {lookups.projects.filter((p) => !p.archived).map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                  <Select
+                    value={projectId}
+                    onChange={setProjectId}
+                    options={[
+                      { value: "", label: "Nenhum" },
+                      ...lookups.projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color })),
+                    ]}
+                  />
                 </label>
               )}
             </div>
@@ -393,18 +401,13 @@ export function ImportWizard({
                       {formatDate(r.date, { day: "2-digit", month: "short", year: "numeric" })}
                       {r.duplicate ? " · já importado" : ""}
                     </p>
-                    <select
-                      className="select"
-                      aria-label={`Categoria de ${r.description}`}
+                    <Select
+                      ariaLabel={`Categoria de ${r.description}`}
                       value={cats[r.key] ?? ""}
-                      onChange={(e) => setCats((c) => ({ ...c, [r.key]: e.target.value }))}
-                      style={{ minHeight: 32, padding: "4px 30px 4px 8px", fontSize: "0.8rem", marginTop: 6, maxWidth: 220 }}
-                    >
-                      <option value="">Sem categoria</option>
-                      {lookups.categories.filter((c) => !c.archived).map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setCats((c) => ({ ...c, [r.key]: v }))}
+                      options={catOptions}
+                      style={{ minHeight: 32, padding: "4px 10px", fontSize: "0.8rem", marginTop: 6, maxWidth: 220 }}
+                    />
                   </div>
                   <span className={`amount ${r.amountCents > 0 ? "pos" : ""}`}>
                     {r.amountCents > 0 ? "+" : ""}

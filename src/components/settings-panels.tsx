@@ -17,6 +17,7 @@ import {
   updateHousehold,
 } from "@/app/actions/settings";
 import { CURRENCIES } from "@/lib/defaults";
+import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Dot } from "./ui";
 
@@ -73,11 +74,7 @@ export function HouseholdForm({ name, currency, isOwner }: { name: string; curre
       </label>
       <label className="field">
         <span>Moeda</span>
-        <select className="select" value={c} onChange={(e) => setC(e.target.value)} disabled={!isOwner}>
-          {CURRENCIES.map((x) => (
-            <option key={x.value} value={x.value}>{x.label}</option>
-          ))}
-        </select>
+        <Select value={c} onChange={setC} disabled={!isOwner} options={CURRENCIES.map((x) => ({ value: x.value, label: x.label }))} />
       </label>
       {isOwner ? (
         <div className="actions" style={{ justifyContent: "flex-end" }}>
@@ -96,17 +93,15 @@ export function MeForm({ participants, current }: { participants: Opt[]; current
     <div className="card form">
       <label className="field">
         <span>Quem é você entre as pessoas</span>
-        <select
-          className="select"
+        <Select
           value={current ?? ""}
           disabled={pending}
-          onChange={(e) => act(() => linkMyParticipant(e.target.value || null))}
-        >
-          <option value="">Não definido</option>
-          {participants.filter((p) => !p.archived || p.id === current).map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+          onChange={(v) => act(() => linkMyParticipant(v || null))}
+          options={[
+            { value: "", label: "Não definido" },
+            ...participants.filter((p) => !p.archived || p.id === current).map((p) => ({ value: p.id, label: p.name, color: p.color })),
+          ]}
+        />
         <span className="faint">Usado para mostrar “seu saldo” no painel e já sugerir você como quem pagou.</span>
       </label>
     </div>
@@ -147,11 +142,13 @@ export function RulesEditor({ rules, categories }: { rules: { id: string; patter
         }}
       >
         <input className="input" style={{ flex: "1 1 160px" }} placeholder="Texto na descrição" value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label="Texto na descrição" />
-        <select className="select" style={{ flex: "1 1 140px", width: "auto" }} value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label="Categoria">
-          {categories.filter((c) => !c.archived).map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Categoria"
+          style={{ flex: "1 1 140px", width: "auto" }}
+          value={categoryId}
+          onChange={setCategoryId}
+          options={categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))}
+        />
         <button className="btn" disabled={pending || !pattern.trim() || !categoryId}>
           <Plus size={16} /> Adicionar
         </button>
@@ -202,17 +199,17 @@ export function MembersPanel({
               </div>
               {isOwner && m.userId !== me ? (
                 <>
-                  <select
-                    className="select"
+                  <Select
+                    ariaLabel={`Permissão de ${m.name}`}
                     style={{ width: "auto", minHeight: 36 }}
                     value={m.role}
                     disabled={pending}
-                    onChange={(e) => act(() => setMemberRole(m.userId, e.target.value as "owner" | "member"))}
-                    aria-label={`Permissão de ${m.name}`}
-                  >
-                    <option value="member">Membro</option>
-                    <option value="owner">Administra</option>
-                  </select>
+                    onChange={(v) => act(() => setMemberRole(m.userId, v as "owner" | "member"))}
+                    options={[
+                      { value: "member", label: "Membro" },
+                      { value: "owner", label: "Administra" },
+                    ]}
+                  />
                   <button
                     className="icon-btn"
                     disabled={pending}
@@ -237,10 +234,16 @@ export function MembersPanel({
             Gere um link e envie pelo WhatsApp ou e-mail. Quem entrar vira também uma pessoa nos lançamentos.
           </p>
           <div className="actions">
-            <select className="select" style={{ width: "auto" }} value={role} onChange={(e) => setRole(e.target.value as "owner" | "member")} aria-label="Permissão do convite">
-              <option value="member">Como membro</option>
-              <option value="owner">Como administrador</option>
-            </select>
+            <Select
+              ariaLabel="Permissão do convite"
+              style={{ width: "auto" }}
+              value={role}
+              onChange={(v) => setRole(v as "owner" | "member")}
+              options={[
+                { value: "member", label: "Como membro" },
+                { value: "owner", label: "Como administrador" },
+              ]}
+            />
             <button
               className="btn primary"
               disabled={pending}

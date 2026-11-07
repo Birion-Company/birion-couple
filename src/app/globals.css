@@ -1616,3 +1616,161 @@ html.theme-switching *::after {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.25);
 }
+
+/* =========================================================
+   Menus de seleção (componente Select) no tema Biriun
+   ========================================================= */
+.bf-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.bf-select:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.bf-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bf-select-value.placeholder {
+  color: var(--text-3);
+}
+.bf-select-chevron {
+  flex: none;
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+.bf-select[aria-expanded="true"] .bf-select-chevron {
+  transform: rotate(180deg);
+  color: var(--brand-strong);
+}
+.bf-select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(26, 196, 219, 0.28);
+}
+
+/* Campo de formulário: mesmo visual dos inputs */
+.bf-select-field {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--field-edge);
+  border-radius: 12px;
+  background: var(--field-bg);
+}
+.bf-select-field[aria-expanded="true"] {
+  border-color: var(--brand);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(26, 196, 219, 0.22);
+}
+
+/* Filtro arredondado */
+.bf-select-chip {
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--field-edge);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+.bf-select-chip .bf-select-value {
+  flex: none;
+}
+.bf-select-chip.on {
+  background: var(--tile-bg);
+  border-color: var(--tile-edge);
+  color: var(--text);
+}
+.bf-select-chip[aria-expanded="true"] {
+  border-color: var(--brand);
+}
+
+/* Barra escura de ações em massa */
+.bf-select-bulk {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 0.85rem;
+}
+.bf-select-bulk .bf-select-value.placeholder,
+.bf-select-bulk .bf-select-chevron {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Lista aberta */
+.bf-select-list {
+  position: fixed;
+  z-index: 100;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  box-shadow: 0 14px 40px rgba(3, 10, 20, 0.22), 0 0 0 1px rgba(26, 196, 219, 0.06);
+  animation: bf-select-in 0.12s ease-out;
+}
+:root[data-theme="dark"] .bf-select-list {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(26, 196, 219, 0.1);
+}
+@keyframes bf-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.bf-select-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.92rem;
+  cursor: pointer;
+  user-select: none;
+}
+.bf-select-option.active {
+  background: var(--tile-bg);
+}
+.bf-select-option[aria-selected="true"] {
+  color: var(--brand-strong);
+  font-weight: 500;
+}
+.bf-select-option[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+.bf-select-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bf-select-check {
+  flex: none;
+  color: var(--brand-strong);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-select-list {
+    animation: none;
+  }
+}

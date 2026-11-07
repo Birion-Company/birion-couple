@@ -2,8 +2,9 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import { PERIODS, filtersToQuery, type Filters } from "@/lib/filters";
+import { Select, type SelectOption } from "./select";
 import { Avatar } from "./ui";
 
 type Option = { id: string; name: string; color: string; archived: boolean };
@@ -32,27 +33,21 @@ function ChipSelect({
   allLabel: string;
   extra?: { value: string; label: string }[];
 }) {
-  const current = options.find((o) => o.id === value)?.name ?? extra?.find((e) => e.value === value)?.label;
+  const list: SelectOption[] = [
+    { value: "", label: allLabel },
+    ...(extra ?? []),
+    ...options.filter((o) => !o.archived || o.id === value).map((o) => ({ value: o.id, label: o.name, color: o.color })),
+  ];
   return (
-    <label className={`chip ${value ? "on" : ""}`}>
-      <span>{current ?? label}</span>
-      <ChevronDown size={14} strokeWidth={1.6} />
-      <select aria-label={label} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
-        <option value="">{allLabel}</option>
-        {extra?.map((e) => (
-          <option key={e.value} value={e.value}>
-            {e.label}
-          </option>
-        ))}
-        {options
-          .filter((o) => !o.archived || o.id === value)
-          .map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-      </select>
-    </label>
+    <Select
+      variant="chip"
+      ariaLabel={label}
+      value={value ?? ""}
+      options={list}
+      onChange={(v) => onChange(v || null)}
+      active={!!value}
+      buttonLabel={value ? undefined : label}
+    />
   );
 }
 
@@ -92,21 +87,14 @@ export function FilterBar({ filters, participants, categories, projects, statuse
         </div>
       )}
       <div className="filters" role="group" aria-label="Filtros">
-        <label className={`chip ${filters.period !== "tudo" ? "on" : ""}`}>
-          <span>{PERIODS.find((p) => p.value === filters.period)?.label}</span>
-          <ChevronDown size={14} strokeWidth={1.6} />
-          <select
-            aria-label="Período"
-            value={filters.period}
-            onChange={(e) => go({ period: e.target.value as Filters["period"] })}
-          >
-            {PERIODS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          variant="chip"
+          ariaLabel="Período"
+          value={filters.period}
+          options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
+          onChange={(v) => go({ period: v as Filters["period"] })}
+          active={filters.period !== "tudo"}
+        />
         {filters.period === "custom" && (
           <>
             <span className="chip on">
