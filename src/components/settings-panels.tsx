@@ -10,7 +10,6 @@ import {
   deleteHousehold,
   deletePreset,
   deleteRule,
-  linkMyParticipant,
   removeMember,
   revokeInvite,
   setMemberRole,
@@ -84,27 +83,6 @@ export function HouseholdForm({ name, currency, isOwner }: { name: string; curre
         <p className="faint">Só quem administra a família pode mudar estes dados.</p>
       )}
     </form>
-  );
-}
-
-export function MeForm({ participants, current }: { participants: Opt[]; current: string | null }) {
-  const [pending, act] = useAct();
-  return (
-    <div className="card form">
-      <label className="field">
-        <span>Quem é você entre as pessoas</span>
-        <Select
-          value={current ?? ""}
-          disabled={pending}
-          onChange={(v) => act(() => linkMyParticipant(v || null))}
-          options={[
-            { value: "", label: "Não definido" },
-            ...participants.filter((p) => !p.archived || p.id === current).map((p) => ({ value: p.id, label: p.name, color: p.color })),
-          ]}
-        />
-        <span className="faint">Usado para mostrar “seu saldo” no painel e já sugerir você como quem pagou.</span>
-      </label>
-    </div>
   );
 }
 

@@ -27,10 +27,19 @@ export function softColor(hex: string, alpha = 0.18) {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
-export function Avatar({ name, color, size = 34 }: { name: string; color: string; size?: number }) {
+export function Avatar({ name, color, size = 34, src }: { name: string; color: string; size?: number; src?: string | null }) {
   return (
-    <span className="avatar" style={{ background: softColor(color, 0.22), width: size, height: size }} aria-hidden>
-      {initials(name)}
+    <span
+      className="avatar"
+      style={{ background: softColor(color, 0.22), width: size, height: size, fontSize: Math.max(12, Math.round(size * 0.36)) }}
+      aria-hidden
+    >
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="avatar-img" />
+      ) : (
+        initials(name)
+      )}
     </span>
   );
 }

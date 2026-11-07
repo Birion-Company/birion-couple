@@ -225,21 +225,3 @@ export async function removeMember(userId: string): Promise<ActionResult> {
     .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, userId)));
   return done("Acesso removido. A pessoa continua nos lançamentos como participante.");
 }
-
-/** Liga o login da pessoa a um participante, para o app saber quem é "eu". */
-export async function linkMyParticipant(participantId: string | null): Promise<ActionResult> {
-  const auth = await requireAuth();
-  const db = getDb();
-  if (participantId) {
-    const [p] = await db
-      .select({ id: schema.participants.id })
-      .from(schema.participants)
-      .where(and(eq(schema.participants.id, participantId), eq(schema.participants.householdId, auth.householdId)));
-    if (!p) return fail("Participante não encontrado.");
-  }
-  await db
-    .update(schema.memberships)
-    .set({ participantId })
-    .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, auth.userId)));
-  return done("Pronto.");
-}

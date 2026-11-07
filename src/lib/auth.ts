@@ -15,6 +15,8 @@ export type AuthContext = {
   locale: string;
   role: "owner" | "member";
   participantId: string | null;
+  /** Muda quando a foto de perfil muda (milissegundos); nulo sem foto. */
+  avatarVersion: number | null;
 };
 
 /** Lê a sessão e confere no banco se a pessoa ainda é membro da família. */
@@ -33,6 +35,7 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
       locale: schema.households.locale,
       role: schema.memberships.role,
       participantId: schema.memberships.participantId,
+      avatarUpdatedAt: schema.users.avatarUpdatedAt,
     })
     .from(schema.memberships)
     .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
@@ -40,7 +43,8 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
     .where(and(eq(schema.memberships.userId, session.uid), eq(schema.memberships.householdId, session.hid)))
     .limit(1);
   if (!row) return null;
-  return { ...row, role: row.role === "owner" ? "owner" : "member" };
+  const { avatarUpdatedAt, ...rest } = row;
+  return { ...rest, role: row.role === "owner" ? "owner" : "member", avatarVersion: avatarUpdatedAt ? avatarUpdatedAt.getTime() : null };
 });
 
 export async function requireAuth(): Promise<AuthContext> {

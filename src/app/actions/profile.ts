@@ -68,3 +68,33 @@ export async function changePassword(input: { current: string; next: string; con
     .where(eq(schema.users.id, auth.userId));
   return { ok: true, message: "Senha alterada." };
 }
+
+const MAX_AVATAR_CHARS = 400_000; // ~300 KB de imagem; o navegador já envia reduzida (~20 KB)
+
+/** Recebe a foto já cortada e reduzida no navegador (JPEG em data URL). */
+export async function uploadAvatar(dataUrl: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const prefix = "data:image/jpeg;base64,";
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith(prefix) || dataUrl.length > MAX_AVATAR_CHARS) {
+    return { ok: false, error: "Imagem inválida ou grande demais." };
+  }
+  const base64 = dataUrl.slice(prefix.length);
+  const bytes = Buffer.from(base64, "base64");
+  // Confere a assinatura de JPEG (FF D8 FF) para não guardar outra coisa.
+  if (bytes.length < 100 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
+    return { ok: false, error: "Imagem inválida." };
+  }
+  await getDb()
+    .update(schema.users)
+    .set({ avatarData: bytes.toString("base64"), avatarUpdatedAt: new Date() })
+    .where(eq(schema.users.id, auth.userId));
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Foto atualizada." };
+}
+
+export async function removeAvatar(): Promise<ActionResult> {
+  const auth = await requireAuth();
+  await getDb().update(schema.users).set({ avatarData: null, avatarUpdatedAt: null }).where(eq(schema.users.id, auth.userId));
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Foto removida." };
+}

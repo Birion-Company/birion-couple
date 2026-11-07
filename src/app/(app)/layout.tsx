@@ -20,13 +20,14 @@ function Brand({ household }: { household: string }) {
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const auth = await requireAuth();
+  const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
   return (
     <div className="shell">
       <aside className="sidebar">
         <Brand household={auth.householdName} />
         <SideNav />
         <div className="side-foot">
-          <UserMenu name={auth.userName} email={auth.email} />
+          <UserMenu name={auth.userName} avatarUrl={avatarUrl} />
           <div className="theme-row">
             <form action={logout} style={{ flex: 1 }}>
               <button className="btn logout-btn">
@@ -42,7 +43,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <Brand household={auth.householdName} />
           <span className="spacer" />
           <ThemeToggle />
-          <UserMenu name={auth.userName} email={auth.email} compact />
+          <UserMenu name={auth.userName} avatarUrl={avatarUrl} compact />
           <form action={logout}>
             <button className="btn small logout-btn">
               <LogOut size={15} strokeWidth={1.8} /> Sair

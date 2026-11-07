@@ -216,7 +216,7 @@ p {
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   height: calc(var(--nav-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--nav-bg);
@@ -1886,4 +1886,78 @@ html.theme-switching *::after {
   color: var(--brand-strong);
   background: var(--tile-bg);
   border: 1px solid var(--tile-edge);
+}
+
+/* ---------- Foto de perfil ---------- */
+.avatar {
+  overflow: hidden;
+}
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-page {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.profile-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 12px 0 28px;
+}
+.profile-hero h1 {
+  margin-top: 6px;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+.profile-hero .muted {
+  word-break: break-all;
+}
+.profile-hero .badge {
+  margin-top: 4px;
+}
+.avatar-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.avatar-editor-photo {
+  position: relative;
+  padding: 5px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #1ac4db, #0ca5bd);
+  box-shadow: 0 12px 40px rgba(26, 196, 219, 0.28);
+  cursor: pointer;
+}
+.avatar-editor-photo .avatar {
+  border: 4px solid var(--bg);
+  font-size: 3rem !important;
+  font-weight: 600;
+}
+.avatar-editor-photo:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(26, 196, 219, 0.45);
+}
+.avatar-editor-photo:disabled {
+  opacity: 0.7;
+}
+.avatar-editor-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--bg);
+  background: linear-gradient(180deg, #1ac4db, #0ca5bd);
+  color: #031016;
 }

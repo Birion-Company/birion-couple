@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, LayoutGrid, Plus, Settings2, Upload } from "lucide-react";
+import { ArrowLeftRight, LayoutGrid, Plus, Upload } from "lucide-react";
 
 const items = [
   { href: "/painel", label: "Painel", icon: LayoutGrid },
   { href: "/transacoes", label: "Lançamentos", icon: ArrowLeftRight },
   { href: "/transacoes/nova", label: "Novo", icon: Plus, add: true },
   { href: "/importar", label: "Importar", icon: Upload },
-  { href: "/ajustes", label: "Ajustes", icon: Settings2 },
 ];
 
 function isActive(path: string, href: string) {

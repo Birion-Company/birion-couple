@@ -30,6 +30,9 @@ export const users = pgTable("users", {
   email: text().notNull().unique(),
   name: text().notNull(),
   passwordHash: text().notNull(),
+  /** Foto de perfil já reduzida (JPEG ~320px) em base64; nula quando não há foto. */
+  avatarData: text(),
+  avatarUpdatedAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),
 });
 

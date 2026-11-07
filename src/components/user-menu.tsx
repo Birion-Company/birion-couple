@@ -13,7 +13,7 @@ const ITEMS = [
 ];
 
 /** Botão com o nome de quem está logado; abre um menu com Meu perfil e Ajustes. */
-export function UserMenu({ name, email, compact = false }: { name: string; email: string; compact?: boolean }) {
+export function UserMenu({ name, avatarUrl, compact = false }: { name: string; avatarUrl?: string | null; compact?: boolean }) {
   const menuId = useId();
   const pathname = usePathname();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -89,11 +89,10 @@ export function UserMenu({ name, email, compact = false }: { name: string; email
           }
         }}
       >
-        <Avatar name={name} color="#1AC4DB" size={compact ? 30 : 34} />
+        <Avatar name={name} color="#1AC4DB" size={compact ? 30 : 34} src={avatarUrl} />
         {!compact && (
           <span className="user-btn-text">
             <span className="user-btn-name">{name}</span>
-            <span className="user-btn-email">{email}</span>
           </span>
         )}
         {!compact && <ChevronUp size={16} strokeWidth={1.8} className="user-btn-chevron" aria-hidden />}
