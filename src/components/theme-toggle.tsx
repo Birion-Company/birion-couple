@@ -29,7 +29,10 @@ export function ThemeToggle({ className = "icon-btn", withLabel = false }: { cla
 
   const toggle = () => {
     const next: Theme = current() === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
+    const root = document.documentElement;
+    root.classList.add("theme-switching");
+    root.setAttribute("data-theme", next);
+    window.setTimeout(() => root.classList.remove("theme-switching"), 350);
     try {
       localStorage.setItem(KEY, next);
     } catch {}

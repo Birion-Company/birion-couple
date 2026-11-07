@@ -1005,6 +1005,9 @@ body {
    Telas de entrada — reprodução do protótipo com a identidade Biriun
    ========================================================= */
 .auth-scene {
+  --auth-base-width: 1440px;
+  --auth-base-height: 810px;
+  --auth-scale: min(calc((100vw - 64px) / 1440px), calc((100dvh - 64px) / 810px));
   --au-bg: #eef6f8;
   --au-frame-edge: #cde6ec;
   --au-left: radial-gradient(70% 55% at 0% 0%, rgba(26, 196, 219, 0.16), transparent 70%),
@@ -1025,11 +1028,47 @@ body {
   --au-curve: rgba(26, 196, 219, 0.14);
   --au-google-edge: #cfd8de;
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 5dvh 5vw;
+  min-width: fit-content;
+  display: flex;
+  align-items: safe center;
+  justify-content: safe center;
+  padding: 32px;
   background: var(--au-bg);
   color: var(--au-text);
+}
+.auth-scene:has(.login-page) {
+  background-image: linear-gradient(rgba(238, 246, 248, 0.82), rgba(238, 246, 248, 0.82)),
+    url("/images/background-waves.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+:root[data-theme="dark"] .auth-scene:has(.login-page) {
+  background-image: linear-gradient(rgba(3, 10, 20, 0.42), rgba(3, 10, 20, 0.42)),
+    url("/images/background-waves.jpg");
+}
+.auth-scene:has(.login-page) .auth-frame {
+  position: relative;
+  isolation: isolate;
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 29, 56, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 45px rgba(15, 29, 56, 0.14);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+.auth-scene:has(.login-page) .brand-panel {
+  background: transparent;
+}
+:root[data-theme="dark"] .auth-scene:has(.login-page) .auth-frame {
+  background: rgba(3, 10, 20, 0.16);
+  border-color: rgba(205, 230, 236, 0.52);
+  box-shadow:
+    inset 0 0 0 1px rgba(205, 230, 236, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 18px 45px rgba(0, 0, 0, 0.28);
 }
 :root[data-theme="dark"] .auth-scene {
   --au-bg: #030a14;
@@ -1051,16 +1090,23 @@ body {
   --au-google-edge: #3a4654;
 }
 
+.auth-viewport {
+  flex: none;
+  width: calc(var(--auth-base-width) * var(--auth-scale));
+  height: calc(var(--auth-base-height) * var(--auth-scale));
+}
 .auth-frame {
-  width: 90vw;
-  height: 90dvh;
-  min-height: 620px;
+  position: relative;
+  width: var(--auth-base-width);
+  height: var(--auth-base-height);
   display: grid;
   grid-template-columns: 53fr 47fr;
   border: 1px solid var(--au-frame-edge);
   border-radius: 30px;
   overflow: hidden;
   background: var(--au-left);
+  transform: scale(var(--auth-scale));
+  transform-origin: top left;
 }
 
 /* ----- BrandPanel ----- */
@@ -1068,36 +1114,24 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 5.2dvh 0 0 5.6vw;
+  padding: 47px 0 0 90px;
   overflow: hidden;
   min-width: 0;
 }
-.brand-curves {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.brand-curves path {
-  fill: none;
-  stroke: var(--au-curve);
-  stroke-width: 70;
-}
-.brand-panel > :not(.brand-curves, .brand-art) {
+.brand-panel > * {
   position: relative;
 }
 .brand-logo {
   display: flex;
   align-items: center;
-  gap: clamp(10px, 1.2vw, 18px);
+  gap: 18px;
 }
 .brand-logo img {
-  width: clamp(40px, 6.6dvh, 66px);
-  height: clamp(40px, 6.6dvh, 66px);
+  width: 59px;
+  height: 59px;
 }
 .brand-logo span {
-  font-size: clamp(1.5rem, 4.6dvh, 2.7rem);
+  font-size: 2.55rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--au-text);
@@ -1107,36 +1141,49 @@ body {
   font-style: normal;
   color: var(--au-accent-text);
 }
+.brand-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  padding: 18px 24px 47px 0;
+}
+.brand-copy,
 .brand-title {
-  margin-top: 4.6dvh;
-  font-size: clamp(2rem, 5.9dvh, 3.6rem);
+  width: 100%;
+  max-width: none;
+}
+.brand-title {
+  margin: 0;
+  font-size: 3.3rem;
   line-height: 1.1;
   font-weight: 700;
   letter-spacing: -0.015em;
   color: var(--au-text);
 }
 .brand-desc {
-  margin-top: 3dvh;
-  max-width: 27ch;
-  font-size: clamp(1rem, 2.85dvh, 1.7rem);
+  margin-top: 27px;
+  max-width: none;
+  font-size: 1.6rem;
   line-height: 1.3;
   color: var(--au-text-2);
 }
 .brand-benefits {
   list-style: none;
-  margin: 3.2dvh 0 0;
+  margin: 29px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.3dvh;
+  gap: 12px;
   z-index: 1;
 }
 .brand-benefits li {
   display: flex;
   align-items: center;
-  gap: clamp(12px, 1.6vw, 26px);
-  max-width: 30ch;
-  font-size: clamp(0.9rem, 2.1dvh, 1.25rem);
+  gap: 23px;
+  max-width: none;
+  font-size: 1.18rem;
   line-height: 1.3;
   color: var(--au-text);
 }
@@ -1144,20 +1191,12 @@ body {
   flex: none;
   display: grid;
   place-items: center;
-  width: clamp(40px, 5.6dvh, 54px);
-  height: clamp(40px, 5.6dvh, 54px);
+  width: 50px;
+  height: 50px;
   border-radius: 10px;
   color: var(--au-primary);
   background: var(--au-tile-bg);
   border: 1px solid var(--au-tile-edge);
-}
-.brand-art {
-  position: absolute;
-  right: 5%;
-  bottom: 0;
-  width: 68%;
-  height: 50%;
-  pointer-events: none;
 }
 
 /* ----- Painel do formulário ----- */
@@ -1166,7 +1205,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: safe center;
-  padding: 4dvh 4vw;
+  padding: 32px 64px;
   background: var(--au-right);
   border-left: 1px solid var(--au-panel-edge);
   border-radius: 30px 0 0 30px;
@@ -1177,12 +1216,12 @@ body {
   flex: none;
   display: grid;
   place-items: center;
-  width: clamp(84px, 15.5dvh, 156px);
-  height: clamp(80px, 15.5dvh, 146px);
+  width: 140px;
+  height: 140px;
   border-radius: 24px;
   background: var(--au-tile-bg);
   border: 1px solid var(--au-tile-edge);
-  margin-bottom: 3dvh;
+  margin-bottom: 27px;
 }
 .auth-panel-logo img {
   width: 55%;
@@ -1192,23 +1231,26 @@ body {
   width: 100%;
   max-width: 572px;
 }
+.login-page {
+  width: 100%;
+}
 .auth-box h1 {
   text-align: center;
-  font-size: clamp(1.7rem, 4.3dvh, 2.6rem);
+  font-size: 2.4rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--au-text);
 }
 .auth-sub {
-  margin: 0.8dvh 0 4.2dvh;
+  margin: 7px 0 38px;
   text-align: center;
-  font-size: clamp(1rem, 2.4dvh, 1.4rem);
+  font-size: 1.35rem;
   color: var(--au-text-2);
 }
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 2.3dvh;
+  gap: 21px;
 }
 .auth-field {
   display: flex;
@@ -1220,13 +1262,13 @@ body {
 }
 .auth-input input {
   width: 100%;
-  height: clamp(52px, 7.6dvh, 72px);
-  padding: 0 64px 0 clamp(56px, 5vw, 84px);
+  height: 68px;
+  padding: 0 64px 0 72px;
   border: 1px solid var(--au-input-edge);
   border-radius: 14px;
   background: var(--au-input-bg);
   color: var(--au-text);
-  font-size: clamp(1rem, 2.4dvh, 1.4rem);
+  font-size: 1.35rem;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -1239,7 +1281,7 @@ body {
 }
 .auth-input-icon {
   position: absolute;
-  left: clamp(18px, 1.6vw, 28px);
+  left: 23px;
   top: 50%;
   transform: translateY(-50%);
   display: grid;
@@ -1273,13 +1315,13 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  height: clamp(52px, 7.4dvh, 70px);
-  margin-top: 0.4dvh;
+  height: 67px;
+  margin-top: 4px;
   border: 0;
   border-radius: 14px;
   background: linear-gradient(180deg, var(--au-primary), var(--au-primary-2));
   color: #031016;
-  font-size: clamp(1.1rem, 2.75dvh, 1.6rem);
+  font-size: 1.55rem;
   font-weight: 700;
   cursor: pointer;
   transition: box-shadow 0.2s, filter 0.2s;
@@ -1301,9 +1343,9 @@ body {
   display: flex;
   align-items: center;
   gap: 22px;
-  margin: 2.6dvh 0;
+  margin: 23px 0;
   color: var(--au-text-2);
-  font-size: clamp(0.95rem, 2dvh, 1.2rem);
+  font-size: 1.15rem;
 }
 .auth-sep::before,
 .auth-sep::after {
@@ -1317,12 +1359,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  height: clamp(50px, 6.6dvh, 62px);
+  height: 59px;
   border: 1px solid var(--au-google-edge);
   border-radius: 14px;
   background: transparent;
   color: var(--au-text);
-  font-size: clamp(1rem, 2.1dvh, 1.25rem);
+  font-size: 1.18rem;
   font-weight: 500;
   transition: background 0.15s;
 }
@@ -1330,9 +1372,9 @@ body {
   background: rgba(127, 127, 127, 0.08);
 }
 .auth-bottom {
-  margin-top: 3dvh;
+  margin-top: 27px;
   text-align: center;
-  font-size: clamp(0.95rem, 2.1dvh, 1.2rem);
+  font-size: 1.18rem;
   color: var(--au-text-2);
 }
 .auth-bottom a {
@@ -1352,28 +1394,63 @@ body {
 }
 
 .auth-theme {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  z-index: 20;
-  background: var(--au-right);
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   border: 1px solid var(--au-panel-edge);
+  background: var(--au-input-bg);
   color: var(--au-text-2);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.auth-theme:hover {
+  color: var(--au-accent-text);
+  border-color: var(--au-primary);
+}
+.auth-theme:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(26, 196, 219, 0.45);
 }
 
-/* Formulário mais alto (cadastro) cabe sem rolar */
-.auth-form:has(.auth-field:nth-child(4)) {
-  gap: 1.6dvh;
+/* Cadastro (4 campos): sem o ícone grande e com espaçamentos menores para caber sem rolar */
+.auth-panel:has(.auth-field:nth-of-type(4)) .auth-panel-logo {
+  display: none;
 }
-.auth-form:has(.auth-field:nth-child(4)) .auth-input input {
-  height: clamp(48px, 6.2dvh, 64px);
+.auth-panel:has(.auth-field:nth-of-type(4)) .auth-sub {
+  margin-bottom: 22px;
+}
+.auth-form:has(.auth-field:nth-of-type(4)) {
+  gap: 12px;
+}
+.auth-form:has(.auth-field:nth-of-type(4)) .auth-input input {
+  height: 56px;
+}
+.auth-form:has(.auth-field:nth-of-type(4)) .auth-hint {
+  font-size: 0.78rem;
+}
+.auth-panel:has(.auth-field:nth-of-type(4)) .auth-sep {
+  margin: 14px 0;
+}
+.auth-panel:has(.auth-field:nth-of-type(4)) .auth-bottom {
+  margin-top: 16px;
 }
 
 /* ----- Celular: uma coluna, formulário em destaque ----- */
-@media (max-width: 899px) {
+@media (max-width: 899px) and (hover: none), (max-width: 899px) and (pointer: coarse) {
   .auth-scene {
     padding: 0;
     place-items: stretch;
+  }
+  .auth-viewport {
+    width: 100%;
+    height: auto;
   }
   .auth-frame {
     width: 100%;
@@ -1383,14 +1460,18 @@ body {
     grid-template-rows: auto 1fr;
     border: 0;
     border-radius: 0;
+    transform: none;
   }
   .brand-panel {
     padding: 22px 20px 26px;
   }
-  .brand-curves,
+  .brand-content {
+    flex: none;
+    width: 100%;
+    padding: 0;
+  }
   .brand-desc,
-  .brand-benefits,
-  .brand-art {
+  .brand-benefits {
     display: none;
   }
   .brand-logo img {
@@ -1428,5 +1509,26 @@ body {
   }
   .auth-bottom {
     margin-top: 22px;
+  }
+}
+
+/* Troca de tema suave: só durante a troca, para não animar o carregamento da página. */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition:
+    background-color 0.3s ease,
+    background 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    fill 0.3s ease,
+    stroke 0.3s ease,
+    box-shadow 0.3s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-switching,
+  html.theme-switching * {
+    transition: none !important;
   }
 }
