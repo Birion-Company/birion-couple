@@ -1,74 +1,96 @@
-/** Ilustração de finanças nas cores da Biriun: cartão, gráfico em alta, moedas e divisão entre pessoas. */
+/** Ilustração de crescimento financeiro: moedas, barras em 3D e seta subindo, nas cores da Biriun. */
 export function FinanceArt({ className }: { className?: string }) {
+  const bars = [
+    { x: 250, h: 100 },
+    { x: 306, h: 140 },
+    { x: 362, h: 175 },
+    { x: 418, h: 215 },
+  ];
+  const base = 300;
+  const w = 44;
+  const d = 10; // profundidade do 3D
+  const stacks = [
+    { x: 70, n: 4 },
+    { x: 140, n: 7 },
+    { x: 210, n: 10 },
+  ];
   return (
-    <svg className={className} viewBox="0 0 420 300" role="img" aria-label="Ilustração: gráfico de crescimento, cartão e moedas">
+    <svg className={className} viewBox="0 0 520 330" role="img" aria-label="Ilustração: moedas e barras subindo com uma seta de crescimento">
       <defs>
-        <linearGradient id="fa-card" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#1AC4DB" />
-          <stop offset="1" stopColor="#0C8FA3" />
+        <linearGradient id="fa-bar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#1AC4DB" stopOpacity="0.95" />
+          <stop offset="1" stopColor="#0C6F80" stopOpacity="0.55" />
         </linearGradient>
-        <linearGradient id="fa-area" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="fa-bar-side" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#0C8FA3" stopOpacity="0.9" />
+          <stop offset="1" stopColor="#0A4F5C" stopOpacity="0.5" />
+        </linearGradient>
+        <linearGradient id="fa-arrow" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#1AC4DB" stopOpacity="0" />
+          <stop offset="0.45" stopColor="#1AC4DB" stopOpacity="0.7" />
+          <stop offset="1" stopColor="#B8F6FF" />
+        </linearGradient>
+        <linearGradient id="fa-gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFD873" />
+          <stop offset="1" stopColor="#E0A526" />
+        </linearGradient>
+        <linearGradient id="fa-gold-edge" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#B7791F" />
+          <stop offset="0.5" stopColor="#F2BE45" />
+          <stop offset="1" stopColor="#B7791F" />
+        </linearGradient>
+        <radialGradient id="fa-floor" cx="0.5" cy="0.5" r="0.5">
           <stop offset="0" stopColor="#1AC4DB" stopOpacity="0.35" />
           <stop offset="1" stopColor="#1AC4DB" stopOpacity="0" />
-        </linearGradient>
+        </radialGradient>
+        <filter id="fa-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
       </defs>
 
-      {/* painel do gráfico */}
-      <rect x="24" y="18" width="250" height="170" rx="18" fill="#ffffff" fillOpacity="0.06" stroke="#ffffff" strokeOpacity="0.12" />
-      {[60, 95, 130, 165].map((y) => (
-        <line key={y} x1="44" x2="254" y1={y} y2={y} stroke="#ffffff" strokeOpacity="0.07" />
-      ))}
-      {[
-        [56, 120, 45],
-        [92, 104, 61],
-        [128, 112, 53],
-        [164, 84, 81],
-        [200, 70, 95],
-        [236, 50, 115],
-      ].map(([x, y, h]) => (
-        <rect key={x} x={x - 9} y={y} width="18" height={h} rx="5" fill="#DDFCFF" fillOpacity="0.16" />
-      ))}
-      <path d="M50 140 L92 118 L128 126 L164 96 L200 82 L240 52 L240 165 L50 165 Z" fill="url(#fa-area)" />
-      <path d="M50 140 L92 118 L128 126 L164 96 L200 82 L240 52" fill="none" stroke="#1AC4DB" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="240" cy="52" r="6" fill="#1AC4DB" stroke="#0F1D38" strokeWidth="3" />
-      <rect x="44" y="30" width="64" height="8" rx="4" fill="#ffffff" fillOpacity="0.35" />
+      {/* brilho no chão */}
+      <ellipse cx="300" cy="306" rx="250" ry="22" fill="url(#fa-floor)" />
 
-      {/* cartão */}
-      <g transform="translate(196 132) rotate(-8)">
-        <rect width="190" height="118" rx="16" fill="url(#fa-card)" />
-        <rect x="18" y="22" width="30" height="22" rx="5" fill="#DDFCFF" fillOpacity="0.85" />
-        <rect x="18" y="72" width="110" height="8" rx="4" fill="#0F1D38" fillOpacity="0.35" />
-        <rect x="18" y="88" width="64" height="8" rx="4" fill="#0F1D38" fillOpacity="0.25" />
-        <circle cx="150" cy="88" r="13" fill="#DDFCFF" fillOpacity="0.55" />
-        <circle cx="166" cy="88" r="13" fill="#DDFCFF" fillOpacity="0.3" />
-      </g>
-
-      {/* moedas */}
-      {[0, 1, 2, 3].map((i) => (
-        <g key={i} transform={`translate(70 ${262 - i * 12})`}>
-          <ellipse cx="0" cy="6" rx="34" ry="11" fill="#0C8FA3" />
-          <ellipse cx="0" cy="0" rx="34" ry="11" fill="#1AC4DB" />
-          <ellipse cx="0" cy="0" rx="22" ry="6" fill="none" stroke="#DDFCFF" strokeOpacity="0.6" strokeWidth="2" />
+      {/* barras */}
+      {bars.map(({ x, h }) => (
+        <g key={x}>
+          <path d={`M${x + w} ${base - h} l${d} ${-d} v${h} l${-d} ${d} Z`} fill="url(#fa-bar-side)" />
+          <path d={`M${x} ${base - h} l${d} ${-d} h${w} l${-d} ${d} Z`} fill="#7FE6F2" fillOpacity="0.85" />
+          <rect x={x} y={base - h} width={w} height={h} fill="url(#fa-bar)" />
+          <rect x={x} y={base - h} width={w} height={h} fill="none" stroke="#B8F6FF" strokeOpacity="0.35" />
         </g>
       ))}
-      <g transform="translate(130 262)">
-        <ellipse cx="0" cy="6" rx="26" ry="9" fill="#0C8FA3" />
-        <ellipse cx="0" cy="0" rx="26" ry="9" fill="#1AC4DB" />
-      </g>
 
-      {/* pessoas dividindo */}
-      {[
-        [318, 34, "#DDFCFF"],
-        [352, 52, "#1AC4DB"],
-        [318, 72, "#A7EEF7"],
-      ].map(([x, y, c], i) => (
-        <g key={i}>
-          <circle cx={x as number} cy={y as number} r="15" fill={c as string} fillOpacity="0.9" />
-          <circle cx={x as number} cy={(y as number) - 3} r="5" fill="#0F1D38" fillOpacity="0.55" />
-          <path d={`M${(x as number) - 8} ${(y as number) + 9} a8 6 0 0 1 16 0`} fill="#0F1D38" fillOpacity="0.55" />
+      {/* seta */}
+      <path d="M20 296 C 160 290, 300 230, 455 50" fill="none" stroke="#1AC4DB" strokeWidth="16" strokeLinecap="round" opacity="0.45" filter="url(#fa-glow)" />
+      <path d="M20 296 C 160 290, 300 230, 455 50" fill="none" stroke="url(#fa-arrow)" strokeWidth="12" strokeLinecap="round" />
+      <path d="M478 22 L486 84 L462 66 L438 74 Z" fill="#B8F6FF" />
+
+      {/* pilhas de moedas */}
+      {stacks.map(({ x, n }) => (
+        <g key={x}>
+          {Array.from({ length: n }, (_, i) => {
+            const y = 300 - i * 9;
+            return (
+              <g key={i}>
+                <path d={`M${x - 30} ${y - 6} v8 a30 9 0 0 0 60 0 v-8`} fill="url(#fa-gold-edge)" />
+                <ellipse cx={x} cy={y - 6} rx="30" ry="9" fill="url(#fa-gold)" />
+              </g>
+            );
+          })}
+          <ellipse cx={x} cy={300 - (n - 1) * 9 - 6} rx="19" ry="5" fill="none" stroke="#B7791F" strokeOpacity="0.55" strokeWidth="1.5" />
         </g>
       ))}
-      <path d="M333 34 L337 46 M333 72 L337 60" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="2" strokeLinecap="round" />
+
+      {/* moeda em pé */}
+      <g transform="translate(262 262)">
+        <ellipse cx="4" cy="2" rx="34" ry="36" fill="#B7791F" />
+        <ellipse cx="0" cy="0" rx="34" ry="36" fill="url(#fa-gold)" />
+        <ellipse cx="0" cy="0" rx="26" ry="28" fill="none" stroke="#B7791F" strokeOpacity="0.6" strokeWidth="2" />
+        <text x="0" y="9" textAnchor="middle" fontSize="24" fontWeight="700" fill="#9A6412" fontFamily="Inter, system-ui, sans-serif">
+          R$
+        </text>
+      </g>
     </svg>
   );
 }

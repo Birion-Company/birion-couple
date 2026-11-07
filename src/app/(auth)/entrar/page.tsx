@@ -9,8 +9,8 @@ export default async function LoginPage() {
   if (await getAuth()) redirect("/painel");
   return (
     <>
-      <h1>Bem-vindo de volta</h1>
-      <p className="muted">Entre para ver os saldos da família.</p>
+      <h1>Bem-vindo de volta!</h1>
+      <p className="muted">Faça login para acessar as finanças da sua família.</p>
       <LoginForm />
     </>
   );
