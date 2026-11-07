@@ -1131,7 +1131,7 @@ body {
   height: 59px;
 }
 .brand-logo span {
-  font-size: 2.55rem;
+  font-size: 40.8px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--au-text);
@@ -1156,7 +1156,7 @@ body {
 }
 .brand-title {
   margin: 0;
-  font-size: 3.3rem;
+  font-size: 52.8px;
   line-height: 1.1;
   font-weight: 700;
   letter-spacing: -0.015em;
@@ -1165,7 +1165,7 @@ body {
 .brand-desc {
   margin-top: 27px;
   max-width: none;
-  font-size: 1.6rem;
+  font-size: 25.6px;
   line-height: 1.3;
   color: var(--au-text-2);
 }
@@ -1183,7 +1183,7 @@ body {
   align-items: center;
   gap: 23px;
   max-width: none;
-  font-size: 1.18rem;
+  font-size: 18.9px;
   line-height: 1.3;
   color: var(--au-text);
 }
@@ -1205,23 +1205,23 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: safe center;
-  padding: 32px 64px;
+  padding: 24px 64px;
   background: var(--au-right);
   border-left: 1px solid var(--au-panel-edge);
   border-radius: 30px 0 0 30px;
-  overflow-y: auto;
+  overflow: hidden;
   min-width: 0;
 }
 .auth-panel-logo {
   flex: none;
   display: grid;
   place-items: center;
-  width: 140px;
-  height: 140px;
-  border-radius: 24px;
+  width: 112px;
+  height: 112px;
+  border-radius: 22px;
   background: var(--au-tile-bg);
   border: 1px solid var(--au-tile-edge);
-  margin-bottom: 27px;
+  margin-bottom: 20px;
 }
 .auth-panel-logo img {
   width: 55%;
@@ -1236,21 +1236,21 @@ body {
 }
 .auth-box h1 {
   text-align: center;
-  font-size: 2.4rem;
+  font-size: 38.4px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--au-text);
 }
 .auth-sub {
-  margin: 7px 0 38px;
+  margin: 6px 0 30px;
   text-align: center;
-  font-size: 1.35rem;
+  font-size: 21.6px;
   color: var(--au-text-2);
 }
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 21px;
+  gap: 18px;
 }
 .auth-field {
   display: flex;
@@ -1268,7 +1268,7 @@ body {
   border-radius: 14px;
   background: var(--au-input-bg);
   color: var(--au-text);
-  font-size: 1.35rem;
+  font-size: 21.6px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -1307,7 +1307,7 @@ body {
   color: var(--au-text);
 }
 .auth-hint {
-  font-size: 0.82rem;
+  font-size: 13.1px;
   color: var(--au-text-2);
 }
 .auth-submit {
@@ -1321,7 +1321,7 @@ body {
   border-radius: 14px;
   background: linear-gradient(180deg, var(--au-primary), var(--au-primary-2));
   color: #031016;
-  font-size: 1.55rem;
+  font-size: 24.8px;
   font-weight: 700;
   cursor: pointer;
   transition: box-shadow 0.2s, filter 0.2s;
@@ -1343,9 +1343,9 @@ body {
   display: flex;
   align-items: center;
   gap: 22px;
-  margin: 23px 0;
+  margin: 18px 0;
   color: var(--au-text-2);
-  font-size: 1.15rem;
+  font-size: 18.4px;
 }
 .auth-sep::before,
 .auth-sep::after {
@@ -1364,7 +1364,7 @@ body {
   border-radius: 14px;
   background: transparent;
   color: var(--au-text);
-  font-size: 1.18rem;
+  font-size: 18.9px;
   font-weight: 500;
   transition: background 0.15s;
 }
@@ -1372,9 +1372,9 @@ body {
   background: rgba(127, 127, 127, 0.08);
 }
 .auth-bottom {
-  margin-top: 27px;
+  margin-top: 20px;
   text-align: center;
-  font-size: 1.18rem;
+  font-size: 18.9px;
   color: var(--au-text-2);
 }
 .auth-bottom a {
@@ -1383,11 +1383,11 @@ body {
   font-weight: 600;
 }
 .auth-error {
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 12px;
   background: rgba(194, 65, 90, 0.12);
   color: #c2415a;
-  font-size: 0.95rem;
+  font-size: 15.2px;
 }
 :root[data-theme="dark"] .auth-error {
   color: #ffb3c1;
@@ -1424,16 +1424,16 @@ body {
   display: none;
 }
 .auth-panel:has(.auth-field:nth-of-type(4)) .auth-sub {
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 .auth-form:has(.auth-field:nth-of-type(4)) {
-  gap: 12px;
+  gap: 10px;
 }
 .auth-form:has(.auth-field:nth-of-type(4)) .auth-input input {
   height: 56px;
 }
 .auth-form:has(.auth-field:nth-of-type(4)) .auth-hint {
-  font-size: 0.78rem;
+  font-size: 12.5px;
 }
 .auth-panel:has(.auth-field:nth-of-type(4)) .auth-sep {
   margin: 14px 0;
@@ -1479,11 +1479,11 @@ body {
     height: 36px;
   }
   .brand-logo span {
-    font-size: 1.3rem;
+    font-size: 20.8px;
   }
   .brand-title {
     margin-top: 14px;
-    font-size: 1.55rem;
+    font-size: 24.8px;
   }
   .brand-title br {
     display: none;
