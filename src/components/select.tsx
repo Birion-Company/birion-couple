@@ -118,7 +118,12 @@ export function Select({
   // Mantém a opção ativa visível ao navegar pelo teclado.
   useLayoutEffect(() => {
     if (!open || activeIndex < 0) return;
-    listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)?.scrollIntoView({ block: "nearest" });
+    // Rola só a lista: scrollIntoView também rolaria a página, e rolar a página fecha o menu.
+    const list = listRef.current;
+    const el = list?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
+    if (!list || !el) return;
+    if (el.offsetTop < list.scrollTop) list.scrollTop = el.offsetTop;
+    else if (el.offsetTop + el.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = el.offsetTop + el.offsetHeight - list.clientHeight;
   }, [open, activeIndex]);
 
   const move = (from: number, step: number) => {
