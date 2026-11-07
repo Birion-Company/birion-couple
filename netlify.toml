@@ -4,3 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Adaptador oficial do Next.js no Netlify (SSR, Server Actions). Sem versão fixa: o Netlify mantém atualizado.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
