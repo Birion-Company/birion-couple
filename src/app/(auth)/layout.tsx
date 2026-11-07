@@ -1,5 +1,6 @@
 import { BarChart3, ShieldCheck, Users } from "lucide-react";
 import { FinanceArt } from "@/components/finance-art";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const POINTS = [
   { icon: BarChart3, text: "Visão completa dos gastos e saldos da casa" },
@@ -10,6 +11,7 @@ const POINTS = [
 export default function AuthLayout({ children }: LayoutProps<"/">) {
   return (
     <main className="auth-scene">
+      <ThemeToggle className="icon-btn auth-theme" />
       <div className="auth-frame">
         <section className="auth-hero" aria-label="BIRIUN FINANCE">
           <div className="hero-brand">

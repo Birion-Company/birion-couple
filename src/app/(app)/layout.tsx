@@ -1,6 +1,7 @@
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { BottomNav, SideNav } from "@/components/nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { requireAuth } from "@/lib/auth";
 
 function Brand({ household }: { household: string }) {
@@ -25,17 +26,22 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <SideNav />
         <div className="side-foot">
           <p className="faint">{auth.userName}</p>
-          <form action={logout}>
-            <button className="btn ghost small" style={{ paddingLeft: 0 }}>
-              <LogOut size={15} strokeWidth={1.6} /> Sair
-            </button>
-          </form>
+          <div className="theme-row">
+            <form action={logout}>
+              <button className="btn ghost small" style={{ paddingLeft: 0 }}>
+                <LogOut size={15} strokeWidth={1.6} /> Sair
+              </button>
+            </form>
+            <span style={{ flex: 1 }} />
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
       <div className="shell-body">
         <header className="topbar">
           <Brand household={auth.householdName} />
           <span className="spacer" />
+          <ThemeToggle />
           <form action={logout}>
             <button className="icon-btn" aria-label="Sair" title="Sair">
               <LogOut size={18} strokeWidth={1.6} />
