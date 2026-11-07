@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 
 export type Theme = "light" | "dark";
@@ -17,9 +17,15 @@ function current(): Theme {
   return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
+/** Acompanha o atributo data-theme do <html>, que pode mudar por qualquer botão da página. */
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => observer.disconnect();
+}
+
 export function ThemeToggle({ className = "icon-btn", withLabel = false }: { className?: string; withLabel?: boolean }) {
-  const [theme, setTheme] = useState<Theme>("light");
-  useEffect(() => setTheme(current()), []);
+  const theme = useSyncExternalStore<Theme>(subscribe, current, () => "light");
 
   const toggle = () => {
     const next: Theme = current() === "dark" ? "light" : "dark";
@@ -27,7 +33,6 @@ export function ThemeToggle({ className = "icon-btn", withLabel = false }: { cla
     try {
       localStorage.setItem(KEY, next);
     } catch {}
-    setTheme(next);
   };
 
   const label = theme === "dark" ? "Usar tema claro" : "Usar tema escuro";
