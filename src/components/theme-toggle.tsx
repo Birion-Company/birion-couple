@@ -10,10 +10,10 @@ const KEY = "bf-theme";
  * Roda no <head> antes da primeira pintura: aplica o tema salvo (ou o do sistema),
  * assim a tela não pisca ao carregar.
  */
-export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
+export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
 
 function current(): Theme {
-  if (typeof document === "undefined") return "light";
+  if (typeof document === "undefined") return "dark";
   return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
@@ -25,7 +25,7 @@ function subscribe(onChange: () => void) {
 }
 
 export function ThemeToggle({ className = "icon-btn", withLabel = false }: { className?: string; withLabel?: boolean }) {
-  const theme = useSyncExternalStore<Theme>(subscribe, current, () => "light");
+  const theme = useSyncExternalStore<Theme>(subscribe, current, () => "dark");
 
   const toggle = () => {
     const next: Theme = current() === "dark" ? "light" : "dark";

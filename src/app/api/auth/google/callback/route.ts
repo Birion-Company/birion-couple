@@ -1,0 +1,66 @@
+import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { NextResponse, type NextRequest } from "next/server";
+import { getDb, schema } from "@/db";
+import { exchangeCode, GOOGLE_COOKIE } from "@/lib/google";
+import { createHouseholdForUser } from "@/lib/household";
+import { createSession } from "@/lib/session";
+
+/** Volta do Google: entra na conta com o mesmo e-mail ou cria uma família nova. */
+export async function GET(request: NextRequest) {
+  const origin = request.nextUrl.origin;
+  const fail = (code: string) => {
+    const res = NextResponse.redirect(new URL(`/entrar?erro=${code}`, origin));
+    res.cookies.delete({ name: GOOGLE_COOKIE, path: "/api/auth/google" });
+    return res;
+  };
+  const params = request.nextUrl.searchParams;
+  const [state, verifier] = (request.cookies.get(GOOGLE_COOKIE)?.value ?? "").split(".");
+  const code = params.get("code");
+  if (params.get("error")) return fail("google-cancelado");
+  if (!code || !state || !verifier || params.get("state") !== state) return fail("google-falhou");
+
+  let profile;
+  try {
+    profile = await exchangeCode(code, verifier, origin);
+  } catch {
+    return fail("google-falhou");
+  }
+
+  const db = getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, profile.email)).limit(1);
+  let uid: string;
+  let hid: string;
+  let welcome = false;
+  if (user) {
+    const [m] = await db
+      .select({ hid: schema.memberships.householdId })
+      .from(schema.memberships)
+      .where(eq(schema.memberships.userId, user.id))
+      .orderBy(schema.memberships.createdAt)
+      .limit(1);
+    if (!m) return fail("sem-familia");
+    uid = user.id;
+    hid = m.hid;
+  } else {
+    // Conta nova: senha aleatória (só entra pelo Google até definir outra) e família própria.
+    const passwordHash = await bcrypt.hash(randomBytes(32).toString("base64url"), 10);
+    const ids = await db.transaction(async (tx) => {
+      const [u] = await tx
+        .insert(schema.users)
+        .values({ email: profile.email, name: profile.name, passwordHash })
+        .returning({ id: schema.users.id });
+      const first = profile.name.split(" ")[0];
+      const h = await createHouseholdForUser(tx, { userId: u.id, userName: profile.name, householdName: `Família de ${first}` });
+      return { uid: u.id, hid: h };
+    });
+    uid = ids.uid;
+    hid = ids.hid;
+    welcome = true;
+  }
+  await createSession({ uid, hid });
+  const res = NextResponse.redirect(new URL(welcome ? "/painel?bemvindo=1" : "/painel", origin));
+  res.cookies.delete({ name: GOOGLE_COOKIE, path: "/api/auth/google" });
+  return res;
+}

@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { LoginForm } from "@/components/auth-forms";
+import { LoginForm } from "@/components/auth/login-form";
 import { getAuth } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Entrar" };
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: PageProps<"/entrar">) {
   if (await getAuth()) redirect("/painel");
+  const { erro } = await searchParams;
   return (
     <>
       <h1>Bem-vindo de volta!</h1>
-      <p className="muted">Faça login para acessar as finanças da sua família.</p>
-      <LoginForm />
+      <p className="auth-sub">Faça login para acessar sua planilha financeira</p>
+      <LoginForm errorCode={typeof erro === "string" ? erro : undefined} />
     </>
   );
 }

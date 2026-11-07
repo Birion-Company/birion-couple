@@ -42,8 +42,8 @@ export function FinanceArt({ className }: { className?: string }) {
   return (
     <svg
       className={className}
-      viewBox="0 0 800 360"
-      preserveAspectRatio="xMaxYMax slice"
+      viewBox="150 -50 660 410"
+      preserveAspectRatio="xMaxYMax meet"
       role="img"
       aria-label="Ilustração: pilhas de moedas e barras subindo com uma seta de crescimento"
     >
@@ -110,16 +110,9 @@ export function FinanceArt({ className }: { className?: string }) {
         );
       })}
 
-      {/* faixa da seta, saindo da borda esquerda */}
-      <path
-        d="M0 318 C 180 312, 360 290, 520 210 C 610 165, 680 110, 722 66 L700 52 L782 18 L770 104 L748 86 C 700 140, 630 200, 530 250 C 380 322, 190 334, 0 336 Z"
-        style={{ fill: "var(--art-arrow-glow)" }}
-        filter="url(#fa-glow)"
-      />
-      <path
-        d="M0 318 C 180 312, 360 290, 520 210 C 610 165, 680 110, 722 66 L700 52 L782 18 L770 104 L748 86 C 700 140, 630 200, 530 250 C 380 322, 190 334, 0 336 Z"
-        fill="url(#fa-arrow)"
-      />
+      {/* faixa da seta, saindo de trás das moedas */}
+      <path d="M160 330 C 300 322, 420 296, 540 214 C 620 160, 684 108, 722 66 L700 52 L782 18 L770 104 L748 86 C 700 140, 636 196, 548 250 C 440 318, 310 340, 160 342 Z" style={{ fill: "var(--art-arrow-glow)" }} filter="url(#fa-glow)" />
+      <path d="M160 330 C 300 322, 420 296, 540 214 C 620 160, 684 108, 722 66 L700 52 L782 18 L770 104 L748 86 C 700 140, 636 196, 548 250 C 440 318, 310 340, 160 342 Z" fill="url(#fa-arrow)" />
 
       {/* moedas na frente */}
       <CoinStack x={238} n={3} base={floor} />

@@ -5,7 +5,7 @@ import { and, eq, gte, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
-import { DEFAULT_CATEGORIES, DEFAULT_STATUSES } from "@/lib/defaults";
+import { createHouseholdForUser } from "@/lib/household";
 import { createSession, destroySession } from "@/lib/session";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
@@ -34,15 +34,8 @@ export async function signup(_: FormState, form: FormData): Promise<FormState> {
   const passwordHash = await bcrypt.hash(pass, 10);
   const ids = await db.transaction(async (tx) => {
     const [user] = await tx.insert(schema.users).values({ email: mail, name: userName, passwordHash }).returning({ id: schema.users.id });
-    const [home] = await tx.insert(schema.households).values({ name: household }).returning({ id: schema.households.id });
-    await tx.insert(schema.statuses).values(DEFAULT_STATUSES.map((s, i) => ({ ...s, householdId: home.id, sortOrder: i })));
-    await tx.insert(schema.categories).values(DEFAULT_CATEGORIES.map((c, i) => ({ ...c, householdId: home.id, sortOrder: i })));
-    const [me] = await tx
-      .insert(schema.participants)
-      .values({ householdId: home.id, name: userName, color: "#1AC4DB", sortOrder: 0 })
-      .returning({ id: schema.participants.id });
-    await tx.insert(schema.memberships).values({ householdId: home.id, userId: user.id, role: "owner", participantId: me.id });
-    return { uid: user.id, hid: home.id };
+    const hid = await createHouseholdForUser(tx, { userId: user.id, userName, householdName: household });
+    return { uid: user.id, hid };
   });
   await createSession(ids);
   redirect("/painel?bemvindo=1");
