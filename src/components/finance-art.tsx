@@ -27,8 +27,8 @@ export function FinanceArt({ className }: { className?: string }) {
         </linearGradient>
         <linearGradient id="fa-arrow" x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" stopColor="#1AC4DB" stopOpacity="0" />
-          <stop offset="0.45" stopColor="#1AC4DB" stopOpacity="0.7" />
-          <stop offset="1" stopColor="#B8F6FF" />
+          <stop offset="0.45" stopColor="#1AC4DB" stopOpacity="0.85" />
+          <stop offset="1" stopColor="#0C8FA3" />
         </linearGradient>
         <linearGradient id="fa-gold" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFD873" />
@@ -57,14 +57,14 @@ export function FinanceArt({ className }: { className?: string }) {
           <path d={`M${x + w} ${base - h} l${d} ${-d} v${h} l${-d} ${d} Z`} fill="url(#fa-bar-side)" />
           <path d={`M${x} ${base - h} l${d} ${-d} h${w} l${-d} ${d} Z`} fill="#7FE6F2" fillOpacity="0.85" />
           <rect x={x} y={base - h} width={w} height={h} fill="url(#fa-bar)" />
-          <rect x={x} y={base - h} width={w} height={h} fill="none" stroke="#B8F6FF" strokeOpacity="0.35" />
+          <rect x={x} y={base - h} width={w} height={h} fill="none" stroke="#0C8FA3" strokeOpacity="0.25" />
         </g>
       ))}
 
       {/* seta */}
-      <path d="M20 296 C 160 290, 300 230, 455 50" fill="none" stroke="#1AC4DB" strokeWidth="16" strokeLinecap="round" opacity="0.45" filter="url(#fa-glow)" />
+      <path d="M20 296 C 160 290, 300 230, 455 50" fill="none" stroke="#1AC4DB" strokeWidth="16" strokeLinecap="round" opacity="0.3" filter="url(#fa-glow)" />
       <path d="M20 296 C 160 290, 300 230, 455 50" fill="none" stroke="url(#fa-arrow)" strokeWidth="12" strokeLinecap="round" />
-      <path d="M478 22 L486 84 L462 66 L438 74 Z" fill="#B8F6FF" />
+      <path d="M478 22 L486 84 L462 66 L438 74 Z" fill="#0C8FA3" />
 
       {/* pilhas de moedas */}
       {stacks.map(({ x, n }) => (
