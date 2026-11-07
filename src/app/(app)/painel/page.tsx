@@ -58,6 +58,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         categories={lookups.categories}
         projects={lookups.projects}
         statuses={lookups.statuses}
+        cards={lookups.cards}
       />
 
       <div className="stats">

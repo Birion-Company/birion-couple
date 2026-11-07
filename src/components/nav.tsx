@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, LayoutGrid, Plus, Upload } from "lucide-react";
+import { ArrowLeftRight, CreditCard, LayoutGrid, Plus, Upload } from "lucide-react";
 
 const items = [
   { href: "/painel", label: "Painel", icon: LayoutGrid },
   { href: "/transacoes", label: "Lançamentos", icon: ArrowLeftRight },
   { href: "/transacoes/nova", label: "Novo", icon: Plus, add: true },
+  { href: "/cartoes", label: "Cartões", icon: CreditCard },
   { href: "/importar", label: "Importar", icon: Upload },
 ];
 

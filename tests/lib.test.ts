@@ -5,6 +5,7 @@ import { parseAmountToCents, splitEqually } from "@/lib/money";
 import { parseOfx, normalizeOfxText } from "@/lib/import/ofx";
 import { applyCsvMapping, guessMapping, parseDate, readCsvTable } from "@/lib/import/csv";
 import { externalIds, matchCategory } from "@/lib/import/dedupe";
+import { addMonthsIso, buildSeries, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, suggestDueDay, todayIn } from "@/lib/cards";
 
 const fx = (n: string) => readFileSync(`tests/fixtures/${n}`, n.endsWith(".ofx") ? "latin1" : "utf8");
 
@@ -133,5 +134,75 @@ describe("deduplicação e regras", () => {
     expect(matchCategory("99 - NuPay", rules)).toBe("transporte");
     expect(matchCategory("Palacio das Frutas", rules)).toBe("mercado");
     expect(matchCategory("Outra coisa", rules)).toBeNull();
+  });
+});
+
+describe("cartão de crédito", () => {
+  const nubank = { closingDay: 15, dueDay: 22 };
+  test("compra antes do fechamento entra na fatura do mês; no dia ou depois, na seguinte", () => {
+    expect(invoiceOf("2026-11-14", 15)).toBe("2026-11");
+    expect(invoiceOf("2026-11-15", 15)).toBe("2026-12");
+    expect(invoiceOf("2026-12-20", 15)).toBe("2027-01");
+  });
+  test("vencimento no mesmo mês ou no seguinte", () => {
+    expect(invoiceDates("2026-11", nubank)).toEqual({ closing: "2026-11-15", due: "2026-11-22" });
+    expect(invoiceDates("2026-11", { closingDay: 28, dueDay: 5 })).toEqual({ closing: "2026-11-28", due: "2026-12-05" });
+  });
+  test("dias 29–31 viram o último dia em meses curtos", () => {
+    expect(invoiceDates("2027-02", { closingDay: 31, dueDay: 7 })).toEqual({ closing: "2027-02-28", due: "2027-03-07" });
+    expect(addMonthsIso("2027-01-31", 1)).toBe("2027-02-28");
+    expect(addMonthsIso("2026-11-10", 13)).toBe("2027-12-10");
+  });
+  test("período de compras da fatura", () => {
+    expect(invoiceRange("2026-12", 15)).toEqual({ from: "2026-11-15", to: "2026-12-14" });
+  });
+  test("sugere vencimento uma semana depois do fechamento", () => {
+    expect(suggestDueDay(15)).toBe(22);
+    expect(suggestDueDay(28)).toBe(4);
+  });
+  test("situação de hoje: fatura aberta e próxima a vencer", () => {
+    // Entre o fechamento (15) e o vencimento (22): a fatura de novembro já fechou e vence dia 22.
+    const s = cardSchedule(nubank, "2026-11-18");
+    expect(s).toMatchObject({ open: "2026-12", closingDate: "2026-12-15", dueInvoice: "2026-11", dueDate: "2026-11-22", daysToDue: 4 });
+    // Depois do vencimento, a próxima a vencer é a aberta.
+    expect(cardSchedule(nubank, "2026-11-25")).toMatchObject({ dueInvoice: "2026-12", dueDate: "2026-12-22" });
+  });
+  test("avisos dentro da antecedência", () => {
+    const card = { ...nubank, id: "c", name: "Nubank", color: "#000000", alertDays: 3 };
+    const total = () => 50000;
+    expect(cardAlerts(card, "2026-11-13", total).map((a) => [a.type, a.daysLeft])).toEqual([["closing", 2]]);
+    expect(cardAlerts(card, "2026-11-20", total).map((a) => [a.type, a.daysLeft])).toEqual([["due", 2]]);
+    expect(cardAlerts(card, "2026-11-05", total)).toEqual([]);
+    expect(cardAlerts({ ...card, alertDays: null }, "2026-11-13", total)).toEqual([]);
+    // Fatura zerada não gera aviso.
+    expect(cardAlerts(card, "2026-11-20", () => 0)).toEqual([]);
+    expect(cardAlerts(card, "2026-11-13", () => 0)).toEqual([]);
+  });
+  test("notebook de R$ 3.500 em 10x dividido entre duas pessoas", () => {
+    const parts = buildSeries("2026-11-10", "installment", 10, 350000, [
+      { participantId: "eu", amountCents: 175000 },
+      { participantId: "irmao", amountCents: 175000 },
+    ]);
+    expect(parts).toHaveLength(10);
+    expect(parts.every((p) => p.amountCents === 35000)).toBe(true);
+    expect(parts[0].splits).toEqual([{ participantId: "eu", amountCents: 17500 }, { participantId: "irmao", amountCents: 17500 }]);
+    expect(parts.map((p) => p.date).slice(0, 3)).toEqual(["2026-11-10", "2026-12-10", "2027-01-10"]);
+  });
+  test("parcelas sem perder centavos", () => {
+    const parts = buildSeries("2026-11-10", "installment", 3, 10000, [
+      { participantId: "a", amountCents: 6667 },
+      { participantId: "b", amountCents: 3333 },
+    ]);
+    expect(parts.reduce((s, p) => s + p.amountCents, 0)).toBe(10000);
+    for (const p of parts) expect(p.splits.reduce((s, x) => s + x.amountCents, 0)).toBe(p.amountCents);
+  });
+  test("recorrente repete o valor todo mês", () => {
+    const parts = buildSeries("2026-11-05", "monthly", 12, 5590, [{ participantId: "a", amountCents: 5590 }]);
+    expect(parts).toHaveLength(12);
+    expect(parts.every((p) => p.amountCents === 5590)).toBe(true);
+    expect(parts[11].date).toBe("2027-10-05");
+  });
+  test("data de hoje no fuso de Brasília", () => {
+    expect(todayIn("America/Sao_Paulo", new Date("2026-11-08T02:00:00Z"))).toBe("2026-11-07");
   });
 });

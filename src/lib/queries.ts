@@ -8,13 +8,14 @@ const t = schema.transactions;
 
 export async function getLookups(householdId: string) {
   const db = getDb();
-  const [participants, categories, projects, statuses] = await Promise.all([
+  const [participants, categories, projects, statuses, cards] = await Promise.all([
     db.select().from(schema.participants).where(eq(schema.participants.householdId, householdId)).orderBy(asc(schema.participants.sortOrder), asc(schema.participants.createdAt)),
     db.select().from(schema.categories).where(eq(schema.categories.householdId, householdId)).orderBy(asc(schema.categories.sortOrder), asc(schema.categories.name)),
     db.select().from(schema.projects).where(eq(schema.projects.householdId, householdId)).orderBy(asc(schema.projects.name)),
     db.select().from(schema.statuses).where(eq(schema.statuses.householdId, householdId)).orderBy(asc(schema.statuses.sortOrder), asc(schema.statuses.createdAt)),
+    db.select().from(schema.creditCards).where(eq(schema.creditCards.householdId, householdId)).orderBy(asc(schema.creditCards.createdAt)),
   ]);
-  return { participants, categories, projects, statuses };
+  return { participants, categories, projects, statuses, cards };
 }
 
 export type Lookups = Awaited<ReturnType<typeof getLookups>>;
@@ -27,6 +28,7 @@ function whereFor(householdId: string, f: Filters): SQL {
   else if (f.category) parts.push(eq(t.categoryId, f.category));
   if (f.project) parts.push(eq(t.projectId, f.project));
   if (f.status) parts.push(eq(t.statusId, f.status));
+  if (f.card) parts.push(eq(t.cardId, f.card));
   if (f.q) parts.push(or(ilike(t.description, `%${f.q}%`), ilike(t.notes, `%${f.q}%`)));
   if (f.person) {
     parts.push(
@@ -51,6 +53,11 @@ export type TxRow = {
   statusId: string | null;
   notes: string | null;
   source: string;
+  cardId: string | null;
+  seriesId: string | null;
+  seriesKind: string | null;
+  seriesIndex: number | null;
+  seriesTotal: number | null;
   splits: { participantId: string; amountCents: number }[];
 };
 
@@ -88,6 +95,11 @@ const txColumns = {
   statusId: t.statusId,
   notes: t.notes,
   source: t.source,
+  cardId: t.cardId,
+  seriesId: t.seriesId,
+  seriesKind: t.seriesKind,
+  seriesIndex: t.seriesIndex,
+  seriesTotal: t.seriesTotal,
 };
 
 export async function listTransactions(householdId: string, f: Filters, limit = 100, offset = 0) {

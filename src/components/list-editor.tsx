@@ -27,10 +27,10 @@ const WORDS: Record<Kind, { one: string; add: string; empty: string }> = {
   statuses: { one: "status", add: "Novo status", empty: "Nenhum status." },
 };
 
-function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+export function ColorPicker({ value, onChange, palette = PALETTE }: { value: string; onChange: (c: string) => void; palette?: readonly string[] }) {
   return (
     <div className="swatches" role="radiogroup" aria-label="Cor">
-      {PALETTE.map((c) => (
+      {palette.map((c) => (
         <button
           key={c}
           type="button"

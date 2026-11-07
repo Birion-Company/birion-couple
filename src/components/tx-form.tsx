@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { Trash2 } from "lucide-react";
-import { deleteTransactions, saveTransaction } from "@/app/actions/transactions";
+import { CreditCard, Repeat, Trash2 } from "lucide-react";
+import { deleteSeries, deleteTransactions, saveTransaction } from "@/app/actions/transactions";
+import { addMonthsIso, invoiceDates, invoiceOf, monthLabel, seriesLabel, shortDate } from "@/lib/cards";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
@@ -11,6 +13,7 @@ import { toast, toastResult } from "./toaster";
 import { Avatar } from "./ui";
 
 type Kind = "expense" | "income" | "transfer";
+type Repeat = "once" | "installment" | "monthly";
 
 export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" | "description">> & { toId?: string };
 
@@ -57,6 +60,14 @@ export function TxForm({
       "",
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const cards = lookups.cards.filter((c) => !c.archived || c.id === initial?.cardId);
+  const [cardId, setCardId] = useState(initial?.cardId ?? "");
+  const [repeat, setRepeat] = useState<Repeat>("once");
+  const [count, setCount] = useState("10");
+  const [applyToSeries, setApplyToSeries] = useState(true);
+  const card = cards.find((c) => c.id === cardId) ?? null;
+  const n = Math.min(Math.max(Number(count) || 0, 0), repeat === "installment" ? 48 : 60);
+  const isSeries = !initial && kind !== "transfer" && repeat !== "once";
 
   const initialSplitIds = initial?.splits.map((s) => s.participantId) ?? (prefill?.toId ? [prefill.toId] : people.filter((p) => !p.archived).map((p) => p.id));
   const [splitIds, setSplitIds] = useState<string[]>(initialSplitIds);
@@ -84,6 +95,9 @@ export function TxForm({
     if (mode === "custom" && kind !== "transfer" && customSum !== cents) {
       return toast(`As partes somam ${formatMoney(customSum, currency)}, mas o total é ${formatMoney(cents, currency)}.`, "error");
     }
+    if (isSeries && (n < 2 || String(n) !== count.trim())) {
+      return toast(repeat === "installment" ? "Escolha de 2 a 48 parcelas." : "Escolha de 2 a 60 meses.", "error");
+    }
     start(async () => {
       const r = await saveTransaction(initial?.id ?? null, {
         date,
@@ -94,7 +108,10 @@ export function TxForm({
         categoryId: kind === "transfer" ? null : categoryId || null,
         projectId: projectId || null,
         statusId: statusId || null,
+        cardId: kind === "transfer" ? null : cardId || null,
         notes,
+        series: isSeries ? { kind: repeat as "installment" | "monthly", count: n } : null,
+        applyToSeries: initial?.seriesId ? applyToSeries : undefined,
         splitMode: mode === "custom" && kind !== "transfer" ? "custom" : "equal",
         splits: splitIds.map((participantId) => ({
           participantId,
@@ -121,10 +138,75 @@ export function TxForm({
     });
   };
 
+  const removeSeries = (scope: "next" | "all") => {
+    if (!initial) return;
+    const what = scope === "all" ? "todas as parcelas desta compra" : "esta parcela e as próximas";
+    if (!window.confirm(`Excluir ${what}?`)) return;
+    start(async () => {
+      const r = await deleteSeries(initial.id, scope);
+      toastResult(r);
+      if (r.ok) {
+        router.push("/transacoes");
+        router.refresh();
+      }
+    });
+  };
+
   const payerLabel = kind === "income" ? "Quem recebeu" : kind === "transfer" ? "Quem pagou o acerto" : "Quem pagou";
+  const amountLabel = isSeries ? (repeat === "installment" ? "Valor total da compra" : "Valor por mês") : "Valor";
+  const seriesWord = initial?.seriesKind === "monthly" ? "lançamento recorrente" : "compra parcelada";
+
+  // Em qual fatura cai (e, no parcelamento, até quando vai).
+  let cardHint: string | null = null;
+  if (card && kind !== "transfer" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const first = invoiceOf(date, card.closingDay);
+    const d = invoiceDates(first, card);
+    if (isSeries && n >= 2) {
+      const last = invoiceOf(addMonthsIso(date, n - 1), card.closingDay);
+      cardHint = `1ª na fatura de ${monthLabel(first)} (vence ${shortDate(d.due)}), última na de ${monthLabel(last)}.`;
+    } else {
+      cardHint = `Entra na fatura de ${monthLabel(first)}: fecha ${shortDate(d.closing)} e vence ${shortDate(d.due)}.`;
+    }
+  }
+
+  // Resumo das parcelas.
+  let seriesHint: string | null = null;
+  if (isSeries && n >= 2 && cents > 0) {
+    if (repeat === "installment") {
+      const parts = splitEqually(cents, n);
+      seriesHint =
+        parts[0] === parts[n - 1]
+          ? `${n}x de ${formatMoney(parts[0], currency)}`
+          : `${n}x de ${formatMoney(parts[n - 1], currency)} (as primeiras com ${formatMoney(parts[0] - parts[n - 1], currency)} a mais)`;
+    } else {
+      seriesHint = `${n} lançamentos de ${formatMoney(cents, currency)}, de ${monthLabel(date.slice(0, 7))} a ${monthLabel(addMonthsIso(date, n - 1).slice(0, 7))} · total ${formatMoney(cents * n, currency)}`;
+    }
+  }
+  const sharesNow = mode === "equal" ? equalParts : splitIds.map((id) => parseAmountToCents(custom[id] ?? "", ",") ?? 0);
 
   return (
     <form className="form" onSubmit={submit}>
+      {initial?.seriesId && (
+        <div className="series-notice">
+          <p className="series-notice-title">
+            <Repeat size={16} strokeWidth={1.8} aria-hidden />
+            {seriesLabel(initial.seriesKind, initial.seriesIndex, initial.seriesTotal)} de uma {seriesWord}
+          </p>
+          <label className="check">
+            <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
+            <span>Levar descrição, categoria, projeto, cartão, quem pagou e observações para as outras parcelas</span>
+          </label>
+          <p className="faint">Valor, data, divisão e status mudam só nesta.</p>
+          <div className="actions">
+            <button type="button" className="btn small ghost danger" onClick={() => removeSeries("next")} disabled={pending}>
+              Excluir esta e as próximas
+            </button>
+            <button type="button" className="btn small ghost danger" onClick={() => removeSeries("all")} disabled={pending}>
+              Excluir todas
+            </button>
+          </div>
+        </div>
+      )}
       <div className="segmented" role="group" aria-label="Tipo">
         {([
           ["expense", "Despesa"],
@@ -137,7 +219,10 @@ export function TxForm({
             aria-pressed={kind === v}
             onClick={() => {
               setKind(v);
-              if (v === "transfer") setSplitIds((s) => s.filter((x) => x !== payerId).slice(0, 1));
+              if (v === "transfer") {
+                setSplitIds((s) => s.filter((x) => x !== payerId).slice(0, 1));
+                setRepeat("once");
+              }
             }}
           >
             {l}
@@ -146,7 +231,7 @@ export function TxForm({
       </div>
 
       <label className="field">
-        <span>Valor</span>
+        <span>{amountLabel}</span>
         <input
           className="input big num"
           inputMode="decimal"
@@ -172,7 +257,7 @@ export function TxForm({
 
       <div className="field-row">
         <label className="field">
-          <span>Data</span>
+          <span>{isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         </label>
         <label className="field">
@@ -185,6 +270,76 @@ export function TxForm({
           />
         </label>
       </div>
+
+      {kind !== "transfer" &&
+        (cards.length > 0 ? (
+          <label className="field">
+            <span>Cartão de crédito</span>
+            <Select
+              value={cardId}
+              onChange={(v) => {
+                setCardId(v);
+                const c = cards.find((x) => x.id === v);
+                if (c?.holderId && people.some((p) => p.id === c.holderId)) setPayerId(c.holderId);
+              }}
+              options={[
+                { value: "", label: "Não foi no cartão" },
+                ...cards.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+              ]}
+            />
+            {cardHint && <span className="faint">{cardHint}</span>}
+          </label>
+        ) : (
+          kind === "expense" && (
+            <p className="faint card-cta">
+              <CreditCard size={15} strokeWidth={1.7} aria-hidden /> Pagou no cartão de crédito?{" "}
+              <Link href="/cartoes" className="pos">Cadastre o cartão</Link> para acompanhar a fatura.
+            </p>
+          )
+        ))}
+
+      {!initial && kind !== "transfer" && (
+        <div className="field">
+          <span className="label-text">Repetição</span>
+          <div className="segmented" role="group" aria-label="Repetição">
+            {([
+              ["once", "Uma vez"],
+              ["installment", "Parcelado"],
+              ["monthly", "Todo mês"],
+            ] as const).map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={repeat === v}
+                onClick={() => {
+                  if (v !== repeat) setCount(v === "monthly" ? "12" : "10");
+                  setRepeat(v);
+                }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          {isSeries && (
+            <div className="series-count">
+              <label className="field">
+                <span>{repeat === "installment" ? "Número de parcelas" : "Por quantos meses"}</span>
+                <input
+                  className="input num"
+                  type="number"
+                  inputMode="numeric"
+                  min={2}
+                  max={repeat === "installment" ? 48 : 60}
+                  value={count}
+                  onChange={(e) => setCount(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                  required
+                />
+              </label>
+              {seriesHint && <p className="series-hint num">{seriesHint}</p>}
+            </div>
+          )}
+        </div>
+      )}
 
       {kind === "transfer" ? (
         <label className="field">
@@ -252,6 +407,14 @@ export function TxForm({
           {mode === "custom" && (
             <p className={`faint ${customSum !== cents ? "neg" : ""}`}>
               Soma das partes: {formatMoney(customSum, currency)} de {formatMoney(cents, currency)}
+            </p>
+          )}
+          {isSeries && repeat === "installment" && n >= 2 && cents > 0 && splitIds.length > 1 && (
+            <p className="faint num">
+              Por parcela:{" "}
+              {splitIds
+                .map((id, i) => `${people.find((p) => p.id === id)?.name} ${formatMoney(splitEqually(sharesNow[i] ?? 0, n)[n - 1], currency)}`)
+                .join(" · ")}
             </p>
           )}
         </fieldset>

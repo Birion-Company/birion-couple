@@ -15,6 +15,7 @@ type Props = {
   categories: Option[];
   projects: Option[];
   statuses: Option[];
+  cards?: Option[];
   showStatus?: boolean;
 };
 
@@ -51,7 +52,7 @@ function ChipSelect({
   );
 }
 
-export function FilterBar({ filters, participants, categories, projects, statuses, showStatus = true }: Props) {
+export function FilterBar({ filters, participants, categories, projects, statuses, cards = [], showStatus = true }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, start] = useTransition();
@@ -62,7 +63,7 @@ export function FilterBar({ filters, participants, categories, projects, statuse
   };
 
   const active =
-    filters.person || filters.category || filters.project || filters.status || filters.q || filters.period !== "tudo";
+    filters.person || filters.category || filters.project || filters.status || filters.card || filters.q || filters.period !== "tudo";
   const people = participants.filter((p) => !p.archived || p.id === filters.person);
 
   return (
@@ -121,11 +122,14 @@ export function FilterBar({ filters, participants, categories, projects, statuse
         {showStatus && (
           <ChipSelect label="Status" allLabel="Todos os status" value={filters.status} options={statuses} onChange={(v) => go({ status: v })} />
         )}
+        {cards.length > 0 && (
+          <ChipSelect label="Cartão" allLabel="Todos os cartões" value={filters.card} options={cards} onChange={(v) => go({ card: v })} />
+        )}
         {active && (
           <button
             type="button"
             className="chip"
-            onClick={() => go({ person: null, category: null, project: null, status: null, q: null, period: "tudo", from: null, to: null })}
+            onClick={() => go({ person: null, category: null, project: null, status: null, card: null, q: null, period: "tudo", from: null, to: null })}
           >
             <X size={14} strokeWidth={1.6} /> Limpar
           </button>

@@ -156,6 +156,30 @@ export const statuses = pgTable(
   (t) => [index("statuses_household_idx").on(t.householdId)],
 );
 
+/** Cartões de crédito da família, com o dia em que a fatura fecha e o dia em que vence. */
+export const creditCards = pgTable(
+  "credit_cards",
+  {
+    id: id(),
+    householdId: uuid()
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    color: text().notNull().default("#1AC4DB"),
+    /** Dia do mês em que a fatura fecha (1–31; em meses curtos vale o último dia). */
+    closingDay: integer().notNull(),
+    /** Dia do mês em que a fatura vence (1–31). Se for menor ou igual ao fechamento, vence no mês seguinte. */
+    dueDay: integer().notNull(),
+    /** Quantos dias antes avisar do fechamento e do vencimento; nulo = não avisar. */
+    alertDays: integer().default(3),
+    /** Quem paga a fatura; vira o "quem pagou" padrão das compras no cartão. */
+    holderId: uuid().references(() => participants.id, { onDelete: "set null" }),
+    archived: boolean().notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("credit_cards_household_idx").on(t.householdId)],
+);
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()
@@ -196,6 +220,13 @@ export const transactions = pgTable(
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
     projectId: uuid().references(() => projects.id, { onDelete: "set null" }),
     statusId: uuid().references(() => statuses.id, { onDelete: "set null" }),
+    /** Cartão de crédito usado; a fatura sai da data e do dia de fechamento do cartão. */
+    cardId: uuid().references(() => creditCards.id, { onDelete: "set null" }),
+    /** Compras parceladas ou recorrentes: todas as parcelas compartilham o mesmo seriesId. */
+    seriesId: uuid(),
+    seriesKind: text(), // installment | monthly
+    seriesIndex: integer(), // 1, 2, 3…
+    seriesTotal: integer(),
     notes: text(),
     source: text().notNull().default("manual"), // manual | ofx | csv
     externalId: text(),
@@ -207,6 +238,8 @@ export const transactions = pgTable(
   (t) => [
     index("transactions_household_date_idx").on(t.householdId, t.date),
     uniqueIndex("transactions_household_external_idx").on(t.householdId, t.externalId),
+    index("transactions_card_date_idx").on(t.cardId, t.date),
+    index("transactions_series_idx").on(t.seriesId),
   ],
 );
 

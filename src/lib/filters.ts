@@ -19,6 +19,7 @@ export type Filters = {
   category: string | null;
   project: string | null;
   status: string | null;
+  card: string | null;
   q: string | null;
 };
 
@@ -69,6 +70,7 @@ export function parseFilters(sp: Search, defaultPeriod: PeriodKey = "tudo"): Fil
     category: one(sp.categoria) === "sem" ? "sem" : isId(one(sp.categoria)),
     project: isId(one(sp.projeto)),
     status: isId(one(sp.status)),
+    card: isId(one(sp.cartao)),
     q: one(sp.q)?.slice(0, 100) ?? null,
   };
 }
@@ -85,6 +87,7 @@ export function filtersToQuery(f: Partial<Filters>): string {
   if (f.category) p.set("categoria", f.category);
   if (f.project) p.set("projeto", f.project);
   if (f.status) p.set("status", f.status);
+  if (f.card) p.set("cartao", f.card);
   if (f.q) p.set("q", f.q);
   const s = p.toString();
   return s ? `?${s}` : "";

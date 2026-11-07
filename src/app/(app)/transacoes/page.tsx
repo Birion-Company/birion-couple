@@ -50,6 +50,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         categories={lookups.categories}
         projects={lookups.projects}
         statuses={lookups.statuses}
+        cards={lookups.cards}
       />
 
       <TxList rows={rows} lookups={lookups} currency={auth.currency} />

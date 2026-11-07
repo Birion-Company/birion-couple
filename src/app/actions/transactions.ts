@@ -1,10 +1,12 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { requireAuth } from "@/lib/auth";
+import { buildSeries } from "@/lib/cards";
 import { splitEqually } from "@/lib/money";
 import type { ActionResult } from "./settings";
 
@@ -20,7 +22,15 @@ const TxSchema = z.object({
   categoryId: optionalId,
   projectId: optionalId,
   statusId: optionalId,
+  cardId: optionalId.optional().transform((v) => v ?? null),
   notes: z.string().trim().max(1000).optional().nullable(),
+  /** Só ao criar: parcelar o valor total ou repetir o valor todo mês. */
+  series: z
+    .object({ kind: z.enum(["installment", "monthly"]), count: z.number().int().min(2, { error: "Escolha pelo menos 2 vezes." }).max(60, { error: "No máximo 60 vezes." }) })
+    .nullable()
+    .optional(),
+  /** Ao editar uma parcela: levar descrição, categoria, projeto, cartão, quem pagou e observações para as outras (status, valor e data não). */
+  applyToSeries: z.boolean().optional(),
   splitMode: z.enum(["equal", "custom"]),
   splits: z.array(z.object({ participantId: uuid, amountCents: z.number().int().min(0) })),
 });
@@ -38,10 +48,11 @@ async function checkOwnership(householdId: string, data: z.output<typeof TxSchem
       .where(and(eq(schema.participants.householdId, householdId), inArray(schema.participants.id, participantIds)));
     if (found.length !== participantIds.length) return "Pessoa inválida.";
   }
-  const checks: [typeof schema.categories | typeof schema.projects | typeof schema.statuses, string | null][] = [
+  const checks: [typeof schema.categories | typeof schema.projects | typeof schema.statuses | typeof schema.creditCards, string | null][] = [
     [schema.categories, data.categoryId],
     [schema.projects, data.projectId],
     [schema.statuses, data.statusId],
+    [schema.creditCards, data.cardId],
   ];
   for (const [table, id] of checks) {
     if (!id) continue;
@@ -73,6 +84,12 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   const problem = await checkOwnership(auth.householdId, data);
   if (problem) return { ok: false, error: problem };
 
+  if (data.series && id) return { ok: false, error: "Parcelamento só pode ser escolhido ao criar o lançamento." };
+  if (data.series && data.kind === "transfer") return { ok: false, error: "Acertos não podem ser parcelados." };
+  if (data.series?.kind === "installment" && data.series.count > 48) return { ok: false, error: "No máximo 48 parcelas." };
+  if (data.series?.kind === "installment" && data.amountCents < data.series.count) return { ok: false, error: "Valor pequeno demais para tantas parcelas." };
+  if (data.cardId && data.kind === "transfer") return { ok: false, error: "Acertos não entram em cartão." };
+
   const db = getDb();
   const values = {
     date: data.date,
@@ -83,9 +100,45 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     categoryId: data.categoryId,
     projectId: data.projectId,
     statusId: data.statusId,
+    cardId: data.cardId,
     notes: data.notes || null,
     updatedAt: new Date(),
   };
+
+  if (data.series) {
+    const series = data.series;
+    const seriesId = randomUUID();
+    const parts = buildSeries(data.date, series.kind, series.count, data.amountCents, splits);
+    if (parts.some((p) => p.amountCents <= 0)) return { ok: false, error: "Valor pequeno demais para tantas parcelas." };
+    const firstId = await db.transaction(async (tx) => {
+      const rows = await tx
+        .insert(schema.transactions)
+        .values(
+          parts.map((p) => ({
+            ...values,
+            date: p.date,
+            amountCents: p.amountCents,
+            householdId: auth.householdId,
+            createdBy: auth.userId,
+            source: "manual",
+            seriesId,
+            seriesKind: series.kind,
+            seriesIndex: p.index,
+            seriesTotal: series.count,
+          })),
+        )
+        .returning({ id: schema.transactions.id, seriesIndex: schema.transactions.seriesIndex });
+      const idOf = new Map(rows.map((r) => [r.seriesIndex, r.id]));
+      await tx
+        .insert(schema.transactionSplits)
+        .values(parts.flatMap((p) => p.splits.map((s) => ({ ...s, transactionId: idOf.get(p.index)! }))));
+      return idOf.get(1)!;
+    });
+    revalidatePath("/", "layout");
+    const what = series.kind === "installment" ? `${series.count} parcelas lançadas.` : `Lançado para ${series.count} meses.`;
+    return { ok: true, id: firstId, message: what };
+  }
+
   const savedId = await db.transaction(async (tx) => {
     let txId = id;
     if (id) {
@@ -93,9 +146,24 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
         .update(schema.transactions)
         .set(values)
         .where(and(eq(schema.transactions.id, id), eq(schema.transactions.householdId, auth.householdId)))
-        .returning({ id: schema.transactions.id });
+        .returning({ id: schema.transactions.id, seriesId: schema.transactions.seriesId });
       if (updated.length === 0) throw new Error("not-found");
       await tx.delete(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, id));
+      const seriesId = updated[0].seriesId;
+      if (data.applyToSeries && seriesId) {
+        await tx
+          .update(schema.transactions)
+          .set({
+            description: values.description,
+            payerId: values.payerId,
+            categoryId: values.categoryId,
+            projectId: values.projectId,
+            cardId: values.cardId,
+            notes: values.notes,
+            updatedAt: values.updatedAt,
+          })
+          .where(and(eq(schema.transactions.seriesId, seriesId), eq(schema.transactions.householdId, auth.householdId)));
+      }
     } else {
       const [row] = await tx
         .insert(schema.transactions)
@@ -107,7 +175,33 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     return txId!;
   });
   revalidatePath("/", "layout");
-  return { ok: true, id: savedId, message: id ? "Lançamento atualizado." : "Lançamento salvo." };
+  return {
+    ok: true,
+    id: savedId,
+    message: id ? (data.applyToSeries ? "Parcela atualizada e alterações levadas para as outras." : "Lançamento atualizado.") : "Lançamento salvo.",
+  };
+}
+
+/**
+ * Exclui parcelas de uma compra parcelada ou recorrente.
+ * - "next": a partir desta (inclusive), útil para cancelar uma assinatura;
+ * - "all": todas.
+ */
+export async function deleteSeries(transactionId: string, scope: "next" | "all"): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const id = uuid.safeParse(transactionId);
+  if (!id.success) return { ok: false, error: "Lançamento inválido." };
+  const db = getDb();
+  const [row] = await db
+    .select({ seriesId: schema.transactions.seriesId, seriesIndex: schema.transactions.seriesIndex })
+    .from(schema.transactions)
+    .where(and(eq(schema.transactions.id, id.data), eq(schema.transactions.householdId, auth.householdId)));
+  if (!row?.seriesId) return { ok: false, error: "Este lançamento não faz parte de um parcelamento." };
+  const where = [eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.seriesId, row.seriesId)];
+  if (scope === "next" && row.seriesIndex) where.push(gte(schema.transactions.seriesIndex, row.seriesIndex));
+  const removed = await db.delete(schema.transactions).where(and(...where)).returning({ id: schema.transactions.id });
+  revalidatePath("/", "layout");
+  return { ok: true, message: `${removed.length} ${removed.length === 1 ? "parcela excluída" : "parcelas excluídas"}.` };
 }
 
 export async function deleteTransactions(ids: string[]): Promise<ActionResult> {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Inbox, X } from "lucide-react";
+import { CreditCard, Inbox, Repeat, X } from "lucide-react";
 import { bulkUpdate, deleteTransactions, setTransactionsStatus } from "@/app/actions/transactions";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
@@ -85,7 +85,7 @@ export function TxList({ rows, lookups, currency }: { rows: TxRow[]; lookups: Lo
             </div>
             <div className="rows">
               {g.rows.map((tx) => {
-                const { payer, cat, status, project, people } = txMeta(tx, lookups);
+                const { payer, cat, status, project, card, series, people } = txMeta(tx, lookups);
                 return (
                   <div key={tx.id} className="row">
                     <input
@@ -107,6 +107,8 @@ export function TxList({ rows, lookups, currency }: { rows: TxRow[]; lookups: Lo
                           {cat && <span className="badge"><Dot color={cat.color} />{cat.name}</span>}
                           {project && <span className="badge"><Dot color={project.color} />{project.name}</span>}
                           {status && <span className="badge"><Dot color={status.color} />{status.name}</span>}
+                          {card && <span className="badge"><CreditCard size={12} strokeWidth={1.8} aria-hidden />{card.name}</span>}
+                          {series && <span className="badge"><Repeat size={12} strokeWidth={1.8} aria-hidden />{series}</span>}
                         </p>
                       </div>
                       <span className="amount">

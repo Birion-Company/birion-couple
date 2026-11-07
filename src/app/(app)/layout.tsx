@@ -1,9 +1,11 @@
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/actions/auth";
+import { CardAlerts } from "@/components/card-alerts";
 import { BottomNav, SideNav } from "@/components/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
+import { getCardAlerts } from "@/lib/card-queries";
 
 function Brand({ household }: { household: string }) {
   return (
@@ -21,6 +23,7 @@ function Brand({ household }: { household: string }) {
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
+  const alerts = await getCardAlerts(auth.householdId);
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -53,6 +56,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <main className="main">{children}</main>
       </div>
       <BottomNav />
+      <CardAlerts alerts={alerts} currency={auth.currency} />
     </div>
   );
 }
