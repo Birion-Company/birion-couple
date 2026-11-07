@@ -1852,6 +1852,45 @@ html.theme-switching *::after {
   background: var(--tile-bg);
   color: var(--brand-strong);
 }
+button.user-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.user-menu-item.danger {
+  color: var(--neg);
+}
+.user-menu-item.danger:hover,
+.user-menu-item.danger:focus-visible {
+  background: var(--neg-soft);
+  color: var(--neg);
+}
+@media (max-width: 520px) {
+  .profile-hero {
+    gap: 16px;
+    padding-bottom: 20px;
+  }
+  .profile-hero h1 {
+    font-size: 1.3rem;
+  }
+  .profile-hero .muted {
+    font-size: 0.875rem;
+  }
+  .avatar-editor-photo .avatar {
+    width: 84px !important;
+    height: 84px !important;
+    font-size: 1.7rem !important;
+  }
+  .avatar-editor-badge {
+    width: 30px;
+    height: 30px;
+    right: 0;
+    bottom: 0;
+  }
+}
 .logout-btn {
   width: 100%;
   min-height: 40px;
@@ -1904,28 +1943,34 @@ html.theme-switching *::after {
 }
 .profile-hero {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: 6px;
+  gap: 24px;
   padding: 12px 0 28px;
 }
-.profile-hero h1 {
-  margin-top: 6px;
-  font-size: 1.6rem;
-  font-weight: 600;
-}
-.profile-hero .muted {
-  word-break: break-all;
-}
-.profile-hero .badge {
-  margin-top: 4px;
-}
-.avatar-editor {
+.profile-id {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+.profile-hero h1 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.profile-hero .muted {
+  overflow-wrap: anywhere;
+}
+.profile-hero .badge {
+  margin-top: 6px;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.35;
+}
+.avatar-editor {
+  flex: none;
 }
 .avatar-editor-photo {
   position: relative;
@@ -1938,7 +1983,7 @@ html.theme-switching *::after {
 }
 .avatar-editor-photo .avatar {
   border: 4px solid var(--bg);
-  font-size: 3rem !important;
+  font-size: 2.4rem !important;
   font-weight: 600;
 }
 .avatar-editor-photo:focus-visible {
@@ -1950,12 +1995,12 @@ html.theme-switching *::after {
 }
 .avatar-editor-badge {
   position: absolute;
-  right: 6px;
-  bottom: 6px;
+  right: 2px;
+  bottom: 2px;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 3px solid var(--bg);
   background: linear-gradient(180deg, #1ac4db, #0ca5bd);

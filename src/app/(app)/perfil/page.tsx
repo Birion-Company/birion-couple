@@ -11,11 +11,13 @@ export default async function ProfilePage() {
     <div className="profile-page">
       <section className="profile-hero" aria-label="Foto e identificação">
         <AvatarEditor name={auth.userName} avatarUrl={avatarUrl} />
-        <h1>{auth.userName}</h1>
-        <p className="muted">{auth.email}</p>
-        <span className="badge">
-          {auth.householdName} · {auth.role === "owner" ? "administra a família" : "membro"}
-        </span>
+        <div className="profile-id">
+          <h1>{auth.userName}</h1>
+          <p className="muted">{auth.email}</p>
+          <span className="badge">
+            {auth.householdName} · {auth.role === "owner" ? "administra a família" : "membro"}
+          </span>
+        </div>
       </section>
       <div className="grid">
         <ProfileForm name={auth.userName} email={auth.email} />

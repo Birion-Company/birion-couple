@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Trash2 } from "lucide-react";
 import { changePassword, removeAvatar, updateProfile, uploadAvatar } from "@/app/actions/profile";
 import { toast, toastResult } from "./toaster";
@@ -24,13 +25,77 @@ async function squareJpeg(file: File, size = 320): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.86);
 }
 
-/** Foto em destaque no centro do perfil, com botões para trocar e remover. */
+/** Foto do perfil; ao clicar abre um menu com Trocar/Adicionar foto e Remover. */
 export function AvatarEditor({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
   const router = useRouter();
+  const menuId = useId();
   const input = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [pending, start] = useTransition();
   const [preview, setPreview] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<CSSProperties>({});
   const shown = preview ?? avatarUrl;
+
+  const show = () => {
+    const b = buttonRef.current?.getBoundingClientRect();
+    if (!b) return;
+    const width = 220;
+    const left = Math.min(Math.max(8, b.left), window.innerWidth - width - 8);
+    const up = window.innerHeight - b.bottom < 130;
+    setPos(up ? { left, width, bottom: window.innerHeight - b.top + 8 } : { left, width, top: b.bottom + 8 });
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+    const onPointer = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!buttonRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
+    };
+    const onClose = () => setOpen(false);
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("resize", onClose);
+    window.addEventListener("scroll", onClose, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("resize", onClose);
+      window.removeEventListener("scroll", onClose, true);
+    };
+  }, [open]);
+
+  const onMenuKey = (e: React.KeyboardEvent) => {
+    const items = [...(menuRef.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    }
+  };
+
+  const pick = () => {
+    setOpen(false);
+    input.current?.click();
+  };
+
+  const remove = () => {
+    setOpen(false);
+    buttonRef.current?.focus();
+    start(async () => {
+      const r = await removeAvatar();
+      toastResult(r);
+      if (r.ok) setPreview(null);
+      router.refresh();
+    });
+  };
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
@@ -54,40 +119,53 @@ export function AvatarEditor({ name, avatarUrl }: { name: string; avatarUrl: str
   return (
     <div className="avatar-editor">
       <button
+        ref={buttonRef}
         type="button"
         className="avatar-editor-photo"
-        onClick={() => input.current?.click()}
+        onClick={() => (open ? setOpen(false) : show())}
+        onKeyDown={(e) => {
+          if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+            e.preventDefault();
+            show();
+          }
+        }}
         disabled={pending}
-        aria-label={shown ? "Trocar foto de perfil" : "Adicionar foto de perfil"}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label="Foto de perfil"
       >
-        <Avatar name={name} color="#1AC4DB" size={148} src={shown} />
+        <Avatar name={name} color="#1AC4DB" size={120} src={shown} />
         <span className="avatar-editor-badge" aria-hidden>
-          <Camera size={18} strokeWidth={2} />
+          <Camera size={16} strokeWidth={2} />
         </span>
       </button>
-      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-      <div className="actions" style={{ justifyContent: "center" }}>
-        <button type="button" className="btn small" onClick={() => input.current?.click()} disabled={pending}>
-          <Camera size={15} strokeWidth={1.8} /> {shown ? "Trocar foto" : "Adicionar foto"}
-        </button>
-        {shown && (
-          <button
-            type="button"
-            className="btn small ghost danger"
-            disabled={pending}
-            onClick={() =>
-              start(async () => {
-                const r = await removeAvatar();
-                toastResult(r);
-                if (r.ok) setPreview(null);
-                router.refresh();
-              })
-            }
-          >
-            <Trash2 size={15} strokeWidth={1.8} /> Remover
-          </button>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          onFile(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+      {open &&
+        createPortal(
+          <div ref={menuRef} id={menuId} role="menu" aria-label="Foto de perfil" className="bf-select-list user-menu" style={pos} onKeyDown={onMenuKey}>
+            <button type="button" role="menuitem" className="bf-select-option user-menu-item" onClick={pick}>
+              <Camera size={17} strokeWidth={1.7} />
+              <span className="bf-select-option-label">{shown ? "Trocar foto" : "Adicionar foto"}</span>
+            </button>
+            {shown && (
+              <button type="button" role="menuitem" className="bf-select-option user-menu-item danger" onClick={remove}>
+                <Trash2 size={17} strokeWidth={1.7} />
+                <span className="bf-select-option-label">Remover foto</span>
+              </button>
+            )}
+          </div>,
+          document.body,
         )}
-      </div>
     </div>
   );
 }
