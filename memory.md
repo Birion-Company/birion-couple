@@ -12,6 +12,11 @@ Durable, non-secret context for **BIRIUN FINANCE**.
 - Agents deliver cards as `done`; only humans validate or reject them. Pull-request review or merge is not a prerequisite for delivery.
 - Repository-specific permission: the owner requires every commit to go directly to `main` (push to `main` is allowed). Create other branches only with the owner's explicit authorization.
 - Stable commit scope: `finance`.
+- Site: https://biriun-finance.netlify.app (Netlify site id 6da5c71e-679c-4a5d-a737-c85433e789ed), deploy automático a cada push na `main`. Repo: https://github.com/Gabbr1el/biriun-finance (público).
+- O `@netlify/plugin-nextjs` precisa estar declarado em `netlify.toml`; sem ele o site (criado pela API) sobe como estático e dá 404.
+- Banco: Netlify Database + Drizzle (`drizzle-orm/netlify-db`, versões `@beta`). Migrações em `netlify/database/migrations`, aplicadas pelo deploy; nunca editar uma já aplicada.
+- Local: `npm run db:dev` + `.env.local` com `NETLIFY_DB_DRIVER=server` (sem isso o adaptador tenta o driver serverless e falha com "fetch failed").
+- `AUTH_SECRET` fica só nas variáveis do Netlify (segredo); nunca no repositório.
 
 ## Conventions
 
