@@ -4,19 +4,23 @@
 :root {
   --brand: #1ac4db;
   --brand-strong: #0c8fa3; /* texto e links sobre branco (contraste AA) */
-  --brand-soft: #ddfcff;
+  --brand-soft: #e6fbfd;
   --brand-tint: #f1fdfe;
   --navy: #0f1d38;
 
-  --bg: #f6f9fa;
+  /* Mesma paleta das telas de entrada */
+  --bg: #eef6f8;
   --surface: #ffffff;
-  --surface-2: #f2f6f7;
-  --line: #e4ebee;
-  --line-strong: #d3dde1;
+  --surface-2: #f4f8fa;
+  --line: #d2eaf0;
+  --line-strong: #cde6ec;
+  --field-bg: #f4f8fa;
+  --field-edge: #d8e3e9;
+  --panel-bg: #ffffff;
 
   --text: #0f1d38;
   --text-2: #4b5a6e;
-  --text-3: #7d8a9b;
+  --text-3: #6f7f92;
 
   --pos: #138a63; /* tem a receber */
   --pos-soft: #e6f6ef;
@@ -30,14 +34,14 @@
   --shadow: 0 1px 2px rgba(15, 29, 56, 0.04), 0 4px 16px rgba(15, 29, 56, 0.04);
   --focus: 0 0 0 3px rgba(26, 196, 219, 0.35);
 
-  --topbar-bg: rgba(246, 249, 250, 0.9);
+  --topbar-bg: rgba(238, 246, 248, 0.9);
   --nav-bg: rgba(255, 255, 255, 0.96);
   --float-bg: #0f1d38;
   --hero-bg: linear-gradient(160deg, #f4feff 0%, #e8fbfd 55%, #ddfcff 100%);
   --hero-edge: #d6f2f6;
-  --tile-bg: #ffffff;
-  --tile-edge: #c9eef3;
-  --logo-tile-bg: #ddfcff;
+  --tile-bg: #e6fbfd;
+  --tile-edge: #b9ebf2;
+  --logo-tile-bg: #e6fbfd;
   /* Ilustração do login */
   --art-floor: rgba(26, 196, 219, 0.28);
   --art-bar-a: #5fdcec;
@@ -941,19 +945,23 @@ body {
 /* ---------- Tema escuro ---------- */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand-strong: #4fd8ea;
-  --brand-soft: rgba(26, 196, 219, 0.18);
-  --brand-tint: rgba(26, 196, 219, 0.1);
+  --brand-strong: #1ac4db;
+  --brand-soft: #0a2234;
+  --brand-tint: rgba(26, 196, 219, 0.08);
 
-  --bg: #07111f;
-  --surface: #0d1a2b;
-  --surface-2: #13233a;
-  --line: #1c2e47;
-  --line-strong: #2a4060;
+  /* Mesma paleta das telas de entrada */
+  --bg: #030a14;
+  --surface: #061220;
+  --surface-2: #0c1724;
+  --line: #15334a;
+  --line-strong: #1f3a52;
+  --field-bg: #0c1724;
+  --field-edge: #1b2b3d;
+  --panel-bg: #050c16;
 
-  --text: #e9f7f9;
-  --text-2: #a9bccb;
-  --text-3: #7890a6;
+  --text: #f5f7f6;
+  --text-2: #aab5c0;
+  --text-3: #8d99a6;
 
   --pos: #3fd19b;
   --pos-soft: rgba(63, 209, 155, 0.14);
@@ -963,14 +971,14 @@ body {
   --warn-soft: rgba(242, 190, 69, 0.14);
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
-  --topbar-bg: rgba(7, 17, 31, 0.88);
-  --nav-bg: rgba(13, 26, 43, 0.96);
-  --float-bg: #1c2e47;
+  --topbar-bg: rgba(3, 10, 20, 0.88);
+  --nav-bg: rgba(5, 12, 22, 0.96);
+  --float-bg: #0a2234;
   --hero-bg: radial-gradient(70% 60% at 15% 0%, rgba(26, 196, 219, 0.2), transparent 60%),
     linear-gradient(155deg, #10304a 0%, #0c1f35 45%, #0a1729 100%);
   --hero-edge: rgba(26, 196, 219, 0.22);
-  --tile-bg: rgba(26, 196, 219, 0.12);
-  --tile-edge: rgba(26, 196, 219, 0.3);
+  --tile-bg: #0a2234;
+  --tile-edge: #1c4a63;
   --logo-tile-bg: linear-gradient(160deg, #10304a, #0a1a2c);
   --art-floor: rgba(26, 196, 219, 0.3);
   --art-bar-a: #1ac4db;
@@ -985,9 +993,7 @@ body {
 :root[data-theme="dark"] .stat {
   border-color: var(--line);
 }
-:root[data-theme="dark"] .btn.primary:hover {
-  background: #36d0e4;
-}
+
 :root[data-theme="dark"] .select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237890a6' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
@@ -1518,4 +1524,95 @@ html.theme-switching *::after {
   html.theme-switching * {
     transition: none !important;
   }
+}
+
+/* =========================================================
+   Telas internas com o mesmo acabamento do login
+   ========================================================= */
+.btn.primary {
+  border-color: transparent;
+  background: linear-gradient(180deg, #1ac4db, #0ca5bd);
+  color: #031016;
+  font-weight: 600;
+  transition: box-shadow 0.2s, filter 0.2s;
+}
+.btn.primary:hover {
+  background: linear-gradient(180deg, #1ac4db, #0ca5bd);
+  box-shadow: 0 0 20px rgba(26, 196, 219, 0.32);
+  filter: brightness(1.04);
+}
+.input,
+.select,
+.textarea {
+  border-radius: 12px;
+  border-color: var(--field-edge);
+  background-color: var(--field-bg);
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-3);
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  background-color: var(--surface);
+  box-shadow: 0 0 0 3px rgba(26, 196, 219, 0.22);
+}
+.btn {
+  border-radius: 12px;
+}
+.btn:not(.primary):not(.ghost) {
+  border-color: var(--field-edge);
+  background: var(--surface);
+}
+.sidebar {
+  background: var(--panel-bg);
+  border-right-color: var(--line);
+}
+.sidebar nav a[aria-current="page"] {
+  background: var(--tile-bg);
+  color: var(--brand-strong);
+  box-shadow: inset 0 0 0 1px var(--tile-edge);
+}
+.chip {
+  border-color: var(--field-edge);
+  background: var(--surface);
+}
+.chip.on {
+  background: var(--tile-bg);
+  border-color: var(--tile-edge);
+  color: var(--text);
+}
+.segmented {
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--brand-strong);
+}
+.card,
+.stat {
+  background: var(--surface);
+  border-color: var(--line);
+}
+.tabs a[aria-current="page"] {
+  color: var(--brand-strong);
+}
+.card-head a,
+.auth-foot a {
+  color: var(--brand-strong);
+}
+.bottom-nav .add span.icon {
+  background: linear-gradient(180deg, #1ac4db, #0ca5bd);
+  color: #031016;
+}
+.sheet {
+  background: var(--field-bg);
+  border-color: var(--field-edge);
+}
+.bulkbar .btn:not(.primary):not(.ghost) {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
 }

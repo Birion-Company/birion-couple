@@ -20,7 +20,7 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
   const error = state?.error ?? (errorCode ? ERRORS[errorCode] : undefined);
   return (
     <>
-      <AuthHeader title="Bem-vindo de volta!" subtitle="Faça login para acessar sua planilha financeira" error={error} />
+      <AuthHeader title="Olá, seja bem-vindo!" subtitle="Faça login para acessar sua planilha financeira" error={error} />
       <form action={action} className="auth-form">
         <AuthInput label="Seu e-mail" name="email" type="email" autoComplete="email" defaultValue={state?.fields?.email} icon={User} />
         <AuthInput label="Sua senha" name="password" type="password" autoComplete="current-password" icon={Lock} />
