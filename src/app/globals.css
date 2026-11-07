@@ -1036,18 +1036,18 @@ body {
   background: var(--au-bg);
   color: var(--au-text);
 }
-.auth-scene:has(.login-page) {
+.auth-scene {
   background-image: linear-gradient(rgba(238, 246, 248, 0.82), rgba(238, 246, 248, 0.82)),
     url("/images/background-waves.jpg");
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
 }
-:root[data-theme="dark"] .auth-scene:has(.login-page) {
+:root[data-theme="dark"] .auth-scene {
   background-image: linear-gradient(rgba(3, 10, 20, 0.42), rgba(3, 10, 20, 0.42)),
     url("/images/background-waves.jpg");
 }
-.auth-scene:has(.login-page) .auth-frame {
+.auth-scene .auth-frame {
   position: relative;
   isolation: isolate;
   background: rgba(255, 255, 255, 0.55);
@@ -1059,10 +1059,10 @@ body {
   backdrop-filter: blur(14px) saturate(1.08);
   -webkit-backdrop-filter: blur(14px) saturate(1.08);
 }
-.auth-scene:has(.login-page) .brand-panel {
+.auth-scene .brand-panel {
   background: transparent;
 }
-:root[data-theme="dark"] .auth-scene:has(.login-page) .auth-frame {
+:root[data-theme="dark"] .auth-scene .auth-frame {
   background: rgba(3, 10, 20, 0.16);
   border-color: rgba(205, 230, 236, 0.52);
   box-shadow:
@@ -1216,12 +1216,12 @@ body {
   flex: none;
   display: grid;
   place-items: center;
-  width: 112px;
-  height: 112px;
-  border-radius: 22px;
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
   background: var(--au-tile-bg);
   border: 1px solid var(--au-tile-edge);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .auth-panel-logo img {
   width: 55%;
@@ -1231,9 +1231,6 @@ body {
   width: 100%;
   max-width: 572px;
 }
-.login-page {
-  width: 100%;
-}
 .auth-box h1 {
   text-align: center;
   font-size: 38.4px;
@@ -1242,15 +1239,28 @@ body {
   color: var(--au-text);
 }
 .auth-sub {
-  margin: 6px 0 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  margin: 4px 0 16px;
   text-align: center;
   font-size: 21.6px;
+  line-height: 1.2;
   color: var(--au-text-2);
+}
+.auth-sub-error {
+  font-size: 17px;
+  font-weight: 500;
+  color: #c2415a;
+}
+:root[data-theme="dark"] .auth-sub-error {
+  color: #ff8aa0;
 }
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 .auth-field {
   display: flex;
@@ -1262,7 +1272,7 @@ body {
 }
 .auth-input input {
   width: 100%;
-  height: 68px;
+  height: 62px;
   padding: 0 64px 0 72px;
   border: 1px solid var(--au-input-edge);
   border-radius: 14px;
@@ -1343,7 +1353,7 @@ body {
   display: flex;
   align-items: center;
   gap: 22px;
-  margin: 18px 0;
+  margin: 14px 0;
   color: var(--au-text-2);
   font-size: 18.4px;
 }
@@ -1372,7 +1382,7 @@ body {
   background: rgba(127, 127, 127, 0.08);
 }
 .auth-bottom {
-  margin-top: 20px;
+  margin-top: 16px;
   text-align: center;
   font-size: 18.9px;
   color: var(--au-text-2);
@@ -1417,29 +1427,6 @@ body {
 .auth-theme:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(26, 196, 219, 0.45);
-}
-
-/* Cadastro (4 campos): sem o ícone grande e com espaçamentos menores para caber sem rolar */
-.auth-panel:has(.auth-field:nth-of-type(4)) .auth-panel-logo {
-  display: none;
-}
-.auth-panel:has(.auth-field:nth-of-type(4)) .auth-sub {
-  margin-bottom: 18px;
-}
-.auth-form:has(.auth-field:nth-of-type(4)) {
-  gap: 10px;
-}
-.auth-form:has(.auth-field:nth-of-type(4)) .auth-input input {
-  height: 56px;
-}
-.auth-form:has(.auth-field:nth-of-type(4)) .auth-hint {
-  font-size: 12.5px;
-}
-.auth-panel:has(.auth-field:nth-of-type(4)) .auth-sep {
-  margin: 14px 0;
-}
-.auth-panel:has(.auth-field:nth-of-type(4)) .auth-bottom {
-  margin-top: 16px;
 }
 
 /* ----- Celular: uma coluna, formulário em destaque ----- */

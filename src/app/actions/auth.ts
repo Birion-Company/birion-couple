@@ -15,17 +15,19 @@ const password = z.string().min(8, { error: "A senha precisa ter pelo menos 8 ca
 const name = z.string().trim().min(1, { error: "Digite seu nome." }).max(60);
 
 const SignupSchema = z.object({
-  household: z.string().trim().min(1, { error: "Dê um nome para a família ou grupo." }).max(60),
+  // Opcional: sem nome, a família vira "Família de <primeiro nome>" (dá para mudar em Ajustes).
+  household: z.string().trim().max(60).optional(),
   name,
   email,
   password,
 });
 
 export async function signup(_: FormState, form: FormData): Promise<FormState> {
-  const fields = Object.fromEntries(["household", "name", "email"].map((k) => [k, String(form.get(k) ?? "")]));
-  const parsed = SignupSchema.safeParse({ ...fields, password: form.get("password") });
+  const fields = Object.fromEntries(["name", "email"].map((k) => [k, String(form.get(k) ?? "")]));
+  const parsed = SignupSchema.safeParse({ ...fields, household: form.get("household") ?? undefined, password: form.get("password") });
   if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
-  const { household, name: userName, email: mail, password: pass } = parsed.data;
+  const { name: userName, email: mail, password: pass } = parsed.data;
+  const household = parsed.data.household || `Família de ${userName.split(" ")[0]}`;
   const db = getDb();
 
   const [existing] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, mail)).limit(1);

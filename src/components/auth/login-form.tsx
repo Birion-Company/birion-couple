@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { Lock, LogIn, User } from "lucide-react";
 import { login, type FormState } from "@/app/actions/auth";
+import { AuthHeader } from "./auth-header";
 import { AuthInput } from "./auth-input";
 import { GoogleLoginButton } from "./google-login-button";
 
@@ -19,12 +20,8 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
   const error = state?.error ?? (errorCode ? ERRORS[errorCode] : undefined);
   return (
     <>
+      <AuthHeader title="Bem-vindo de volta!" subtitle="Faça login para acessar sua planilha financeira" error={error} />
       <form action={action} className="auth-form">
-        {error && (
-          <p className="auth-error" role="alert">
-            {error}
-          </p>
-        )}
         <AuthInput label="Seu e-mail" name="email" type="email" autoComplete="email" defaultValue={state?.fields?.email} icon={User} />
         <AuthInput label="Sua senha" name="password" type="password" autoComplete="current-password" icon={Lock} />
         <button className="auth-submit" disabled={pending}>

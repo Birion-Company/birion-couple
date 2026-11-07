@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
-import { SignupForm } from "@/components/auth-forms";
+import { redirect } from "next/navigation";
+import { SignupForm } from "@/components/auth/signup-form";
+import { getAuth } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Criar conta" };
 
-export default function SignupPage() {
-  return (
-    <>
-      <h1>Crie a conta da família</h1>
-      <p className="auth-sub">Depois você convida as outras pessoas e configura tudo do seu jeito.</p>
-      <SignupForm />
-    </>
-  );
+export default async function SignupPage() {
+  if (await getAuth()) redirect("/painel");
+  return <SignupForm />;
 }
