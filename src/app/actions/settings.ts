@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { requireAuth, requireOwner } from "@/lib/auth";
+import { destroySession } from "@/lib/session";
+import { redirect } from "next/navigation";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
@@ -27,6 +29,29 @@ export async function updateHousehold(input: { name: string; currency: string })
   if (!parsed.success) return firstIssue(parsed.error);
   await getDb().update(schema.households).set(parsed.data).where(eq(schema.households.id, auth.householdId));
   return done("Família atualizada.");
+}
+
+/**
+ * Apaga a família e todos os dados dela. Contas de login que não participam de outra família
+ * também são apagadas. Exige digitar o nome da família para confirmar.
+ */
+export async function deleteHousehold(confirmName: string): Promise<ActionResult> {
+  const auth = await requireOwner();
+  if (confirmName.trim() !== auth.householdName.trim()) return fail("O nome digitado não confere.");
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    const members = await tx
+      .select({ userId: schema.memberships.userId })
+      .from(schema.memberships)
+      .where(eq(schema.memberships.householdId, auth.householdId));
+    await tx.delete(schema.households).where(eq(schema.households.id, auth.householdId));
+    for (const m of members) {
+      const [{ n }] = await tx.select({ n: count() }).from(schema.memberships).where(eq(schema.memberships.userId, m.userId));
+      if (n === 0) await tx.delete(schema.users).where(eq(schema.users.id, m.userId));
+    }
+  });
+  await destroySession();
+  redirect("/entrar");
 }
 
 // ---------- Listas configuráveis ----------

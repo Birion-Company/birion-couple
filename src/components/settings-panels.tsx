@@ -7,6 +7,7 @@ import { Copy, Plus, Trash2 } from "lucide-react";
 import {
   addRule,
   createInvite,
+  deleteHousehold,
   deletePreset,
   deleteRule,
   linkMyParticipant,
@@ -302,5 +303,44 @@ export function PresetsPanel({ presets }: { presets: { id: string; name: string 
         </div>
       )}
     </div>
+  );
+}
+
+export function DangerZone({ householdName }: { householdName: string }) {
+  const [pending, start] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  return (
+    <section className="card" aria-labelledby="danger">
+      <h2 id="danger" style={{ marginBottom: 4 }}>Excluir a família</h2>
+      <p className="faint" style={{ marginBottom: 12 }}>
+        Apaga todos os lançamentos, pessoas e configurações desta família. Não dá para desfazer.
+      </p>
+      {!open ? (
+        <button className="btn danger" onClick={() => setOpen(true)}>Excluir a família…</button>
+      ) : (
+        <form
+          className="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            start(async () => {
+              const r = await deleteHousehold(typed);
+              if (r && !r.ok) toastResult(r);
+            });
+          }}
+        >
+          <label className="field">
+            <span>Para confirmar, digite o nome da família: {householdName}</span>
+            <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+          </label>
+          <div className="actions" style={{ justifyContent: "flex-end" }}>
+            <button type="button" className="btn ghost" onClick={() => setOpen(false)} disabled={pending}>Cancelar</button>
+            <button className="btn danger" disabled={pending || typed.trim() !== householdName.trim()}>
+              {pending ? "Excluindo…" : "Excluir para sempre"}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }
