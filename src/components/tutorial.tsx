@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, CircleHelp, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, Check, CircleHelp, X } from "lucide-react";
 
 /**
  * Tour guiado: cada passo leva até a página certa, destaca a área de verdade
@@ -17,6 +17,8 @@ type Step = {
   title: string;
   text: string;
   tip?: string;
+  /** Miniatura de exemplo dentro do balão (funciona mesmo sem dados na conta). */
+  demo?: "people" | "payment" | "settled";
 };
 
 const STEPS: Step[] = [
@@ -28,9 +30,10 @@ const STEPS: Step[] = [
   {
     route: "/ajustes/pessoas",
     targets: ["list-participants"],
-    title: "Cadastre a família",
-    text: "Aqui ficam as pessoas que dividem as contas. Toque em “Adicionar pessoa” para cadastrar mãe, irmão, namorada… Não precisam ter login.",
-    tip: "Para alguém entrar no app, gere um convite em Ajustes → Acesso.",
+    title: "O que é uma pessoa",
+    text: "Pessoa é cada integrante que entra nas contas: quem paga alguma coisa e com quem ela é dividida. As dívidas são sempre entre pessoas.",
+    demo: "people",
+    tip: "Pessoa não é o mesmo que login: sua mãe pode ser uma pessoa sem nunca abrir o app. Quem entra pelo convite (Ajustes → Acesso) vira uma pessoa ligada à própria conta.",
   },
   {
     route: "/transacoes/nova",
@@ -68,13 +71,29 @@ const STEPS: Step[] = [
     route: "/dividas",
     targets: ["debts"],
     title: "Dívidas",
-    text: "Quanto te devem e quanto você deve. Embaixo, o extrato de cada pessoa, com “Registrar pagamento” e “Acertado”.",
+    text: "Aqui você vê quanto te devem e quanto você deve, e, embaixo, o extrato de cada pessoa com tudo o que formou a dívida.",
+  },
+  {
+    route: "/dividas",
+    targets: ["debts-pay"],
+    title: "Registrar pagamento",
+    text: "Use quando o dinheiro passou de verdade de uma pessoa para a outra (Pix, dinheiro, transferência). O app cria um Acerto com o valor e a dívida diminui ou zera.",
+    demo: "payment",
+    tip: "Pagou só uma parte? Troque o valor antes de salvar. O pagamento fica no histórico.",
+  },
+  {
+    route: "/dividas",
+    targets: ["debts-settle"],
+    title: "Acertado",
+    text: "Tira um lançamento específico da conta sem registrar dinheiro nenhum. Use quando aquilo já foi resolvido de outro jeito: foi pago antes de vocês usarem o app, ou combinaram que não precisa pagar.",
+    demo: "settled",
+    tip: "Na dúvida: o dinheiro passou de mão? Registrar pagamento. Só quer tirar da conta? Acertado.",
   },
   {
     route: "/painel",
     targets: ["dash-debts"],
     title: "Quem deve para quem",
-    text: "No painel, este bloco mostra as dívidas em frases simples, com o botão para registrar o pagamento.",
+    text: "No painel, este bloco resume as dívidas em frases simples, como “Clara te deve R$ 30,00”, com o mesmo botão Registrar pagamento.",
   },
   {
     route: "/painel",
@@ -145,6 +164,73 @@ export function HelpButton({ className = "icon-btn help-btn" }: { className?: st
 
 type Box = { top: number; left: number; width: number; height: number };
 
+/** Miniaturas que imitam as telas reais, para explicar mesmo sem dados. */
+function Demo({ kind }: { kind: NonNullable<Step["demo"]> }) {
+  if (kind === "people") {
+    return (
+      <div className="tour-demo" aria-label="Exemplo de pessoas">
+        <div className="tour-demo-row">
+          <span className="tour-demo-avatar">F</span>
+          <span className="grow">Felipe</span>
+          <span className="tour-demo-tag">tem login</span>
+        </div>
+        <div className="tour-demo-row">
+          <span className="tour-demo-avatar">C</span>
+          <span className="grow">Clara</span>
+          <span className="tour-demo-tag">tem login</span>
+        </div>
+        <div className="tour-demo-row">
+          <span className="tour-demo-avatar">M</span>
+          <span className="grow">Mãe</span>
+          <span className="tour-demo-tag muted">sem login</span>
+        </div>
+        <p className="tour-demo-caption">As três podem pagar, dividir e dever. Só quem tem login entra no app.</p>
+      </div>
+    );
+  }
+  if (kind === "payment") {
+    return (
+      <div className="tour-demo" aria-label="Exemplo de Registrar pagamento">
+        <div className="tour-demo-row">
+          <span className="grow">Clara te deve</span>
+          <strong className="pos">R$ 30,00</strong>
+          <span className="tour-demo-btn">Registrar pagamento</span>
+        </div>
+        <p className="tour-demo-arrow">
+          <ArrowDown size={14} /> Clara te mandou R$ 30,00 no Pix
+        </p>
+        <div className="tour-demo-row">
+          <span className="grow">Acerto: Clara pagou para você</span>
+          <strong>R$ 30,00</strong>
+        </div>
+        <div className="tour-demo-row">
+          <span className="grow">Clara te deve</span>
+          <strong>R$ 0,00 ✓</strong>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="tour-demo" aria-label="Exemplo de Acertado">
+      <div className="tour-demo-row">
+        <span className="grow">Mercado (pago antes do app)</span>
+        <strong className="pos">+R$ 30,00</strong>
+        <span className="tour-demo-btn ghost">
+          <Check size={12} /> Acertado
+        </span>
+      </div>
+      <p className="tour-demo-arrow">
+        <ArrowDown size={14} /> marcado como acertado
+      </p>
+      <div className="tour-demo-row">
+        <span className="grow tour-demo-done">Mercado</span>
+        <span className="tour-demo-tag">Acertado · fora da conta</span>
+      </div>
+      <p className="tour-demo-caption">Nenhum pagamento é criado; o lançamento só deixa de contar como dívida.</p>
+    </div>
+  );
+}
+
 export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -204,7 +290,9 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
       const onRightPage = !s.route || pathname === s.route;
       el = onRightPage ? findTarget(s.targets) : null;
       if (el) {
-        el.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
+        // Área alta: rola até o topo, para sobrar espaço para o balão embaixo.
+        const tall = el.getBoundingClientRect().height > window.innerHeight * 0.45;
+        el.scrollIntoView({ block: tall ? "start" : "center", behavior: "instant" as ScrollBehavior });
         requestAnimationFrame(measure);
         window.addEventListener("scroll", onMove, true);
         window.addEventListener("resize", onMove);
@@ -225,6 +313,28 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
       window.removeEventListener("resize", onMove);
     };
   }, [open, key, pathname, s.route, s.targets]);
+
+  // Espaço extra no fim da página enquanto o tour está aberto, para dar para rolar
+  // a área até o topo mesmo em páginas curtas.
+  useEffect(() => {
+    if (!open) return;
+    document.body.classList.add("tour-open");
+    return () => document.body.classList.remove("tour-open");
+  }, [open]);
+
+  // Se o balão não couber nem embaixo nem em cima da área, rola a página para a área subir
+  // e abrir espaço embaixo (uma vez por passo).
+  const nudged = useRef("");
+  useEffect(() => {
+    if (!open || !box || nudged.current === key) return;
+    const vh = window.innerHeight;
+    const fitsBelow = box.top + box.height + 12 + cardSize.h <= vh - 16;
+    const fitsAbove = box.top - 12 - cardSize.h >= 16;
+    if (fitsBelow || fitsAbove) return;
+    if (box.height + cardSize.h + 100 > vh) return;
+    nudged.current = key;
+    window.scrollBy({ top: box.top - 72, behavior: "instant" as ScrollBehavior });
+  }, [open, box, cardSize.h, key]);
 
   // Tamanho do balão, para posicionar sem sair da tela.
   useEffect(() => {
@@ -254,11 +364,19 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
   let cardStyle: CSSProperties;
   if (box) {
     const w = Math.min(380, vw - 32);
+    const h = cardSize.h;
     const left = Math.min(Math.max(16, box.left), vw - w - 16);
     const below = box.top + box.height + 12;
-    const above = box.top - 12 - cardSize.h;
-    const top = below + cardSize.h <= vh - 16 ? below : above >= 16 ? above : Math.max(16, vh - cardSize.h - 16);
-    cardStyle = { position: "fixed", top, left, width: w };
+    const above = box.top - 12 - h;
+    const sideTop = Math.min(Math.max(16, box.top), vh - h - 16);
+    const rightSpace = vw - (box.left + box.width) - 28;
+    const leftSpace = box.left - 28;
+    if (below + h <= vh - 16) cardStyle = { position: "fixed", top: below, left, width: w };
+    else if (above >= 16) cardStyle = { position: "fixed", top: above, left, width: w };
+    else if (rightSpace >= 300) cardStyle = { position: "fixed", top: sideTop, left: box.left + box.width + 12, width: Math.min(w, rightSpace) };
+    else if (leftSpace >= 300) cardStyle = { position: "fixed", top: sideTop, left: Math.max(16, box.left - 12 - Math.min(w, leftSpace)), width: Math.min(w, leftSpace) };
+    // Sem espaço livre (celular com área alta): balão no rodapé, sobre a parte de baixo da área.
+    else cardStyle = { position: "fixed", top: Math.max(16, vh - h - 16), left, width: w };
   } else {
     const w = Math.min(420, vw - 32);
     cardStyle = { position: "fixed", top: Math.max(16, (vh - cardSize.h) / 2), left: (vw - w) / 2, width: w };
@@ -284,6 +402,7 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
         <p id="tour-text" className="tour-text">
           {searching ? "Abrindo…" : s.text}
         </p>
+        {s.demo && !searching && <Demo kind={s.demo} />}
         {s.tip && !searching && <p className="tour-tip">{s.tip}</p>}
         <div className="tour-progress" aria-hidden>
           <span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />

@@ -14,6 +14,7 @@ export function SettleButton({ id, statusId, label }: { id: string; statusId: st
     <button
       type="button"
       className="btn small ghost"
+      data-tour="debts-settle"
       disabled={pending}
       aria-label={`Marcar "${label}" como acertado`}
       onClick={() =>

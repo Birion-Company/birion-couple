@@ -82,6 +82,7 @@ export default async function DebtsPage() {
               {p.net !== 0 && auth.participantId && (
                 <Link
                   className="btn small"
+                  data-tour="debts-pay"
                   href={`/transacoes/nova?acerto=${theyOwe ? p.personId : auth.participantId}.${theyOwe ? auth.participantId : p.personId}.${Math.abs(p.net)}`}
                 >
                   Registrar pagamento

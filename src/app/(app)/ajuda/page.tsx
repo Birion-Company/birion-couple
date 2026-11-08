@@ -13,6 +13,10 @@ const SECTIONS: Section[] = [
     id: "comecar",
     title: "Para começar",
     items: [
+      {
+        term: "O que é uma pessoa",
+        text: "Cada integrante que entra nas contas: quem paga alguma coisa e com quem ela é dividida. As dívidas são sempre entre pessoas. Pessoa não é o mesmo que login: alguém pode ser uma pessoa sem nunca abrir o app; quem entra pelo convite vira uma pessoa ligada à própria conta.",
+      },
       { term: "1. Cadastre as pessoas", text: <>Em <Link href="/ajustes/pessoas">Ajustes → Pessoas</Link>, cadastre quem divide as contas. Não precisam ter login.</> },
       { term: "2. Convide quem vai usar", text: <>Em <Link href="/ajustes/membros">Ajustes → Acesso</Link>, gere um link de convite para cada pessoa que vai entrar no app.</> },
       { term: "3. Lance ou importe", text: <>Registre gastos em <Link href="/transacoes/nova">Novo lançamento</Link> ou traga o extrato do banco em <Link href="/importar">Importar</Link>.</> },
@@ -88,8 +92,15 @@ const SECTIONS: Section[] = [
     items: [
       { term: "Como se formam", text: "Sempre que alguém paga e divide com outras pessoas, ou registra um empréstimo. Acertos abatem." },
       { term: "Parcelas futuras", text: "Só contam quando chega o mês delas. Antes disso aparecem como “a vencer”." },
-      { term: "Registrar pagamento", text: "Cria um acerto com o valor da dívida, que zera (ou diminui) o que uma pessoa deve para a outra." },
-      { term: "Marcar como acertado", text: "Tira um lançamento específico das dívidas, por exemplo quando foi acertado fora do app." },
+      {
+        term: "Registrar pagamento",
+        text: "Use quando o dinheiro passou de verdade de uma pessoa para a outra (Pix, dinheiro, transferência). Cria um Acerto com o valor, que diminui ou zera a dívida. Se a pessoa pagou só uma parte, troque o valor antes de salvar. O pagamento fica no histórico.",
+      },
+      {
+        term: "Acertado",
+        text: "Tira um lançamento específico da conta sem registrar dinheiro. Use quando aquilo já foi resolvido de outro jeito: foi pago antes de vocês usarem o app, ou combinaram que não precisa pagar. O lançamento continua no histórico, só deixa de contar como dívida.",
+      },
+      { term: "Qual usar?", text: "O dinheiro passou de mão? Registrar pagamento. Só quer tirar um item da conta? Acertado." },
     ],
   },
   {
