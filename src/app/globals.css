@@ -2540,7 +2540,20 @@ button.user-menu-item {
   outline: 2px solid var(--brand-strong);
   outline-offset: 0;
   pointer-events: none;
-  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+  /* Desliza de uma área para a outra (e encolhe no centro quando não há área). */
+  transition:
+    top 0.42s var(--tour-ease),
+    left 0.42s var(--tour-ease),
+    width 0.42s var(--tour-ease),
+    height 0.42s var(--tour-ease),
+    outline-color 0.3s ease;
+}
+.tour-spot.empty {
+  outline-color: transparent;
+}
+.tour-layer {
+  --tour-ease: cubic-bezier(0.22, 0.8, 0.26, 1);
+  animation: bf-fade 0.25s ease-out;
 }
 .tour-card {
   z-index: 96;
@@ -2550,7 +2563,20 @@ button.user-menu-item {
   border: 1px solid var(--tile-edge);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
   outline: none;
-  transition: top 0.25s ease, left 0.25s ease;
+  transition:
+    top 0.42s var(--tour-ease),
+    left 0.42s var(--tour-ease),
+    width 0.42s var(--tour-ease);
+}
+/* Texto novo entra com um esmaecimento curto. */
+.tour-body {
+  animation: bf-tour-text 0.28s ease-out;
+}
+@keyframes bf-tour-text {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 .tour-card h2 {
   font-size: 1.05rem;
@@ -2591,7 +2617,7 @@ button.user-menu-item {
   display: block;
   height: 100%;
   background: var(--brand-strong);
-  transition: width 0.25s ease;
+  transition: width 0.42s var(--tour-ease);
 }
 .tour-nav {
   display: flex;
@@ -2603,6 +2629,10 @@ button.user-menu-item {
   .tour-card,
   .tour-progress span {
     transition: none;
+  }
+  .tour-layer,
+  .tour-body {
+    animation: none;
   }
 }
 

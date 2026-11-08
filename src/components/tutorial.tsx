@@ -82,7 +82,7 @@ const STEPS: Step[] = [
   },
   {
     route: "/dividas",
-    targets: ["debts-pay"],
+    targets: ["debts-pay", "debts"],
     title: "Registrar pagamento",
     text: "Use quando o dinheiro passou de verdade de uma pessoa para a outra (Pix, dinheiro, transferência). O app cria um Acerto com o valor e a dívida diminui ou zera.",
     demo: "payment",
@@ -90,7 +90,7 @@ const STEPS: Step[] = [
   },
   {
     route: "/dividas",
-    targets: ["debts-settle"],
+    targets: ["debts-settle", "debts"],
     title: "Acertado",
     text: "Tira um lançamento específico da conta sem registrar dinheiro nenhum. Use quando aquilo já foi resolvido de outro jeito: foi pago antes de vocês usarem o app, ou combinaram que não precisa pagar.",
     demo: "settled",
@@ -257,16 +257,16 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
   const seen = useSyncExternalStore(subscribe, seenSnapshot, () => true);
   const [manual, setManual] = useState(false);
   const [step, setStep] = useState(0);
-  // Resultado da busca da área, carimbado com o passo e a página a que se refere.
-  const [found, setFound] = useState<{ key: string; box: Box | null; done: boolean }>({ key: "", box: null, done: false });
+  // Área destacada na tela. Entre um passo e outro fica a anterior, para o destaque
+  // deslizar até a nova em vez de sumir e reaparecer.
+  const [view, setView] = useState<{ key: string; box: Box | null }>({ key: "", box: null });
   const card = useRef<HTMLDivElement>(null);
   const [cardSize, setCardSize] = useState({ w: 360, h: 240 });
   const open = manual || (autoOpen && !seen);
   const s = STEPS[step];
   const last = STEPS.length - 1;
   const key = `${step}|${pathname}`;
-  const box = found.key === key ? found.box : null;
-  const searching = !!s.targets && !(found.key === key && found.done);
+  const box = view.box;
 
   useEffect(() => {
     const onOpen = () => {
@@ -287,6 +287,12 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
     window.dispatchEvent(new Event(SEEN_EVENT));
   }, []);
 
+  // Pré-carrega as páginas do tour, para a troca de página ser rápida.
+  useEffect(() => {
+    if (!open) return;
+    for (const r of new Set(STEPS.map((x) => x.route).filter(Boolean) as string[])) router.prefetch(r);
+  }, [open, router]);
+
   // Leva até a página do passo.
   useEffect(() => {
     if (open && s.route && pathname !== s.route) router.push(s.route);
@@ -302,7 +308,7 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
     const measure = () => {
       if (!el || !alive) return;
       const r = el.getBoundingClientRect();
-      setFound({ key, box: { top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 }, done: true });
+      setView({ key, box: { top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 } });
     };
     const onMove = () => measure();
     const look = () => {
@@ -312,15 +318,15 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
       if (el) {
         // Área alta: rola até o topo, para sobrar espaço para o balão embaixo.
         const tall = el.getBoundingClientRect().height > window.innerHeight * 0.45;
-        el.scrollIntoView({ block: tall ? "start" : "center", behavior: "instant" as ScrollBehavior });
+        el.scrollIntoView({ block: tall ? "start" : "center", behavior: "smooth" });
         requestAnimationFrame(measure);
         window.addEventListener("scroll", onMove, true);
         window.addEventListener("resize", onMove);
         return;
       }
-      if (!s.targets || (onRightPage && tries++ > 40)) {
-        // Área não existe nesta tela: o balão fica no centro.
-        setFound({ key, box: null, done: true });
+      if (!s.targets || (onRightPage && tries++ > 12)) {
+        // Área não existe nesta tela: o balão vai para o centro.
+        setView({ key, box: null });
         return;
       }
       timer = setTimeout(look, 100);
@@ -353,7 +359,7 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
     if (fitsBelow || fitsAbove) return;
     if (box.height + cardSize.h + 100 > vh) return;
     nudged.current = key;
-    window.scrollBy({ top: box.top - 72, behavior: "instant" as ScrollBehavior });
+    window.scrollBy({ top: box.top - 72, behavior: "smooth" });
   }, [open, box, cardSize.h, key]);
 
   // Tamanho do balão, para posicionar sem sair da tela.
@@ -404,11 +410,11 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
 
   return createPortal(
     <div className="tour-layer" aria-live="polite">
-      {box ? (
-        <div className="tour-spot" style={{ top: box.top, left: box.left, width: box.width, height: box.height }} aria-hidden />
-      ) : (
-        <div className="tour-dim" aria-hidden />
-      )}
+      <div
+        className={`tour-spot${box ? "" : " empty"}`}
+        style={box ? { top: box.top, left: box.left, width: box.width, height: box.height } : { top: vh / 2, left: vw / 2, width: 0, height: 0 }}
+        aria-hidden
+      />
       <div ref={card} tabIndex={-1} className="tour-card" style={cardStyle} role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-text">
         <div className="tour-card-head">
           <span className="tour-count">
@@ -418,12 +424,14 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
             <X size={16} />
           </button>
         </div>
-        <h2 id="tour-title">{s.title}</h2>
-        <p id="tour-text" className="tour-text">
-          {searching ? "Abrindo…" : s.text}
-        </p>
-        {s.demo && !searching && <Demo kind={s.demo} />}
-        {s.tip && !searching && <p className="tour-tip">{s.tip}</p>}
+        <div key={step} className="tour-body">
+          <h2 id="tour-title">{s.title}</h2>
+          <p id="tour-text" className="tour-text">
+            {s.text}
+          </p>
+          {s.demo && <Demo kind={s.demo} />}
+          {s.tip && <p className="tour-tip">{s.tip}</p>}
+        </div>
         <div className="tour-progress" aria-hidden>
           <span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
