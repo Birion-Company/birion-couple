@@ -2,7 +2,8 @@
 // Uso: npm run db:dev   — depois rode o app com NETLIFY_DB_URL apontando para a URL mostrada.
 import { NetlifyDB } from "@netlify/database-dev";
 
-const port = Number(process.env.DB_PORT ?? 54329);
+// 54330 (e não 54329, o padrão): a 54329 costuma estar ocupada por outros Postgres locais, como o do Gartrol.
+const port = Number(process.env.DB_PORT ?? 54330);
 const db = new NetlifyDB({ directory: process.env.DB_DIR ?? ".netlify/dev-db", port, logger: () => {} });
 const url = await db.start();
 const applied = await db.applyMigrations("netlify/database/migrations");
