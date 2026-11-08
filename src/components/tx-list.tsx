@@ -9,8 +9,8 @@ import { deleteTransactions, setTransactionsStatus } from "@/app/actions/transac
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
 import { toastResult } from "./toaster";
-import { amountTone, txMeta } from "./tx-row";
-import { Dot, Money, formatDate } from "./ui";
+import { StatusDot, amountTone, txExplain, txMeta } from "./tx-row";
+import { CategoryIcon, Money, formatDate } from "./ui";
 
 function groupByMonth(rows: TxRow[]) {
   const groups: { key: string; label: string; rows: TxRow[] }[] = [];
@@ -38,7 +38,7 @@ export function TxList({
   lookups: Lookups;
   currency: string;
   /** Quem está vendo: só marca para ações em lote o que pode alterar. */
-  viewer: { userId: string; admin: boolean };
+  viewer: { userId: string; admin: boolean; participantId: string | null };
 }) {
   const canEdit = (r: TxRow) => viewer.admin || r.createdBy === viewer.userId;
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -99,9 +99,8 @@ export function TxList({
             <h2 className="tx-month-label">{g.label}</h2>
             <div className="rows">
               {g.rows.map((tx) => {
-                const { payer, cat, status, project, card, series } = txMeta(tx, lookups);
-                // Uma linha de detalhes só: data · categoria · cartão · projeto · quem pagou.
-                const details = [formatDate(tx.date), cat?.name, card?.name, project?.name, payer ? `pago por ${payer.name}` : null].filter(Boolean).join(" · ");
+                const { cat, status, project, series } = txMeta(tx, lookups);
+                const details = [formatDate(tx.date), cat?.name ?? "Sem categoria", project?.name].filter(Boolean).join(" · ");
                 return (
                   <div key={tx.id} className="row tx-line">
                     <input
@@ -114,13 +113,15 @@ export function TxList({
                       className="tx-check"
                     />
                     <Link href={`/transacoes/${tx.id}`} className="grow tx-line-link">
-                      <Dot color={cat?.color ?? "#CBD5E1"} />
+                      <StatusDot status={status} />
+                      <CategoryIcon icon={cat?.icon} color={cat?.color} title={cat?.name ?? "Sem categoria"} />
                       <div className="grow" style={{ minWidth: 0 }}>
                         <p className="title">
                           {tx.description}
                           {series && <span className="tx-series">{series.replace("Parcela ", "")}</span>}
                         </p>
                         <p className="sub">{details}</p>
+                        <p className="sub tx-explain">{txExplain(tx, lookups, viewer.participantId, currency)}</p>
                       </div>
                       <span className="amount">
                         <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />

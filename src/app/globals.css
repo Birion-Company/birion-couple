@@ -3022,3 +3022,109 @@ button.user-menu-item {
   padding: 0;
   margin: 0;
 }
+
+.cat-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid transparent;
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+}
+.icon-choice {
+  display: grid;
+  place-items: center;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--field-edge);
+  background: var(--field-bg);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.icon-choice.on {
+  border-width: 2px;
+  background: var(--tile-bg);
+}
+
+/* Bolinha de status e frase explicativa nas linhas */
+.status-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+}
+.tx-explain {
+  color: var(--text-2);
+  white-space: normal !important;
+  overflow: visible !important;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.tx-row,
+.tx-line-link {
+  align-items: flex-start;
+}
+.tx-row .status-dot,
+.tx-line-link .status-dot {
+  margin-top: 10px;
+}
+.tx-row .cat-icon,
+.tx-line-link .cat-icon {
+  margin-top: 2px;
+}
+.tx-line .tx-check {
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+/* No celular a explicação ocupa a largura toda, por baixo do valor. */
+@media (max-width: 640px) {
+  .tx-row,
+  .tx-line-link {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    column-gap: 10px;
+    row-gap: 0;
+  }
+  .tx-row > .grow,
+  .tx-line-link > .grow {
+    display: contents;
+  }
+  .tx-row > .status-dot,
+  .tx-line-link > .status-dot {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .tx-row > .cat-icon,
+  .tx-line-link > .cat-icon {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .tx-row .title,
+  .tx-line-link .title {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .tx-row .sub:not(.tx-explain):not(.tx-status),
+  .tx-line-link .sub:not(.tx-explain):not(.tx-status) {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  .tx-row .tx-explain,
+  .tx-line-link .tx-explain {
+    grid-column: 3 / -1;
+    grid-row: 3;
+    margin-top: 4px;
+  }
+  .tx-row > .amount,
+  .tx-line-link > .amount {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+  }
+}

@@ -68,7 +68,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
       <RecurringList items={recurring} currency={auth.currency} />
 
-      <TxList rows={rows} lookups={lookups} currency={auth.currency} viewer={{ userId: auth.userId, admin: auth.role === "owner" }} />
+      <TxList rows={rows} lookups={lookups} currency={auth.currency} viewer={{ userId: auth.userId, admin: auth.role === "owner", participantId: auth.participantId }} />
 
       {(futureCount > 0 || filters.future) && filters.period === "tudo" && (
         <div style={{ textAlign: "center", marginTop: 12 }}>

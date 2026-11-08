@@ -6,6 +6,7 @@ import { parseOfx, normalizeOfxText } from "@/lib/import/ofx";
 import { applyCsvMapping, guessMapping, parseDate, readCsvTable } from "@/lib/import/csv";
 import { externalIds, matchCategory } from "@/lib/import/dedupe";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
+import { explainTx } from "@/lib/explain";
 import { describeImpact } from "@/lib/impact";
 import { dueOccurrences, endOfMonth } from "@/lib/recurring";
 import { addMonthsIso, buildSeries, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, suggestDueDay, todayIn } from "@/lib/cards";
@@ -329,5 +330,29 @@ describe("o que o lançamento muda", () => {
     expect(by(loan, "panel")[0]).toMatch(/Não conta como gasto/);
     const pay = describeImpact({ ...base, kind: "transfer", payerId: "clara", amountCents: 1000, shares: [{ participantId: "eu", cents: 1000 }] });
     expect(by(pay, "debts")).toEqual(["Abate R$ 10,00 do que Clara deve para você."]);
+  });
+});
+
+describe("frase embaixo do lançamento", () => {
+  const base = { kind: "expense", amountCents: 9000, payerId: "f", cardName: null, settled: false, me: "f", names: { f: "Felipe", c: "Clara", m: "Mãe" } };
+  const t = (x: Partial<Parameters<typeof explainTx>[0]>) => explainTx({ ...base, splits: [], ...x }).replace(/ /g, " ");
+  test("despesa paga e dividida, no cartão", () => {
+    expect(t({ cardName: "Nubank", splits: [{ participantId: "f", amountCents: 4500 }, { participantId: "c", amountCents: 4500 }] })).toBe(
+      "Pago por você · no cartão Nubank · quem deve reembolsar: Clara (R$ 45,00)",
+    );
+  });
+  test("conta toda de outra pessoa e já acertada", () => {
+    expect(t({ settled: true, splits: [{ participantId: "m", amountCents: 9000 }] })).toBe("Pago por você · quem deve reembolsar: Mãe (R$ 90,00) · já acertado");
+  });
+  test("só de quem pagou e sem quem pagou", () => {
+    expect(t({ splits: [{ participantId: "f", amountCents: 9000 }] })).toBe("Pago por você · só de você, ninguém precisa reembolsar");
+    expect(t({ payerId: null, splits: [{ participantId: "c", amountCents: 9000 }] })).toBe("Ninguém pagou ainda · quem deve pagar: Clara (R$ 90,00)");
+  });
+  test("empréstimo, acerto e receita", () => {
+    expect(t({ kind: "loan", amountCents: 5000, splits: [{ participantId: "c", amountCents: 5000 }] })).toBe("Emprestado por você · Clara deve devolver R$ 50,00");
+    expect(t({ kind: "transfer", payerId: "c", amountCents: 3000, splits: [{ participantId: "f", amountCents: 3000 }] })).toBe("Clara pagou R$ 30,00 para você (acerto)");
+    expect(t({ kind: "income", amountCents: 4000, splits: [{ participantId: "f", amountCents: 2000 }, { participantId: "c", amountCents: 2000 }] })).toBe(
+      "Recebido por você · deve repassar para Clara (R$ 20,00)",
+    );
   });
 });

@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteListItem, saveListItem, setArchived } from "@/app/actions/settings";
+import { CATEGORY_ICONS, suggestIcon } from "@/lib/category-icons";
 import { FAMILY_PEOPLE_MAX, PALETTE, STATUS_BEHAVIORS } from "@/lib/defaults";
 import { toastResult } from "./toaster";
-import { Avatar, Dot } from "./ui";
+import { Avatar, CategoryIcon, Dot } from "./ui";
 
 type Kind = "participants" | "categories" | "projects" | "statuses";
 
@@ -18,6 +19,7 @@ export type ListItem = {
   behavior?: string;
   isDefault?: boolean;
   isImportDefault?: boolean;
+  icon?: string;
 };
 
 const WORDS: Record<Kind, { one: string; add: string; empty: string }> = {
@@ -56,11 +58,15 @@ function ItemForm({ kind, item, onDone, defaultColor }: { kind: Kind; item: List
   const [behavior, setBehavior] = useState(item?.behavior ?? "pending");
   const [isDefault, setIsDefault] = useState(item?.isDefault ?? false);
   const [isImportDefault, setIsImportDefault] = useState(item?.isImportDefault ?? false);
+  // Categoria: ícone escolhido; enquanto não escolher, sugere pelo nome.
+  const [icon, setIcon] = useState<string | null>(item?.icon ?? null);
+  const shownIcon = icon ?? suggestIcon(name);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const data: Record<string, unknown> = { name, color };
     if (kind === "projects") data.description = description;
+    if (kind === "categories") data.icon = shownIcon;
     if (kind === "statuses") Object.assign(data, { behavior, isDefault, isImportDefault });
     start(async () => {
       const r = await saveListItem(kind, item?.id ?? null, data);
@@ -79,6 +85,29 @@ function ItemForm({ kind, item, onDone, defaultColor }: { kind: Kind; item: List
         <span className="label-text">Cor</span>
         <ColorPicker value={color} onChange={setColor} />
       </div>
+      {kind === "categories" && (
+        <div className="field">
+          <span className="label-text" id="icon-label">Ícone</span>
+          <div className="icon-grid" role="radiogroup" aria-labelledby="icon-label">
+            {CATEGORY_ICONS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={shownIcon === key}
+                aria-label={label}
+                title={label}
+                className={`icon-choice ${shownIcon === key ? "on" : ""}`}
+                style={shownIcon === key ? { color, borderColor: color } : undefined}
+                onClick={() => setIcon(key)}
+              >
+                <Icon size={18} strokeWidth={1.8} />
+              </button>
+            ))}
+          </div>
+          {!icon && <span className="faint">Sugerido pelo nome. Toque em outro para trocar.</span>}
+        </div>
+      )}
       {kind === "projects" && (
         <label className="field">
           <span>Descrição</span>
@@ -140,7 +169,13 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
             <ItemForm key={item.id} kind={kind} item={item} onDone={() => setEditing(null)} />
           ) : (
             <div key={item.id} className="row" style={{ opacity: item.archived ? 0.55 : 1 }}>
-              {kind === "participants" ? <Avatar name={item.name} color={item.color} /> : <Dot color={item.color} />}
+              {kind === "participants" ? (
+                <Avatar name={item.name} color={item.color} />
+              ) : kind === "categories" ? (
+                <CategoryIcon icon={item.icon} color={item.color} />
+              ) : (
+                <Dot color={item.color} />
+              )}
               <div className="grow">
                 <p className="title">{item.name}</p>
                 {(item.description || kind === "statuses" || item.archived) && (

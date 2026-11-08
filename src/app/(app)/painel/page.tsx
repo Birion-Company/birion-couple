@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock3, Inbox, Plus, Upload } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
-import { Avatar, Dot, Money } from "@/components/ui";
+import { Avatar, CategoryIcon, Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { filtersToQuery, parseFilters, PERIODS } from "@/lib/filters";
 import { getDashboard, getDebts, getLookupsFor } from "@/lib/queries";
@@ -149,7 +149,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             ) : (
               <div className="rows">
                 {data.pending.map((t) => (
-                  <TxRowLink key={t.id} tx={t} lookups={lookups} currency={cur} />
+                  <TxRowLink key={t.id} tx={t} lookups={lookups} currency={cur} me={me} />
                 ))}
               </div>
             )}
@@ -169,7 +169,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                   return (
                     <Link key={c.id} href={`/transacoes${filtersToQuery({ ...filters, category: c.id })}`} className="row" style={{ display: "block" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                        <Dot color={color} />
+                        <CategoryIcon icon={cat?.icon} color={color} size={26} />
                         <span className="grow title">{cat?.name ?? "Sem categoria"}</span>
                         <span className="amount"><Money cents={c.cents} currency={cur} /></span>
                         <span className="faint num" style={{ width: 40, textAlign: "right" }}>

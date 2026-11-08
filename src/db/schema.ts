@@ -93,6 +93,8 @@ export const categories = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     name: text().notNull(),
     color: text().notNull().default("#94A3B8"),
+    /** Ícone da categoria (chave de lib/category-icons, ex.: "cart", "home"). */
+    icon: text().notNull().default("tag"),
     sortOrder: integer().notNull().default(0),
     archived: boolean().notNull().default(false),
     createdAt: createdAt(),

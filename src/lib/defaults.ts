@@ -23,14 +23,14 @@ export const DEFAULT_STATUSES = [
 ] as const;
 
 export const DEFAULT_CATEGORIES = [
-  { name: "Mercado", color: "#3BAA7F" },
-  { name: "Moradia", color: "#5B7FDB" },
-  { name: "Transporte", color: "#E0A526" },
-  { name: "Saúde", color: "#E26D5C" },
-  { name: "Lazer", color: "#A77BDB" },
-  { name: "Educação", color: "#1AC4DB" },
-  { name: "Assinaturas", color: "#D46BA3" },
-  { name: "Outros", color: "#94A3B8" },
+  { name: "Mercado", icon: "cart", color: "#3BAA7F" },
+  { name: "Moradia", icon: "home", color: "#5B7FDB" },
+  { name: "Transporte", icon: "car", color: "#E0A526" },
+  { name: "Saúde", icon: "health", color: "#E26D5C" },
+  { name: "Lazer", icon: "party", color: "#A77BDB" },
+  { name: "Educação", icon: "education", color: "#1AC4DB" },
+  { name: "Assinaturas", icon: "tv", color: "#D46BA3" },
+  { name: "Outros", icon: "tag", color: "#94A3B8" },
 ];
 
 /** Paleta suave usada nos seletores de cor e para novas pessoas. */

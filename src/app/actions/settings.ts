@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { requireAuth, requireOwner } from "@/lib/auth";
+import { ICON_KEYS } from "@/lib/category-icons";
 import { FAMILY_FULL_MESSAGE, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { hasRoomForPerson } from "@/lib/household";
 import { destroySession } from "@/lib/session";
@@ -78,7 +79,7 @@ const tables = {
 
 const shapes = {
   participants: z.object({ name: label("a pessoa"), color }),
-  categories: z.object({ name: label("a categoria"), color }),
+  categories: z.object({ name: label("a categoria"), color, icon: z.enum(ICON_KEYS).optional() }),
   projects: z.object({ name: label("o projeto"), color, description: z.string().trim().max(200).optional().nullable() }),
   statuses: z.object({
     name: label("o status"),

@@ -1,3 +1,5 @@
+import { createElement } from "react";
+import { iconFor } from "@/lib/category-icons";
 import { formatMoney } from "@/lib/money";
 
 export function Money({
@@ -51,4 +53,21 @@ export function Dot({ color }: { color: string }) {
 export function formatDate(iso: string, opts: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short" }) {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("pt-BR", opts).replace(".", "");
+}
+
+/** Ícone da categoria num quadradinho com a cor dela; sem categoria, um ícone neutro. */
+export function CategoryIcon({ icon, color, size = 30, title }: { icon?: string | null; color?: string | null; size?: number; title?: string }) {
+  const c = color ?? "#94A3B8";
+  return (
+    <span
+      className="cat-icon"
+      style={{ width: size, height: size, color: c, background: softColor(c, 0.16), borderColor: softColor(c, 0.35) }}
+      title={title}
+      aria-hidden={title ? undefined : true}
+      role={title ? "img" : undefined}
+      aria-label={title}
+    >
+      {createElement(iconFor(icon), { size: Math.round(size * 0.55), strokeWidth: 1.9 })}
+    </span>
+  );
 }
