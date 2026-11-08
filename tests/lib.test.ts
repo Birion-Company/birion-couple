@@ -6,7 +6,7 @@ import { parseOfx, normalizeOfxText } from "@/lib/import/ofx";
 import { applyCsvMapping, guessMapping, parseDate, readCsvTable } from "@/lib/import/csv";
 import { externalIds, matchCategory } from "@/lib/import/dedupe";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
-import { explainTx } from "@/lib/explain";
+import { explainTx, missingInfo } from "@/lib/explain";
 import { describeImpact } from "@/lib/impact";
 import { dueOccurrences, endOfMonth } from "@/lib/recurring";
 import { addMonthsIso, buildSeries, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, suggestDueDay, todayIn } from "@/lib/cards";
@@ -355,4 +355,13 @@ describe("frase embaixo do lançamento", () => {
       "Recebido por você · deve repassar para Clara (R$ 20,00)",
     );
   });
+});
+
+describe("missingInfo (A identificar)", () => {
+  const base = { kind: "expense", categoryId: "cat", payerId: "f", splits: [{ participantId: "f" }] };
+  test("identificado não falta nada", () => expect(missingInfo(base)).toEqual([]));
+  test("importado sem nada", () =>
+    expect(missingInfo({ ...base, categoryId: null, payerId: null, splits: [] })).toEqual(["categoria", "quem pagou", "quem deveria pagar"]));
+  test("receita usa outras palavras", () => expect(missingInfo({ ...base, kind: "income", payerId: null })).toEqual(["quem recebeu"]));
+  test("empréstimo e acerto nunca entram", () => expect(missingInfo({ ...base, kind: "loan", categoryId: null })).toEqual([]));
 });

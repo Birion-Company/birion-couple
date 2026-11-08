@@ -41,6 +41,7 @@ export function TxForm({
   me,
   readOnly = false,
   createdByName,
+  returnTo,
 }: {
   lookups: Lookups;
   currency: string;
@@ -51,6 +52,8 @@ export function TxForm({
   /** Lançamento de outra pessoa: só para ver. */
   readOnly?: boolean;
   createdByName?: string | null;
+  /** Para onde voltar depois de salvar ou excluir (ex.: "/identificar"). */
+  returnTo?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -146,7 +149,7 @@ export function TxForm({
       });
       toastResult(r);
       if (r.ok) {
-        router.push(initial ? "/transacoes" : "/painel");
+        router.push(returnTo ?? (initial ? "/transacoes" : "/painel"));
         router.refresh();
       }
     });
@@ -158,7 +161,7 @@ export function TxForm({
       const r = await deleteTransactions([initial.id]);
       toastResult(r);
       if (r.ok) {
-        router.push("/transacoes");
+        router.push(returnTo ?? "/transacoes");
         router.refresh();
       }
     });
@@ -180,7 +183,7 @@ export function TxForm({
       const r = await deleteSeries(initial.id, scope);
       toastResult(r);
       if (r.ok) {
-        router.push("/transacoes");
+        router.push(returnTo ?? "/transacoes");
         router.refresh();
       }
     });

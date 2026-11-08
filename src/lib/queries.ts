@@ -133,6 +133,30 @@ export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, 
   return { rows: await attachSplits(rows as Omit<TxRow, "splits">[]), count, total, futureCount: future[0].n };
 }
 
+/**
+ * "A identificar": despesas e receitas até hoje sem categoria, sem quem pagou
+ * ou sem quem deveria pagar. Não confundir com o status "Pendente" (pagamento).
+ */
+function unidentifiedWhere(viewer: Viewer): SQL {
+  return txScope(
+    viewer,
+    inArray(t.kind, ["expense", "income"]),
+    lte(t.date, todayIn()),
+    or(isNull(t.categoryId), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
+  );
+}
+
+export async function listUnidentified(viewer: Viewer, limit = 300) {
+  await ensureRecurring(viewer.householdId);
+  const rows = await getDb().select(txColumns).from(t).where(unidentifiedWhere(viewer)).orderBy(desc(t.date), desc(t.createdAt)).limit(limit);
+  return attachSplits(rows as Omit<TxRow, "splits">[]);
+}
+
+export async function countUnidentified(viewer: Viewer): Promise<number> {
+  const [{ n }] = await getDb().select({ n: sql<number>`count(*)::int` }).from(t).where(unidentifiedWhere(viewer));
+  return n;
+}
+
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();
@@ -151,7 +175,7 @@ export async function getDashboard(viewer: Viewer, f: Filters, lookups: Lookups)
   const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
   const behavior = (r: TxRow) => (r.statusId ? behaviorOf.get(r.statusId) ?? null : null);
 
-  // Pendências são contas a resolver: só despesas (somar receitas junto confundiria o total).
+  // Pendentes são contas ainda não pagas: só despesas (somar receitas junto confundiria o total).
   const today = todayIn();
   const pending = rows.filter((r) => r.kind === "expense" && behavior(r) === "pending" && r.date <= today);
   const pendingTotal = pending.reduce((a, r) => a + r.amountCents, 0);

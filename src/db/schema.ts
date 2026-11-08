@@ -137,7 +137,7 @@ export const projects = pgTable(
 
 /**
  * Status configuráveis. O "behavior" diz o que o status significa para os saldos:
- * - pending: ainda não foi pago; aparece em Pendências e não entra no saldo.
+ * - pending: ainda não foi pago; aparece em Pendentes e não entra no saldo.
  * - open: alguém pagou e os outros ainda devem; entra no saldo.
  * - settled: já foi acertado (reembolsado); não entra no saldo.
  */

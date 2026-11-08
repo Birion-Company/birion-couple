@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Inbox, Pencil, X } from "lucide-react";
 import { BulkEditDialog } from "./bulk-edit";
 import { deleteTransactions, setTransactionsStatus } from "@/app/actions/transactions";
+import { missingInfo } from "@/lib/explain";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
 import { toastResult } from "./toaster";
@@ -33,8 +34,13 @@ export function TxList({
   lookups,
   currency,
   viewer,
+  showMissing = false,
+  emptyText = "Nenhum lançamento com esses filtros.",
 }: {
   rows: TxRow[];
+  /** Mostra o que falta preencher (página "A identificar"). */
+  showMissing?: boolean;
+  emptyText?: string;
   lookups: Lookups;
   currency: string;
   /** Quem está vendo: só marca para ações em lote o que pode alterar. */
@@ -66,7 +72,7 @@ export function TxList({
       <div className="card">
         <div className="empty">
           <Inbox size={36} strokeWidth={1.2} />
-          Nenhum lançamento com esses filtros.
+          {emptyText}
         </div>
       </div>
     );
@@ -112,7 +118,7 @@ export function TxList({
                       onChange={() => toggle(tx.id)}
                       className="tx-check"
                     />
-                    <Link href={`/transacoes/${tx.id}`} className="grow tx-line-link">
+                    <Link href={`/transacoes/${tx.id}${showMissing ? "?voltar=identificar" : ""}`} className="grow tx-line-link">
                       <StatusDot status={status} />
                       <CategoryIcon icon={cat?.icon} color={cat?.color} title={cat?.name ?? "Sem categoria"} />
                       <div className="grow" style={{ minWidth: 0 }}>
@@ -122,6 +128,11 @@ export function TxList({
                         </p>
                         <p className="sub">{details}</p>
                         <TxExplain tx={tx} lookups={lookups} me={viewer.participantId} currency={currency} />
+                        {showMissing && missingInfo(tx).length > 0 && (
+                          <p className="missing-line">
+                            <span className="missing-chip">Falta: {missingInfo(tx).join(", ")}</span>
+                          </p>
+                        )}
                       </div>
                       <span className="amount">
                         <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />

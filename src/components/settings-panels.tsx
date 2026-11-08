@@ -41,7 +41,7 @@ const TABS = [
   {
     href: "/ajustes/status",
     label: "Status",
-    help: "Em que pé está cada lançamento. O que conta é o significado: só “Acertado” tira o lançamento das dívidas; “Pendente” ainda aparece na lista de Pendências do painel.",
+    help: "Em que pé está cada lançamento. O que conta é o significado: só “Acertado” tira o lançamento das dívidas; “Pendente” ainda aparece em Pendentes no painel.",
   },
   {
     href: "/ajustes/membros",

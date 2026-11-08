@@ -3,7 +3,7 @@ import { formatMoney, splitEqually } from "./money";
 
 /**
  * "O que este lançamento muda": descreve, em frases, o efeito de um lançamento em cada parte do app,
- * seguindo as mesmas regras do cálculo de verdade (dívidas, faturas, painel, pendências).
+ * seguindo as mesmas regras do cálculo de verdade (dívidas, faturas, painel, pendentes).
  */
 export type ImpactInput = {
   kind: "expense" | "income" | "loan" | "transfer";
@@ -103,9 +103,9 @@ export function describeImpact(i: ImpactInput): Impact[] {
   if (i.date > i.today) panel.push("A data é futura: só aparece no painel quando o mês chegar.");
   out.push({ area: "panel", title: "Painel", lines: panel, href: "/painel" });
 
-  // ---------- Pendências ----------
+  // ---------- Pendentes ----------
   if (i.kind === "expense" && i.statusBehavior === "pending") {
-    out.push({ area: "pending", title: "Pendências", lines: ["Fica na lista de Pendências do painel até o status mudar para pago ou acertado."], href: "/painel" });
+    out.push({ area: "pending", title: "Pendentes", lines: ["Fica em Pendentes (ainda não pagos) no painel até o status mudar para pago ou acertado."], href: "/painel" });
   }
   return out;
 }

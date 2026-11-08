@@ -115,6 +115,13 @@ const STEPS: Step[] = [
     text: "Traga o OFX ou CSV do banco, inclusive a fatura do cartão. O que já foi importado não se repete, e o pagamento da fatura vem desmarcado.",
   },
   {
+    route: "/identificar",
+    targets: ["identify-list", "nav-identify"],
+    title: "A identificar",
+    text: "O que chega sem categoria, sem quem pagou ou sem quem deveria pagar (como o extrato importado) cai aqui. Abra um ou marque vários e use Editar em lote; quando estiver completo, sai da lista.",
+    tip: "Não confunda com o status Pendente: esse diz só se a conta já foi paga.",
+  },
+  {
     targets: ["help"],
     title: "Sempre que precisar",
     text: "Este botão ? abre o tour de novo. Para os detalhes de cada parte, veja Como funciona no menu com o seu nome.",

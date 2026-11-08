@@ -48,3 +48,16 @@ export function explainTx(i: ExplainInput): string {
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * O que falta para um lançamento estar identificado (vai para "A identificar").
+ * Não tem a ver com o status "Pendente", que é de pagamento.
+ */
+export function missingInfo(i: { kind: string; categoryId: string | null; payerId: string | null; splits: { participantId: string }[] }): string[] {
+  if (i.kind !== "expense" && i.kind !== "income") return [];
+  const out: string[] = [];
+  if (!i.categoryId) out.push("categoria");
+  if (!i.payerId) out.push(i.kind === "income" ? "quem recebeu" : "quem pagou");
+  if (i.splits.length === 0) out.push(i.kind === "income" ? "de quem é" : "quem deveria pagar");
+  return out;
+}

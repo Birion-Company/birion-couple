@@ -4,7 +4,7 @@ import type { Impact, ImpactArea } from "@/lib/impact";
 
 const ICON: Record<ImpactArea, LucideIcon> = { debts: HandCoins, card: CreditCard, panel: LayoutGrid, pending: Clock3 };
 
-/** Quadro "O que este lançamento muda": o efeito em dívidas, fatura, painel e pendências. */
+/** Quadro "O que este lançamento muda": o efeito em dívidas, fatura, painel e pendentes. */
 export function ImpactBox({ impact }: { impact: Impact[] | null }) {
   return (
     <section className="impact" aria-labelledby="impact-title" aria-live="polite" data-tour="tx-impact">

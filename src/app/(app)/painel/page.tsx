@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock3, Inbox, Plus, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Inbox, Plus, ScanSearch, Upload } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
 import { Avatar, CategoryIcon, Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { filtersToQuery, parseFilters, PERIODS } from "@/lib/filters";
-import { getDashboard, getDebts, getLookupsFor } from "@/lib/queries";
+import { countUnidentified, getDashboard, getDebts, getLookupsFor } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Painel" };
 
@@ -16,7 +16,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   // O painel abre no mês atual (o que importa agora); "Todo o período" continua no filtro.
   const filters = parseFilters(sp, "mes");
   const lookups = await getLookupsFor(auth);
-  const [data, debts] = await Promise.all([getDashboard(auth, filters, lookups), getDebts(auth, lookups)]);
+  const [data, debts, toIdentify] = await Promise.all([getDashboard(auth, filters, lookups), getDebts(auth, lookups), countUnidentified(auth)]);
   const cur = auth.currency;
 
   const people = new Map(lookups.participants.map((p) => [p.id, p]));
@@ -51,6 +51,21 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           Conta criada. Próximos passos: cadastre as pessoas em <Link href="/ajustes/pessoas" className="pos">Ajustes → Pessoas</Link>,
           depois registre um gasto ou importe um extrato. Categorias, status e projetos também são todos editáveis em Ajustes.
         </div>
+      )}
+
+      {toIdentify > 0 && (
+        <Link href="/identificar" className="identify-banner">
+          <ScanSearch size={20} strokeWidth={1.7} aria-hidden />
+          <span className="grow">
+            <strong>
+              {toIdentify} {toIdentify === 1 ? "lançamento" : "lançamentos"} a identificar
+            </strong>
+            <span className="faint"> · falta dizer a categoria, quem pagou ou quem deveria pagar</span>
+          </span>
+          <span className="identify-go">
+            Identificar <ArrowRight size={14} style={{ verticalAlign: -2 }} />
+          </span>
+        </Link>
       )}
 
       <section className="card debts" aria-labelledby="dividas" data-tour="dash-debts">
@@ -113,9 +128,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           <p className="hint">em receitas</p>
         </div>
         <Link className="stat" href={`/transacoes${filtersToQuery({ ...filters, status: pendingStatus?.id ?? null })}`}>
-          <p className="label">Pendências</p>
+          <p className="label">Pendentes</p>
           <p className="value"><Money cents={data.pendingTotal} currency={cur} /></p>
-          <p className="hint">{data.pendingCount} {data.pendingCount === 1 ? "lançamento" : "lançamentos"}</p>
+          <p className="hint">{data.pendingCount} {data.pendingCount === 1 ? "conta ainda não paga" : "contas ainda não pagas"}</p>
         </Link>
       </div>
 
@@ -134,7 +149,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         <div className="grid grid-2 section">
           <section className="card" aria-labelledby="pend">
             <div className="card-head">
-              <h2 id="pend">Pendências</h2>
+              <h2 id="pend">Pendentes (ainda não pagos)</h2>
               {data.pendingCount > 0 && (
                 <Link href={`/transacoes${filtersToQuery({ ...filters, status: pendingStatus?.id ?? null })}`}>
                   Ver todas <ArrowRight size={13} style={{ verticalAlign: -2 }} />
@@ -144,7 +159,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             {data.pending.length === 0 ? (
               <div className="empty">
                 <Clock3 size={30} strokeWidth={1.2} />
-                Nada pendente.
+                Nenhuma conta esperando pagamento.
               </div>
             ) : (
               <div className="rows">

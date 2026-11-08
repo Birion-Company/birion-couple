@@ -9,7 +9,7 @@ import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
 import { getActivityFeed } from "@/lib/activity";
 import { getCardAlerts } from "@/lib/card-queries";
-import { getLookups } from "@/lib/queries";
+import { countUnidentified, getLookups } from "@/lib/queries";
 
 function Brand() {
   return (
@@ -28,12 +28,12 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
   const lookups = await getLookups(auth.householdId);
-  const [alerts, activity] = await Promise.all([getCardAlerts(auth), getActivityFeed(auth, lookups, auth.currency)]);
+  const [alerts, activity, toIdentify] = await Promise.all([getCardAlerts(auth), getActivityFeed(auth, lookups, auth.currency), countUnidentified(auth)]);
   return (
     <div className="shell">
       <aside className="sidebar">
         <Brand />
-        <SideNav />
+        <SideNav toIdentify={toIdentify} />
         <div className="side-foot">
           <UserMenu name={auth.userName} household={auth.householdName} avatarUrl={avatarUrl} />
           <div className="theme-row">
@@ -63,7 +63,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="main">{children}</main>
       </div>
-      <BottomNav />
+      <BottomNav toIdentify={toIdentify} />
       <Tutorial />
       {/* Um popup por vez: primeiro o que mudou; o aviso de fatura aparece depois do "Entendi". */}
       {activity.length > 0 ? <ActivityPopup items={activity} /> : <CardAlerts alerts={alerts} currency={auth.currency} />}

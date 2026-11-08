@@ -9,9 +9,10 @@ export const metadata: Metadata = { title: "Editar lançamento" };
 
 const SOURCES: Record<string, string> = { manual: "lançado à mão", ofx: "importado de OFX", csv: "importado de CSV" };
 
-export default async function EditTransactionPage({ params }: PageProps<"/transacoes/[id]">) {
+export default async function EditTransactionPage({ params, searchParams }: PageProps<"/transacoes/[id]">) {
   const auth = await requireAuth();
   const { id } = await params;
+  const returnTo = (await searchParams).voltar === "identificar" ? "/identificar" : undefined;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const [lookups, tx, members] = await Promise.all([getLookupsFor(auth), getTransaction(auth, id), getMembers(auth.householdId)]);
   // Quem não está envolvido nem administra a família não vê: 404, como se não existisse.
@@ -27,7 +28,7 @@ export default async function EditTransactionPage({ params }: PageProps<"/transa
         </div>
       </div>
       <div className="card">
-        <TxForm lookups={lookups} currency={auth.currency} initial={tx} defaultStatusId={null} me={auth.participantId} readOnly={!canEdit} createdByName={createdByName} />
+        <TxForm lookups={lookups} currency={auth.currency} initial={tx} defaultStatusId={null} me={auth.participantId} readOnly={!canEdit} createdByName={createdByName} returnTo={returnTo} />
       </div>
     </div>
   );

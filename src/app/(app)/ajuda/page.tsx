@@ -27,9 +27,10 @@ const SECTIONS: Section[] = [
     id: "secoes",
     title: "As seções do app",
     items: [
-      { term: "Painel", text: "Resumo: quem deve para quem, gastos e entradas do período, pendências, gastos por categoria e últimos lançamentos. Os filtros (período, pessoa, categoria…) mudam tudo, menos o bloco de dívidas." },
+      { term: "Painel", text: "Resumo: quem deve para quem, gastos e entradas do período, contas pendentes (ainda não pagas), gastos por categoria e um aviso quando há lançamentos a identificar. Os filtros (período, pessoa, categoria…) mudam tudo, menos o bloco de dívidas." },
       { term: "Lançamentos", text: "A lista de tudo que foi registrado, agrupada por mês, com busca e filtros. Dá para selecionar vários e mudar status, categoria ou projeto de uma vez. Também mostra o que se repete todo mês." },
       { term: "Novo lançamento", text: "Onde se registra uma despesa, receita, empréstimo ou acerto, com divisão entre pessoas, cartão e repetição." },
+      { term: "A identificar", text: "Lançamentos que ainda não dizem a categoria, quem pagou ou quem deveria pagar (por exemplo, vindos de um extrato). Abra um ou edite vários de uma vez; quando tudo estiver preenchido, ele sai de lá. Não é o mesmo que o status Pendente, que diz se a conta já foi paga." },
       { term: "Dívidas", text: "Quanto cada pessoa te deve ou você deve, com o extrato do que gerou cada dívida e os botões para registrar pagamento ou marcar como acertado." },
       { term: "Cartões", text: "Cada cartão com a fatura aberta, o próximo vencimento, as próximas faturas, a parte de cada pessoa e os parcelados em andamento." },
       { term: "Importar", text: "Traz lançamentos de um arquivo OFX ou CSV do banco, sem repetir o que já foi importado." },
@@ -63,9 +64,9 @@ const SECTIONS: Section[] = [
     title: "Status",
     intro: "Os nomes podem ser os que a família quiser; o que vale é o significado de cada um.",
     items: [
-      { term: "Pendente", text: "Ainda falta resolver. Aparece em Pendências no painel. Se alguém já pagou e dividiu, os outros já aparecem devendo." },
-      { term: "Pago, a acertar", text: "Alguém já pagou e os outros vão acertar a parte deles. Conta nas dívidas, mas sai de Pendências." },
-      { term: "Acertado", text: "Já foi reembolsado ou acertado. Sai das dívidas e de Pendências." },
+      { term: "Pendente", text: "A conta ainda não foi paga. Aparece em Pendentes no painel. Se alguém já pagou e dividiu, os outros já aparecem devendo." },
+      { term: "Pago, a acertar", text: "Alguém já pagou e os outros vão acertar a parte deles. Conta nas dívidas, mas sai de Pendentes." },
+      { term: "Acertado", text: "Já foi reembolsado ou acertado. Sai das dívidas e de Pendentes." },
     ],
   },
   {
@@ -128,12 +129,12 @@ const SECTIONS: Section[] = [
 
 /** Causa → efeitos: como uma ação mexe nas outras partes do app. */
 const CONNECTIONS: { cause: string; effects: string[] }[] = [
-  { cause: "Despesa paga e dividida", effects: ["Dívidas: cada pessoa passa a dever a parte dela para quem pagou", "Painel: soma em Gastos e na categoria", "Pendências: entra se o status for pendente"] },
+  { cause: "Despesa paga e dividida", effects: ["Dívidas: cada pessoa passa a dever a parte dela para quem pagou", "Painel: soma em Gastos e na categoria", "Pendentes: entra se o status for Pendente"] },
   { cause: "Compra no cartão", effects: ["Fatura do dono do cartão, no mês certo pelo dia de fechamento", "A fatura mostra a parte de cada pessoa", "Aviso perto do fechamento e do vencimento"] },
   { cause: "Parcelado ou todo mês", effects: ["Um lançamento por mês", "Uma parcela em cada fatura", "Cada parcela só vira dívida no mês dela"] },
   { cause: "Empréstimo", effects: ["Dívidas: quem pegou emprestado deve o valor todo", "Não conta como gasto nem entrada"] },
   { cause: "Registrar pagamento", effects: ["Cria um Acerto que diminui ou zera a dívida", "O pagamento fica no histórico"] },
-  { cause: "Marcar como acertado", effects: ["Sai das Dívidas e das Pendências", "Nenhum dinheiro é registrado"] },
+  { cause: "Marcar como acertado", effects: ["Sai das Dívidas e de Pendentes", "Nenhum dinheiro é registrado"] },
   { cause: "Alguém muda algo que te envolve", effects: ["Aviso “O que mudou” na sua próxima visita"] },
 ];
 
