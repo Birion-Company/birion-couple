@@ -264,7 +264,7 @@ export function TxForm({
       <fieldset className="tx-fieldset" disabled={readOnly}>
       <div className="tx-cols">
         <div className="tx-col" role="group" aria-label="O lançamento">
-          <div className="segmented" role="group" aria-label="Tipo">
+          <div className="segmented" role="group" aria-label="Tipo" data-tour="tx-kind">
             {([
               ["expense", "Despesa"],
               ["income", "Receita"],
@@ -332,7 +332,7 @@ export function TxForm({
 
           {!between &&
             (cards.length > 0 ? (
-              <label className="field">
+              <label className="field" data-tour="tx-card">
                 <span>Cartão de crédito</span>
                 <Select
                   value={cardId}
@@ -346,7 +346,7 @@ export function TxForm({
               </label>
             ) : (
               kind === "expense" && !readOnly && (
-                <p className="faint card-cta">
+                <p className="faint card-cta" data-tour="tx-card">
                   <CreditCard size={15} strokeWidth={1.7} aria-hidden /> Pagou no cartão de crédito?{" "}
                   <Link href="/cartoes" className="pos">Cadastre o cartão</Link> para acompanhar a fatura.
                 </p>
@@ -354,7 +354,7 @@ export function TxForm({
             ))}
 
           {!initial && !between && (
-            <div className="field">
+            <div className="field" data-tour="tx-repeat">
               <span className="label-text">Repetição</span>
               <div className="segmented" role="group" aria-label="Repetição">
                 {([
@@ -431,7 +431,7 @@ export function TxForm({
               )}
             </div>
           ) : (
-            <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
+            <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }} data-tour="tx-split">
               <legend className="label-text" style={{ marginBottom: 6 }}>
                 {kind === "income" ? "De quem é esse dinheiro" : "Dividir entre"}
               </legend>

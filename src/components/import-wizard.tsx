@@ -158,6 +158,7 @@ export function ImportWizard({
 
       <div
         className="card"
+        data-tour="import-file"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();

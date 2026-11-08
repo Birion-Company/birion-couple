@@ -4,6 +4,7 @@ import { ActivityPopup } from "@/components/activity-popup";
 import { CardAlerts } from "@/components/card-alerts";
 import { BottomNav, SideNav } from "@/components/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { HelpButton, Tutorial } from "@/components/tutorial";
 import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
 import { getActivityFeed } from "@/lib/activity";
@@ -41,6 +42,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
                 <LogOut size={16} strokeWidth={1.8} /> Sair
               </button>
             </form>
+            <HelpButton className="icon-btn theme-btn help-btn" />
             <ThemeToggle className="icon-btn theme-btn" />
           </div>
         </div>
@@ -49,6 +51,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <header className="topbar">
           <Brand />
           <span className="spacer" />
+          <HelpButton />
           <ThemeToggle />
           <UserMenu name={auth.userName} avatarUrl={avatarUrl} compact />
           <form action={logout}>
@@ -61,6 +64,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <main className="main">{children}</main>
       </div>
       <BottomNav />
+      <Tutorial />
       {/* Um popup por vez: primeiro o que mudou; o aviso de fatura aparece depois do "Entendi". */}
       {activity.length > 0 ? <ActivityPopup items={activity} /> : <CardAlerts alerts={alerts} currency={auth.currency} />}
     </div>

@@ -36,7 +36,7 @@ export default async function DebtsPage() {
       </div>
 
       {auth.participantId && (
-        <div className="stats debts-stats">
+        <div className="stats debts-stats" data-tour="debts">
           <div className="stat">
             <p className="label">Te devem</p>
             <p className="value pos"><Money cents={owedToMe} currency={cur} /></p>

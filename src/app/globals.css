@@ -2511,3 +2511,88 @@ button.user-menu-item {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Tutorial (tour guiado) ---------- */
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+}
+.tour-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 18, 0.62);
+}
+/* Recorte em volta da área destacada: a sombra gigante escurece todo o resto. */
+.tour-spot {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(2, 8, 18, 0.62);
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 0;
+  pointer-events: none;
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+.tour-card {
+  z-index: 96;
+  padding: 16px 18px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--tile-edge);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+  outline: none;
+  transition: top 0.25s ease, left 0.25s ease;
+}
+.tour-card h2 {
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+}
+.tour-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.tour-count {
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+.tour-close {
+  width: 30px;
+  height: 30px;
+}
+.tour-text {
+  color: var(--text-2);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+.tour-tip {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--brand-strong);
+}
+.tour-progress {
+  height: 4px;
+  margin: 14px 0 12px;
+  border-radius: 4px;
+  background: var(--field-edge);
+  overflow: hidden;
+}
+.tour-progress span {
+  display: block;
+  height: 100%;
+  background: var(--brand-strong);
+  transition: width 0.25s ease;
+}
+.tour-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot,
+  .tour-card,
+  .tour-progress span {
+    transition: none;
+  }
+}

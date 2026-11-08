@@ -132,7 +132,7 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
   const act = (fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) => start(async () => toastResult(await fn()));
 
   return (
-    <div className="card">
+    <div className="card" data-tour={`list-${kind}`}>
       {visible.length === 0 && editing !== "new" && <div className="empty">{w.empty}</div>}
       <div className="rows">
         {visible.map((item) =>

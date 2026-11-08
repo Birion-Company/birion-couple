@@ -56,7 +56,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         </div>
       )}
 
-      <section className="card debts" aria-labelledby="dividas">
+      <section className="card debts" aria-labelledby="dividas" data-tour="dash-debts">
         <div className="card-head">
           <h2 id="dividas">Quem deve para quem</h2>
           <div className="actions">
@@ -116,6 +116,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         </p>
       </section>
 
+      <div data-tour="dash-filters">
       <FilterBar
         filters={filters}
         participants={lookups.participants}
@@ -124,6 +125,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         statuses={lookups.statuses}
         cards={lookups.cards}
       />
+      </div>
 
       <div className="stats">
         <div className="stat">

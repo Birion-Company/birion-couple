@@ -93,9 +93,10 @@ export default async function CardsPage() {
         {active.length > 0 && <NewCard startOpen={false} />}
       </div>
 
+      <div data-tour="cards">
       {active.length === 0 && (
         <>
-          <div className="notice" style={{ marginBottom: 16 }}>
+          <div className="notice" style={{ marginBottom: 16 }} data-tour="cards-intro">
             <CreditCard size={16} strokeWidth={1.7} style={{ verticalAlign: -3, marginRight: 6 }} aria-hidden />
             Cadastre um cartão com o dia em que a fatura fecha. O vencimento é sugerido na hora, e o app avisa quando o fechamento ou o
             vencimento estiver chegando. Depois é só escolher o cartão ao lançar uma compra, inclusive parcelada.
@@ -123,7 +124,7 @@ export default async function CardsPage() {
             </div>
           }
         >
-          <div className="card-stats">
+          <div className="card-stats" data-tour="cards-stats">
             <div className="card-stat">
               <p className="label">Fatura aberta · {monthLabel(s.open)}</p>
               <p className="value"><Money cents={openTotal} currency={cur} /></p>
@@ -175,6 +176,8 @@ export default async function CardsPage() {
           )}
         </CardPanel>
       ))}
+
+      </div>
 
       {archived.length > 0 && (
         <section className="card section" aria-label="Cartões arquivados">
