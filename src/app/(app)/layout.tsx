@@ -40,9 +40,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <header className="topbar">
           <Brand />
           <span className="spacer" />
-          <div className="wb-group" role="group" aria-label="Notificações, ajuda e tema">
+          <div className="wb-group" role="group" aria-label="Notificações e tema">
             <BellButton />
-            <HelpButton />
             <ThemeToggle />
           </div>
           <span className="wb-user">
@@ -52,6 +51,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <main className="main">{children}</main>
       </div>
       <BottomNav toIdentify={toIdentify} />
+      {/* Ajuda sempre à mão: botão redondo no canto inferior direito. */}
+      <HelpButton className="help-fab" />
       <Tutorial />
       {/* Sino: avisos de fatura e o que a família fez; procura novidades sozinho. */}
       <NotificationCenter initial={activity} cardAlerts={alerts} currency={auth.currency} />

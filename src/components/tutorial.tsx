@@ -177,7 +177,7 @@ export function HelpButton({ className = "icon-btn help-btn" }: { className?: st
       aria-label="Tutorial: como usar o app"
       title="Tutorial: como usar o app"
     >
-      <CircleHelp size={18} strokeWidth={1.8} />
+      <CircleHelp size={className.includes("help-fab") ? 24 : 18} strokeWidth={1.8} />
     </button>
   );
 }

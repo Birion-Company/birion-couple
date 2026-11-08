@@ -3550,3 +3550,58 @@ button.user-menu-item {
   margin: 4px 6px;
   background: var(--line);
 }
+
+/* Botão "?" flutuante no canto inferior direito. */
+.help-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--brand) 55%, transparent);
+  background: var(--brand);
+  color: var(--navy);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.help-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+}
+.help-fab:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 3px;
+}
+/* O aviso de notificação aparece logo acima do "?". */
+.live-toast {
+  bottom: 80px;
+}
+@media (max-width: 899px) {
+  .help-fab {
+    right: 16px;
+    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 14px);
+    width: 44px;
+    height: 44px;
+  }
+  .live-toast {
+    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 70px);
+  }
+}
+@media print {
+  .help-fab {
+    display: none;
+  }
+}
+.main {
+  padding-bottom: calc(var(--nav-h) + 84px + env(safe-area-inset-bottom));
+}
+@media (min-width: 900px) {
+  .main {
+    padding-bottom: 96px;
+  }
+}
