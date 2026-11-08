@@ -59,9 +59,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
       <section className="card debts" aria-labelledby="dividas">
         <div className="card-head">
           <h2 id="dividas">Quem deve para quem</h2>
-          <Link className="btn small" href="/transacoes/nova?tipo=emprestimo">
-            <HandCoins size={15} strokeWidth={1.7} /> Registrar empréstimo
-          </Link>
+          <div className="actions">
+            <Link className="btn small ghost" href="/dividas">
+              Ver detalhes <ArrowRight size={13} />
+            </Link>
+            <Link className="btn small" href="/transacoes/nova?tipo=emprestimo">
+              <HandCoins size={15} strokeWidth={1.7} /> Registrar empréstimo
+            </Link>
+          </div>
         </div>
         {debtLines.length === 0 ? (
           <p className="debts-empty">

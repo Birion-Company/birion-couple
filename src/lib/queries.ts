@@ -2,8 +2,9 @@ import "server-only";
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { isAdmin, txScope, type Viewer } from "./access";
-import { computeBalances, pairwiseFor, pairwiseSettlements, suggestSettlements, type StatusBehavior, type TransactionKind } from "./balances";
+import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type StatusBehavior, type TransactionKind } from "./balances";
 import type { Filters } from "./filters";
+import { todayIn } from "./cards";
 import { ensureRecurring } from "./recurring-server";
 
 const t = schema.transactions;
@@ -178,7 +179,8 @@ export async function getDebts(viewer: Viewer, lookups: Lookups) {
   await ensureRecurring(viewer.householdId);
   const db = getDb();
   const rows = await attachSplits(
-    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId)))) as Omit<TxRow, "splits">[],
+    // Parcelas e meses futuros ainda não viraram dívida.
+    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, todayIn())))) as Omit<TxRow, "splits">[],
   );
   const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
   const input = rows.map((r) => ({ ...r, behavior: r.statusId ? behaviorOf.get(r.statusId) ?? null : null }));
@@ -189,6 +191,62 @@ export async function getDebts(viewer: Viewer, lookups: Lookups) {
   const net = pairwiseFor(viewer.participantId, input);
   const mine = [...net.values()].reduce((a, v) => a + v, 0);
   return { balances: new Map([[viewer.participantId, mine]]), settlements: pairwiseSettlements(viewer.participantId, net), whole: false };
+}
+
+export type LedgerEntry = { tx: TxRow; effect: number };
+export type LedgerPerson = { personId: string; net: number; entries: LedgerEntry[]; upcoming: number; upcomingCount: number };
+
+/**
+ * Página Dívidas: o extrato entre quem está vendo e cada pessoa (o que cada lançamento
+ * em aberto soma ou abate) e, para quem administra, as dívidas entre as outras pessoas.
+ */
+export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
+  await ensureRecurring(viewer.householdId);
+  const db = getDb();
+  const rows = await attachSplits(
+    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId))).orderBy(desc(t.date), desc(t.createdAt))) as Omit<TxRow, "splits">[],
+  );
+  const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
+  const withBehavior = rows.map((r) => ({ tx: r, input: { ...r, behavior: r.statusId ? behaviorOf.get(r.statusId) ?? null : null } }));
+  const me = viewer.participantId;
+  const today = todayIn();
+
+  const people = new Map<string, LedgerPerson>();
+  if (me) {
+    for (const { tx, input } of withBehavior) {
+      for (const [other, effect] of pairEffects(me, input)) {
+        if (effect === 0) continue;
+        const p = people.get(other) ?? { personId: other, net: 0, entries: [], upcoming: 0, upcomingCount: 0 };
+        // Parcelas e meses futuros: aparecem como "a vencer", sem entrar no que já é devido.
+        if (tx.date > today) {
+          p.upcoming += effect;
+          p.upcomingCount += 1;
+        } else {
+          p.net += effect;
+          p.entries.push({ tx, effect });
+        }
+        people.set(other, p);
+      }
+    }
+  }
+  // Dívidas entre as outras pessoas (só quem administra vê a família toda).
+  const others: Settlement[] = [];
+  if (isAdmin(viewer)) {
+    const inputs = withBehavior.filter((x) => x.tx.date <= today).map((x) => x.input);
+    const ids = lookups.participants.map((p) => p.id).filter((id) => id !== me);
+    for (const a of ids) {
+      for (const [b, v] of pairwiseFor(a, inputs)) {
+        // Cada par uma vez só, e sem você (o seu já está no extrato acima).
+        if (b === me || a > b || v === 0) continue;
+        others.push(v > 0 ? { fromId: b, toId: a, amountCents: v } : { fromId: a, toId: b, amountCents: -v });
+      }
+    }
+    others.sort((x, y) => y.amountCents - x.amountCents);
+  }
+  return {
+    people: [...people.values()].filter((p) => p.entries.length > 0 || p.upcomingCount > 0).sort((a, b) => Math.abs(b.net) - Math.abs(a.net)),
+    others,
+  };
 }
 
 /** Lançamentos que se repetem todo mês sem data para acabar (ativos). */

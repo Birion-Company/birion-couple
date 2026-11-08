@@ -7,6 +7,7 @@ import { requireAuth } from "@/lib/auth";
 import { getCardOverview } from "@/lib/card-queries";
 import { monthLabel, shortDate } from "@/lib/cards";
 import { filtersToQuery } from "@/lib/filters";
+import { getLookups } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Cartões" };
 
@@ -19,9 +20,36 @@ function inDays(n: number) {
 
 const STATE = { closed: "Fechada", open: "Aberta", future: "Próxima" } as const;
 
-type Invoice = { key: string; from: string; to: string; due: string; totalCents: number; state: keyof typeof STATE };
+type Share = { participantId: string; cents: number };
+type Invoice = { key: string; from: string; to: string; due: string; totalCents: number; state: keyof typeof STATE; shares: Share[] };
+type Names = Map<string, string>;
 
-function InvoiceRows({ invoices, cardId, currency }: { invoices: Invoice[]; cardId: string; currency: string }) {
+/**
+ * "Sua parte R$ X · Clara R$ Y": quanto da fatura é de cada pessoa.
+ * Só aparece quando a fatura tem compras divididas com mais alguém.
+ */
+function SharesLine({ shares, me, names, currency, strong = false }: { shares: Share[]; me: string | null; names: Names; currency: string; strong?: boolean }) {
+  if (shares.length === 0 || (shares.length === 1 && shares[0].participantId === me)) return null;
+  const mine = shares.find((x) => x.participantId === me);
+  const others = shares.filter((x) => x.participantId !== me);
+  return (
+    <span className={`card-shares ${strong ? "strong" : ""}`}>
+      {mine && (
+        <>
+          sua parte <Money cents={mine.cents} currency={currency} />
+        </>
+      )}
+      {others.map((o, i) => (
+        <span key={o.participantId}>
+          {mine || i > 0 ? " · " : ""}
+          {names.get(o.participantId) ?? "Alguém"} <Money cents={o.cents} currency={currency} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function InvoiceRows({ invoices, cardId, currency, me, names }: { invoices: Invoice[]; cardId: string; currency: string; me: string | null; names: Names }) {
   return (
     <div className="rows">
       {invoices.map((inv) => (
@@ -30,6 +58,9 @@ function InvoiceRows({ invoices, cardId, currency }: { invoices: Invoice[]; card
             <p className="title">{monthLabel(inv.key)}</p>
             <p className="sub">
               compras de {shortDate(inv.from)} a {shortDate(inv.to)} · vence {shortDate(inv.due)}
+            </p>
+            <p className="sub">
+              <SharesLine shares={inv.shares} me={me} names={names} currency={currency} />
             </p>
           </div>
           <span className={`badge invoice-${inv.state}`}>{STATE[inv.state]}</span>
@@ -45,7 +76,9 @@ function InvoiceRows({ invoices, cardId, currency }: { invoices: Invoice[]; card
 
 export default async function CardsPage() {
   const auth = await requireAuth();
-  const overview = await getCardOverview(auth);
+  const [overview, lookups] = await Promise.all([getCardOverview(auth), getLookups(auth.householdId)]);
+  const me = auth.participantId;
+  const names: Names = new Map(lookups.participants.map((p) => [p.id, p.id === me ? "você" : p.name]));
   const cur = auth.currency;
   const active = overview.cards.filter((c) => !c.card.archived);
   const archived = overview.cards.filter((c) => c.card.archived);
@@ -71,7 +104,7 @@ export default async function CardsPage() {
         </>
       )}
 
-      {active.map(({ card, schedule: s, openTotal, dueTotal, invoices, series }) => (
+      {active.map(({ card, schedule: s, openTotal, dueTotal, openShares, dueShares, invoices, series }) => (
         <CardPanel
           key={card.id}
           card={card}
@@ -94,11 +127,13 @@ export default async function CardsPage() {
             <div className="card-stat">
               <p className="label">Fatura aberta · {monthLabel(s.open)}</p>
               <p className="value"><Money cents={openTotal} currency={cur} /></p>
+              <SharesLine shares={openShares} me={me} names={names} currency={cur} strong />
               <p className="hint">fecha {shortDate(s.closingDate)}, {inDays(s.daysToClosing)}</p>
             </div>
             <div className={`card-stat ${s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 ? "warn" : ""}`}>
               <p className="label">{s.dueInvoice === s.open ? "Vencimento desta fatura" : `Próximo vencimento · ${monthLabel(s.dueInvoice)}`}</p>
               <p className="value"><Money cents={dueTotal} currency={cur} /></p>
+              <SharesLine shares={dueShares} me={me} names={names} currency={cur} strong />
               <p className="hint">
                 <CalendarClock size={13} strokeWidth={1.8} style={{ verticalAlign: -2 }} aria-hidden /> vence {shortDate(s.dueDate)}, {inDays(s.daysToDue)}
                 {s.dueInvoice !== s.open ? " · já fechou" : ""}
@@ -107,11 +142,11 @@ export default async function CardsPage() {
           </div>
 
           <h3 className="card-subhead">Faturas</h3>
-          <InvoiceRows invoices={invoices.slice(0, 4)} cardId={card.id} currency={cur} />
+          <InvoiceRows invoices={invoices.slice(0, 4)} cardId={card.id} currency={cur} me={me} names={names} />
           {invoices.length > 4 && (
             <details className="more-invoices">
               <summary>Mais {invoices.length - 4} {invoices.length - 4 === 1 ? "fatura" : "faturas"} com parcelas lançadas</summary>
-              <InvoiceRows invoices={invoices.slice(4)} cardId={card.id} currency={cur} />
+              <InvoiceRows invoices={invoices.slice(4)} cardId={card.id} currency={cur} me={me} names={names} />
             </details>
           )}
           {series.length > 0 && (

@@ -2377,3 +2377,59 @@ button.user-menu-item {
   align-items: flex-start;
   gap: 8px;
 }
+
+/* ---------- Página Dívidas ---------- */
+.debts-page {
+  max-width: 900px;
+}
+.debts-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ledger-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.ledger-head h2 {
+  font-size: 1.1rem;
+}
+.ledger-net {
+  font-weight: 600;
+}
+.ledger-row {
+  flex-wrap: wrap;
+}
+.ledger-row .sub {
+  white-space: normal;
+}
+.ledger-hint {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+@media (max-width: 520px) {
+  .debts-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.card-shares {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+.card-shares.strong {
+  color: var(--brand-strong);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.ledger-upcoming {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--tile-bg);
+  font-size: 0.85rem;
+  color: var(--text-2);
+}

@@ -58,17 +58,25 @@ export function suggestSettlements(net: Map<string, number>): Settlement[] {
  */
 export function pairwiseFor(me: string, rows: BalanceInput[]): Map<string, number> {
   const net = new Map<string, number>();
-  const add = (id: string, v: number) => net.set(id, (net.get(id) ?? 0) + v);
-  for (const t of rows) {
-    if (t.behavior === "settled" || !t.payerId) continue;
-    const sign = t.kind === "income" ? -1 : 1;
-    if (t.payerId === me) {
-      for (const s of t.splits) if (s.participantId !== me) add(s.participantId, sign * s.amountCents);
-    } else {
-      for (const s of t.splits) if (s.participantId === me) add(t.payerId, -sign * s.amountCents);
-    }
-  }
+  for (const t of rows) for (const [other, v] of pairEffects(me, t)) net.set(other, (net.get(other) ?? 0) + v);
   return net;
+}
+
+/**
+ * Quanto um lançamento mexe na dívida entre `me` e cada outra pessoa:
+ * positivo = a outra pessoa passa a dever para mim; negativo = eu passo a dever para ela.
+ */
+export function pairEffects(me: string, t: BalanceInput): Map<string, number> {
+  const out = new Map<string, number>();
+  if (t.behavior === "settled" || !t.payerId) return out;
+  const add = (id: string, v: number) => out.set(id, (out.get(id) ?? 0) + v);
+  const sign = t.kind === "income" ? -1 : 1;
+  if (t.payerId === me) {
+    for (const s of t.splits) if (s.participantId !== me) add(s.participantId, sign * s.amountCents);
+  } else {
+    for (const s of t.splits) if (s.participantId === me) add(t.payerId, -sign * s.amountCents);
+  }
+  return out;
 }
 
 /** Converte a visão de uma pessoa em linhas "quem deve para quem". */

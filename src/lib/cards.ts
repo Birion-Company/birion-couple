@@ -111,6 +111,8 @@ export type CardAlert = {
   date: string;
   daysLeft: number;
   amountCents: number;
+  /** Parte de quem está vendo nesta fatura (o resto é de outras pessoas, que devem para quem paga). */
+  mineCents?: number;
 };
 
 /** Avisos dos próximos fechamentos e vencimentos dentro da antecedência escolhida no cartão. */
@@ -118,6 +120,7 @@ export function cardAlerts(
   card: CardRules & { id: string; name: string; color: string; alertDays: number | null },
   today: string,
   totalOf: (invoice: string) => number,
+  mineOf?: (invoice: string) => number,
 ): CardAlert[] {
   if (card.alertDays === null || card.alertDays < 0) return [];
   const s = cardSchedule(card, today);
@@ -126,13 +129,13 @@ export function cardAlerts(
   if (s.daysToClosing <= card.alertDays) {
     const amount = totalOf(s.open);
     if (amount > 0) {
-      out.push({ key: `${card.id}:closing:${s.closingDate}`, cardId: card.id, cardName: card.name, color: card.color, type: "closing", date: s.closingDate, daysLeft: s.daysToClosing, amountCents: amount });
+      out.push({ key: `${card.id}:closing:${s.closingDate}`, cardId: card.id, cardName: card.name, color: card.color, type: "closing", date: s.closingDate, daysLeft: s.daysToClosing, amountCents: amount, mineCents: mineOf?.(s.open) });
     }
   }
   if (s.daysToDue <= card.alertDays) {
     const amount = totalOf(s.dueInvoice);
     if (amount > 0) {
-      out.push({ key: `${card.id}:due:${s.dueDate}`, cardId: card.id, cardName: card.name, color: card.color, type: "due", date: s.dueDate, daysLeft: s.daysToDue, amountCents: amount });
+      out.push({ key: `${card.id}:due:${s.dueDate}`, cardId: card.id, cardName: card.name, color: card.color, type: "due", date: s.dueDate, daysLeft: s.daysToDue, amountCents: amount, mineCents: mineOf?.(s.dueInvoice) });
     }
   }
   return out;

@@ -106,6 +106,11 @@ export function CardAlerts({ alerts, currency }: { alerts: CardAlert[]; currency
                 </p>
                 <p className="sub num">
                   {formatMoney(a.amountCents, currency)} {a.type === "due" ? "a pagar" : "até agora"}
+                  {a.mineCents !== undefined && a.mineCents !== a.amountCents && (
+                    <>
+                      {" · "}sua parte {formatMoney(a.mineCents, currency)}, o resto é de outras pessoas
+                    </>
+                  )}
                 </p>
               </div>
             </li>
