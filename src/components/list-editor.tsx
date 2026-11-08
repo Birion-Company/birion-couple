@@ -147,7 +147,7 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
                   <p className="sub">
                     {[
                       item.description,
-                      kind === "statuses" ? behaviorLabel(item.behavior) : null,
+                      kind === "statuses" && item.behavior ? `significa: ${behaviorLabel(item.behavior)}` : null,
                       item.isDefault ? "padrão nos lançamentos" : null,
                       item.isImportDefault ? "padrão nas importações" : null,
                       item.archived ? "arquivado" : null,

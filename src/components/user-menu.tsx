@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ChevronUp, Settings2, UserRound } from "lucide-react";
+import { ChevronUp, CircleHelp, Settings2, UserRound } from "lucide-react";
 import { Avatar } from "./ui";
 
 const ITEMS = [
   { href: "/perfil", label: "Meu perfil", icon: UserRound },
   { href: "/ajustes", label: "Ajustes", icon: Settings2 },
+  { href: "/ajuda", label: "Como funciona", icon: CircleHelp },
 ];
 
 /** Botão com o nome de quem está logado; abre um menu com Meu perfil e Ajustes. */

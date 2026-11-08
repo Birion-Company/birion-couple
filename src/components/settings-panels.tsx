@@ -20,26 +20,55 @@ import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Dot } from "./ui";
 
+/** Abas de Ajustes, com uma frase dizendo para que serve cada uma. */
 const TABS = [
-  { href: "/ajustes", label: "Família" },
-  { href: "/ajustes/pessoas", label: "Pessoas" },
-  { href: "/ajustes/categorias", label: "Categorias" },
-  { href: "/ajustes/projetos", label: "Projetos" },
-  { href: "/ajustes/status", label: "Status" },
-  { href: "/ajustes/membros", label: "Acesso" },
-  { href: "/ajustes/importacao", label: "Importação" },
+  { href: "/ajustes", label: "Família", help: "Nome da família (aparece embaixo do seu nome no menu) e a moeda usada nos valores. Só quem administra pode mudar." },
+  {
+    href: "/ajustes/pessoas",
+    label: "Pessoas",
+    help: "Quem divide as contas: aparecem em “Quem pagou”, “Dividir entre” e em Dívidas. Não precisam ter login; para dar acesso ao app, use a aba Acesso. Máximo de 10 pessoas ativas.",
+  },
+  {
+    href: "/ajustes/categorias",
+    label: "Categorias",
+    help: "Com o que o dinheiro foi gasto (Mercado, Moradia…). Servem para o gráfico “Gastos por categoria” e para filtrar. Embaixo, regras que escolhem a categoria sozinhas na importação.",
+  },
+  {
+    href: "/ajustes/projetos",
+    label: "Projetos",
+    help: "Agrupam lançamentos de um mesmo assunto, como uma viagem ou uma reforma, para ver quanto custou no total. São opcionais e viram filtro.",
+  },
+  {
+    href: "/ajustes/status",
+    label: "Status",
+    help: "Em que pé está cada lançamento. O que conta é o significado: só “Acertado” tira o lançamento das dívidas; “Pendente” ainda aparece na lista de Pendências do painel.",
+  },
+  {
+    href: "/ajustes/membros",
+    label: "Acesso",
+    help: "Quem entra no app. Gere um link de convite para alguém da família criar a conta. Quem administra vê tudo; os outros membros só veem o que os envolve.",
+  },
+  {
+    href: "/ajustes/importacao",
+    label: "Importação",
+    help: "Modelos salvos de leitura de CSV (qual coluna é a data, o valor…), para não precisar configurar de novo a cada extrato do mesmo banco.",
+  },
 ];
 
 export function SettingsTabs() {
   const path = usePathname();
+  const active = TABS.find((t) => t.href === path);
   return (
-    <nav className="tabs" aria-label="Ajustes">
-      {TABS.map((t) => (
-        <Link key={t.href} href={t.href} aria-current={path === t.href ? "page" : undefined}>
-          {t.label}
-        </Link>
-      ))}
-    </nav>
+    <>
+      <nav className="tabs" aria-label="Ajustes">
+        {TABS.map((t) => (
+          <Link key={t.href} href={t.href} aria-current={path === t.href ? "page" : undefined}>
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+      {active && <p className="tab-help">{active.help}</p>}
+    </>
   );
 }
 

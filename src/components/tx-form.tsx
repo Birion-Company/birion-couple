@@ -15,6 +15,14 @@ import { Avatar } from "./ui";
 type Kind = "expense" | "income" | "loan" | "transfer";
 type Repeat = "once" | "installment" | "monthly";
 
+/** O que cada tipo significa, mostrado embaixo da escolha. */
+const KIND_HELP: Record<Kind, string> = {
+  expense: "Algo que foi pago. Se dividir com outras pessoas, cada uma passa a dever a parte dela para quem pagou.",
+  income: "Dinheiro que entrou (salário, venda, estorno). Se dividir, quem recebeu fica devendo a parte de cada um.",
+  loan: "Dinheiro emprestado ou algo pago só para outra pessoa. Quem pegou emprestado fica devendo o valor todo.",
+  transfer: "Pagamento de uma dívida entre pessoas da família. Abate o que uma deve para a outra.",
+};
+
 export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" | "description">> & { toId?: string };
 
 function today() {
@@ -279,6 +287,7 @@ export function TxForm({
               </button>
             ))}
           </div>
+          <p className="kind-help">{KIND_HELP[kind]}</p>
 
           <label className="field">
             <span>{amountLabel}</span>

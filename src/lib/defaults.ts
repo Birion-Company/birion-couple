@@ -43,9 +43,21 @@ export const PALETTE = [
 ];
 
 export const STATUS_BEHAVIORS = [
-  { value: "pending", label: "Pendente", help: "Ainda falta resolver. Aparece em Pendências; se alguém já pagou, os outros já devem a parte deles." },
-  { value: "open", label: "Pago, a acertar", help: "Alguém pagou e os outros devem a parte deles. Entra em quem deve para quem." },
-  { value: "settled", label: "Acertado", help: "Já foi reembolsado ou acertado. Sai de quem deve para quem." },
+  {
+    value: "pending",
+    label: "Pendente",
+    help: "Ainda falta resolver (pagar a conta ou acertar com alguém). Aparece em Pendências no painel. Se alguém já pagou e dividiu, os outros já aparecem devendo em Dívidas.",
+  },
+  {
+    value: "open",
+    label: "Pago, a acertar",
+    help: "Alguém já pagou e os outros ainda vão acertar a parte deles. Conta em Dívidas, mas sai da lista de Pendências.",
+  },
+  {
+    value: "settled",
+    label: "Acertado",
+    help: "Já foi reembolsado ou acertado. Sai de Dívidas e de Pendências.",
+  },
 ] as const;
 
 export const KINDS = [

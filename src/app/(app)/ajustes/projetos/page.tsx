@@ -10,9 +10,6 @@ export default async function ProjectsPage() {
   const { projects } = await getLookups(auth.householdId);
   return (
     <>
-      <p className="faint" style={{ marginBottom: 12 }}>
-        Projetos agrupam lançamentos de um mesmo assunto, como uma viagem, uma reforma ou uma festa, e viram filtro no painel.
-      </p>
       <ListEditor kind="projects" items={projects} />
     </>
   );

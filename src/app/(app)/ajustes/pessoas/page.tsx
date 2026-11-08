@@ -10,9 +10,6 @@ export default async function PeoplePage() {
   const { participants } = await getLookups(auth.householdId);
   return (
     <>
-      <p className="faint" style={{ marginBottom: 12 }}>
-        Quem divide as contas. Não precisa ter login: cadastre mãe, namorada, colegas de casa… Para dar acesso ao app, use a aba Acesso.
-      </p>
       <ListEditor kind="participants" items={participants} />
     </>
   );
