@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "BIRIUN FINANCE",
-    short_name: "BIRIUN",
+    name: "BIRION FINANCE",
+    short_name: "BIRION",
     description: "Finanças da família em um só lugar.",
     start_url: "/painel",
     display: "standalone",

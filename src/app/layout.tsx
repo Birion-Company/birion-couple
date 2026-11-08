@@ -7,10 +7,10 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "BIRIUN FINANCE", template: "%s · BIRIUN FINANCE" },
+  title: { default: "BIRION FINANCE", template: "%s · BIRION FINANCE" },
   description: "Finanças da família em um só lugar: quem pagou, quem deve e o que está pendente.",
-  applicationName: "BIRIUN FINANCE",
-  appleWebApp: { capable: true, title: "BIRIUN", statusBarStyle: "default" },
+  applicationName: "BIRION FINANCE",
+  appleWebApp: { capable: true, title: "BIRION", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

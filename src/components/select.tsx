@@ -29,7 +29,7 @@ type Props = {
 };
 
 /**
- * Menu de seleção no tema Biriun. Substitui o <select> nativo, cuja lista é desenhada
+ * Menu de seleção no tema Birion. Substitui o <select> nativo, cuja lista é desenhada
  * pelo sistema e não segue o tema. Segue o padrão ARIA "select-only combobox".
  */
 export function Select({

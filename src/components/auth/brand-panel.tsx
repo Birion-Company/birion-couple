@@ -9,12 +9,12 @@ const BENEFITS = [
 /** Painel esquerdo: marca, título, descrição e benefícios. */
 export function BrandPanel() {
   return (
-    <section className="brand-panel" aria-label="BIRIUN FINANCE">
+    <section className="brand-panel" aria-label="BIRION FINANCE">
       <div className="brand-logo">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/mark.png" alt="" />
         <span>
-          BIRIUN <em>FINANCE</em>
+          BIRION <em>FINANCE</em>
         </span>
       </div>
       <div className="brand-content">

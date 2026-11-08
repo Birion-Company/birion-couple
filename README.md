@@ -1,4 +1,4 @@
-# BIRIUN FINANCE
+# BIRION FINANCE
 
 Finanças da família em um só lugar: quem pagou, quem deve e o que ainda está pendente.
 
