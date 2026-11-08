@@ -3479,20 +3479,53 @@ button.user-menu-item {
   display: contents;
 }
 @media (min-width: 900px) {
+  /* Barra de ponta a ponta: da marca até o canto direito; a lateral começa embaixo dela. */
+  :root {
+    --bar-h: 56px;
+  }
   .topbar {
     display: flex;
-    position: sticky;
-    top: 12px;
-    height: 52px;
-    margin: 12px 32px 0;
-    padding: 0 8px 0 10px;
-    border: 1px solid var(--line);
-    border-radius: 16px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    height: var(--bar-h);
+    margin: 0;
+    padding: 0 14px 0 0;
+    gap: 8px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
     background: var(--topbar-bg);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: none;
+  }
+  .topbar .brand {
+    display: flex;
+    flex: none;
+    width: var(--side-w);
+    height: 100%;
+    padding-left: 22px;
+    border-right: 1px solid var(--line);
+  }
+  .sidebar {
+    top: var(--bar-h);
+    padding-top: 14px;
+  }
+  .sidebar > .brand {
+    display: none;
+  }
+  .shell-body {
+    padding-top: var(--bar-h);
+  }
+  html {
+    scroll-padding-top: calc(var(--bar-h) + 12px);
+  }
+  .wb-left {
+    padding-left: 10px;
   }
   .main {
-    padding-top: 24px;
+    padding-top: 28px;
   }
   .wb-left {
     display: flex;
