@@ -1,8 +1,7 @@
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/actions/auth";
-import { ActivityPopup } from "@/components/activity-popup";
-import { CardAlerts } from "@/components/card-alerts";
 import { BottomNav, SideNav } from "@/components/nav";
+import { BellButton, NotificationCenter } from "@/components/notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { HelpButton, Tutorial } from "@/components/tutorial";
 import { UserMenu } from "@/components/user-menu";
@@ -28,7 +27,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
   const lookups = await getLookups(auth.householdId);
-  const [alerts, activity, toIdentify] = await Promise.all([getCardAlerts(auth), getActivityFeed(auth, lookups, auth.currency), countUnidentified(auth)]);
+  const [alerts, activity, toIdentify] = await Promise.all([getCardAlerts(auth), getActivityFeed(auth, lookups, auth.currency, { all: true }), countUnidentified(auth)]);
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -42,6 +41,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
                 <LogOut size={16} strokeWidth={1.8} /> Sair
               </button>
             </form>
+            <BellButton className="icon-btn theme-btn" />
             <HelpButton className="icon-btn theme-btn help-btn" />
             <ThemeToggle className="icon-btn theme-btn" />
           </div>
@@ -51,6 +51,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <header className="topbar">
           <Brand />
           <span className="spacer" />
+          <BellButton />
           <HelpButton />
           <ThemeToggle />
           <UserMenu name={auth.userName} avatarUrl={avatarUrl} compact />
@@ -65,8 +66,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </div>
       <BottomNav toIdentify={toIdentify} />
       <Tutorial />
-      {/* Um popup por vez: primeiro o que mudou; o aviso de fatura aparece depois do "Entendi". */}
-      {activity.length > 0 ? <ActivityPopup items={activity} /> : <CardAlerts alerts={alerts} currency={auth.currency} />}
+      {/* Sino: avisos de fatura e o que a família fez; procura novidades sozinho. */}
+      <NotificationCenter initial={activity} cardAlerts={alerts} currency={auth.currency} />
     </div>
   );
 }

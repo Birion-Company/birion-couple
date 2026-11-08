@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Trash2 } from "lucide-react";
+import { Camera, KeyRound, Trash2 } from "lucide-react";
 import { changePassword, removeAvatar, updateProfile, uploadAvatar } from "@/app/actions/profile";
 import { toast, toastResult } from "./toaster";
 import { Avatar } from "./ui";
@@ -211,42 +211,89 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
   );
 }
 
+/** Cartão "Senha" com um botão; o formulário abre numa janela por cima. */
 export function PasswordForm() {
+  const [open, setOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
+  const close = () => {
+    setOpen(false);
+    opener.current?.focus();
+  };
+  return (
+    <section className="card form password-card">
+      <h2>Senha</h2>
+      <p className="muted">Use pelo menos 8 caracteres. Depois de trocar, a senha nova vale para entrar em qualquer aparelho.</p>
+      <div className="actions">
+        <button ref={opener} type="button" className="btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
+          <KeyRound size={16} strokeWidth={1.7} /> Alterar senha
+        </button>
+      </div>
+      {open && <PasswordDialog onClose={close} />}
+    </section>
+  );
+}
+
+function PasswordDialog({ onClose }: { onClose: () => void }) {
   const [pending, start] = useTransition();
   const [v, setV] = useState({ current: "", next: "", confirm: "" });
+  const first = useRef<HTMLInputElement>(null);
   const set = (k: keyof typeof v) => (ev: React.ChangeEvent<HTMLInputElement>) => setV((s) => ({ ...s, [k]: ev.target.value }));
-  return (
-    <form
-      className="card form"
-      onSubmit={(ev) => {
-        ev.preventDefault();
-        start(async () => {
-          const r = await changePassword(v);
-          toastResult(r);
-          if (r.ok) setV({ current: "", next: "", confirm: "" });
-        });
-      }}
-    >
-      <h2>Senha</h2>
-      <label className="field">
-        <span>Senha atual</span>
-        <input className="input" type="password" value={v.current} onChange={set("current")} autoComplete="current-password" required />
-      </label>
-      <div className="field-row">
+  const mismatch = v.confirm.length > 0 && v.next !== v.confirm;
+
+  useEffect(() => {
+    first.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div className="alert-backdrop" onClick={(e) => e.target === e.currentTarget && !pending && onClose()}>
+      <form
+        className="alert-dialog form password-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pw-title"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          if (mismatch) return;
+          start(async () => {
+            const r = await changePassword(v);
+            toastResult(r);
+            if (r.ok) onClose();
+          });
+        }}
+      >
+        <h2 id="pw-title">Alterar senha</h2>
+        <label className="field">
+          <span>Senha atual</span>
+          <input ref={first} className="input" type="password" value={v.current} onChange={set("current")} autoComplete="current-password" required />
+        </label>
         <label className="field">
           <span>Nova senha</span>
           <input className="input" type="password" value={v.next} onChange={set("next")} autoComplete="new-password" minLength={8} required />
         </label>
         <label className="field">
           <span>Repita a nova senha</span>
-          <input className="input" type="password" value={v.confirm} onChange={set("confirm")} autoComplete="new-password" minLength={8} required />
+          <input className="input" type="password" value={v.confirm} onChange={set("confirm")} autoComplete="new-password" minLength={8} required aria-invalid={mismatch || undefined} aria-describedby={mismatch ? "pw-mismatch" : undefined} />
+          {mismatch && (
+            <small id="pw-mismatch" className="error-text">
+              As duas senhas novas não são iguais.
+            </small>
+          )}
         </label>
-      </div>
-      <div className="actions" style={{ justifyContent: "flex-end" }}>
-        <button className="btn primary" disabled={pending}>
-          {pending ? "Alterando…" : "Alterar senha"}
-        </button>
-      </div>
-    </form>
+        <div className="alert-actions">
+          <button type="button" className="btn ghost" onClick={onClose} disabled={pending}>
+            Cancelar
+          </button>
+          <button className="btn primary" disabled={pending || mismatch}>
+            {pending ? "Alterando…" : "Salvar nova senha"}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
   );
 }

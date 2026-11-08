@@ -134,7 +134,7 @@ export async function logActivity(
 
 // ---------- Leitura: o popup "o que mudou" ----------
 
-export type FeedItem = { id: string; actor: string; text: string; detail: string | null; when: string; href: string | null };
+export type FeedItem = { id: string; actor: string; text: string; detail: string | null; when: string; href: string | null; unread: boolean };
 
 const KIND_WORD: Record<string, string> = { expense: "a despesa", income: "a receita", loan: "o empréstimo", transfer: "o acerto" };
 const FIELD: Record<Change["field"], string> = {
@@ -151,8 +151,11 @@ const FIELD: Record<Change["field"], string> = {
 };
 const KIND_NAME: Record<string, string> = { expense: "despesa", income: "receita", loan: "empréstimo", transfer: "acerto" };
 
-/** Atividades que esta pessoa ainda não viu, já em frases. */
-export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency: string): Promise<FeedItem[]> {
+/**
+ * Atividades de outras pessoas que envolvem esta pessoa, já em frases.
+ * Por padrão só as não vistas; com `all`, as dos últimos 60 dias (vistas ou não) para o sino.
+ */
+export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency: string, opts: { all?: boolean } = {}): Promise<FeedItem[]> {
   const db = getDb();
   if (!isAdmin(viewer) && !viewer.participantId) return [];
   const [m] = await db
@@ -169,7 +172,7 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
       and(
         eq(a.householdId, viewer.householdId),
         or(isNull(a.actorUserId), ne(a.actorUserId, viewer.userId)),
-        gt(a.createdAt, m.seen),
+        gt(a.createdAt, opts.all ? new Date(Date.now() - 60 * 86400000) : m.seen),
         isAdmin(viewer) ? undefined : sql`${a.audience} @> ${JSON.stringify([viewer.participantId])}::jsonb`,
       ),
     )
@@ -226,6 +229,25 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
     if (tx.payerId) parts.push(`${tx.kind === "income" ? "quem recebeu" : "quem pagou"}: ${person(tx.payerId)}`);
     return parts.join(" · ") || null;
   };
+  /** Frases diretas quando o lançamento cria uma dívida para (ou a favor de) quem lê. */
+  const assignedToMe = (actor: string, tx: TxSnapshot): [string, string | null] | null => {
+    if (!me) return null;
+    const to = tx.splits[0]?.participantId;
+    if (tx.kind === "loan") {
+      if (to === me) return [`${actor} registrou um empréstimo: você deve ${money(tx.amountCents)} para ${person(tx.payerId)}`, `"${tx.description}"`];
+      if (tx.payerId === me) return [`${actor} registrou que ${person(to)} te deve ${money(tx.amountCents)}`, `"${tx.description}"`];
+      return null;
+    }
+    if (tx.kind === "transfer") {
+      if (to === me) return [`${actor} registrou que ${person(tx.payerId)} te pagou ${money(tx.amountCents)}`, "acerto de contas"];
+      if (tx.payerId === me) return [`${actor} registrou que você pagou ${money(tx.amountCents)} para ${person(to)}`, "acerto de contas"];
+      return null;
+    }
+    if (tx.kind !== "expense" || !tx.payerId || tx.payerId === me) return null;
+    const share = tx.splits.find((s) => s.participantId === me)?.amountCents ?? 0;
+    if (share <= 0) return null;
+    return [`${actor} atribuiu uma dívida a você: "${tx.description}"`, `você deve ${money(share)} para ${person(tx.payerId)}${tx.splits.length > 1 ? ` · total ${money(tx.amountCents)}` : ""}`];
+  };
   const visibleItems = (items: ActivityItem[] = []) => (isAdmin(viewer) ? items : items.filter((i) => me && i.a.includes(me)));
 
   const out: FeedItem[] = [];
@@ -239,6 +261,11 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
     switch (r.action) {
       case "created": {
         if (!tx) continue;
+        const assigned = assignedToMe(actor, tx);
+        if (assigned) {
+          [text, detail] = assigned;
+          break;
+        }
         const series = d.seriesKind === "installment" ? ` em ${d.seriesCount} parcelas` : d.seriesKind === "monthly" ? (d.seriesCount ? ` por ${d.seriesCount} meses` : " todo mês") : "";
         text = `${actor} lançou ${KIND_WORD[tx.kind] ?? "o lançamento"} "${tx.description}" de ${money(tx.amountCents)}${series}`;
         detail = myPart(tx);
@@ -316,7 +343,7 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
       default:
         continue;
     }
-    out.push({ id: r.id, actor, text, detail, when: r.createdAt.toISOString(), href });
+    out.push({ id: r.id, actor, text, detail, when: r.createdAt.toISOString(), href, unread: r.createdAt > m.seen });
   }
   return out;
 }

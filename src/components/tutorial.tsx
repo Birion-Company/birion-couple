@@ -122,6 +122,12 @@ const STEPS: Step[] = [
     tip: "Não confunda com o status Pendente: esse diz só se a conta já foi paga.",
   },
   {
+    targets: ["bell"],
+    title: "Notificações",
+    text: "O sino junta os avisos de fatura (fecha ou vence em poucos dias) e o que a família fez envolvendo você, como uma dívida atribuída a você. Chega na hora, com um aviso no canto da tela.",
+    tip: "No painel do sino dá para ligar o aviso do navegador, para saber mesmo com o app em outra aba.",
+  },
+  {
     targets: ["help"],
     title: "Sempre que precisar",
     text: "Este botão ? abre o tour de novo. Para os detalhes de cada parte, veja Como funciona no menu com o seu nome.",
