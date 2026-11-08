@@ -26,7 +26,7 @@ const TABS = [
   {
     href: "/ajustes/pessoas",
     label: "Pessoas",
-    help: "Quem divide as contas: aparecem em “Quem pagou”, “Dividir entre” e em Dívidas. Não precisam ter login; para dar acesso ao app, use a aba Acesso. Máximo de 10 pessoas ativas.",
+    help: "Quem divide as contas: aparecem em “Quem pagou”, “Quem deveria pagar” e em Dívidas. Não precisam ter login; para dar acesso ao app, use a aba Acesso. Máximo de 10 pessoas ativas.",
   },
   {
     href: "/ajustes/categorias",

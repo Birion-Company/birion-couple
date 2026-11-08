@@ -35,6 +35,7 @@ async function loadCard(householdId: string, id: string) {
 // ---------- Editar vários de uma vez ----------
 
 const PatchSchema = z.object({
+  kind: z.enum(["expense", "income"]).optional(),
   statusId: uuid.optional(),
   categoryId: nullableId.optional(),
   projectId: nullableId.optional(),
@@ -47,12 +48,13 @@ const PatchSchema = z.object({
 export type BulkPatch = z.input<typeof PatchSchema>;
 
 const FIELD_NAMES: Record<keyof BulkPatch, string> = {
+  kind: "tipo",
   statusId: "status",
   categoryId: "categoria",
   projectId: "projeto",
   cardId: "cartão",
   payerId: "quem pagou",
-  splitIds: "divisão",
+  splitIds: "quem deveria pagar",
   date: "data",
 };
 
@@ -103,6 +105,11 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
     for (const [id, s] of before) {
       const between = s.kind === "loan" || s.kind === "transfer";
       const next: TxSnapshot = { ...s, splits: [...s.splits] };
+      // Tipo: só entre despesa e receita (empréstimo e acerto ficam como estão).
+      if (p.kind !== undefined) {
+        if (between) betweenSkipped.add(id);
+        else next.kind = p.kind;
+      }
       if (p.statusId !== undefined) next.statusId = p.statusId;
       if (p.categoryId !== undefined && !between) next.categoryId = p.categoryId;
       if (p.projectId !== undefined) next.projectId = p.projectId;
@@ -132,6 +139,7 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
       await tx
         .update(schema.transactions)
         .set({
+          kind: next.kind,
           statusId: next.statusId,
           categoryId: next.categoryId,
           projectId: next.projectId,
@@ -155,7 +163,7 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
   });
   revalidatePath("/", "layout");
   const notes = [
-    betweenSkipped.size ? `${betweenSkipped.size} empréstimo(s)/acerto(s) mantiveram quem pagou, divisão e cartão (mude um por um)` : null,
+    betweenSkipped.size ? `${betweenSkipped.size} empréstimo(s)/acerto(s) ficaram como estavam em tipo, quem pagou, quem deveria pagar e cartão (mude um por um)` : null,
     skipped.card ? `${skipped.card} não receberam o cartão porque o cartão é de outra pessoa` : null,
     skipped.cardRemoved ? `${skipped.cardRemoved} saíram do cartão porque quem pagou mudou` : null,
   ].filter(Boolean);

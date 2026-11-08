@@ -443,8 +443,13 @@ export function TxForm({
           ) : (
             <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }} data-tour="tx-split">
               <legend className="label-text" style={{ marginBottom: 6 }}>
-                {kind === "income" ? "De quem é esse dinheiro" : "Dividir entre"}
+                {kind === "income" ? "De quem é esse dinheiro" : "Quem deveria pagar"}
               </legend>
+              <span className="faint" style={{ marginTop: -2, marginBottom: 6, display: "block" }}>
+                {kind === "income"
+                  ? "Marque de quem é a receita; quem recebeu fica devendo a parte de cada um."
+                  : "Marque só uma pessoa se a conta é toda dela, ou várias para dividir. Quem pagou recebe a parte dos outros."}
+              </span>
               <div className="segmented" role="group" aria-label="Como dividir" style={{ marginBottom: 6 }}>
                 <button type="button" aria-pressed={mode === "equal"} onClick={() => setMode("equal")}>Partes iguais</button>
                 <button

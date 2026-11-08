@@ -371,7 +371,7 @@ export function ImportWizard({
                 </label>
               </div>
               <div className="field">
-                <span className="label-text">Dividir igualmente entre</span>
+                <span className="label-text">Quem deveria pagar (partes iguais)</span>
                 <div className="person-pills" style={{ margin: 0, padding: 0, flexWrap: "wrap" }}>
                   {people.map((p) => {
                     const on = splitIds.includes(p.id);

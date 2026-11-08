@@ -98,7 +98,7 @@ export function BatchForm({ lookups, currency, me, defaultStatusId }: { lookups:
             </label>
           )}
           <div className="field">
-            <span className="label-text">Dividir igualmente entre</span>
+            <span className="label-text">{kind === "income" ? "De quem é esse dinheiro (partes iguais)" : "Quem deveria pagar (partes iguais)"}</span>
             <div className="person-pills" style={{ margin: 0, flexWrap: "wrap" }}>
               {people.map((p) => {
                 const on = splitIds.includes(p.id);

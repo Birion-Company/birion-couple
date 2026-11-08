@@ -2988,3 +2988,37 @@ button.user-menu-item {
     display: none;
   }
 }
+.bulk-dialog {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.bulk-group {
+  border: 1px solid var(--tile-edge);
+  border-radius: 14px;
+  padding: 10px 14px 14px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.bulk-group legend {
+  padding: 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.bulk-summary {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--tile-bg);
+  color: var(--brand-strong);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.bulk-group .person-pills {
+  padding: 0;
+  margin: 0;
+}

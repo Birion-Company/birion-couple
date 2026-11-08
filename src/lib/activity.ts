@@ -147,7 +147,7 @@ const FIELD: Record<Change["field"], string> = {
   project: "projeto",
   status: "status",
   card: "cartão",
-  splits: "divisão",
+  splits: "quem deveria pagar",
 };
 const KIND_NAME: Record<string, string> = { expense: "despesa", income: "receita", loan: "empréstimo", transfer: "acerto" };
 

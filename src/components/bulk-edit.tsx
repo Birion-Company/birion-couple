@@ -12,23 +12,24 @@ import { Avatar } from "./ui";
 const KEEP = "__manter";
 
 /**
- * Painel "Editar em lote": cada campo começa em "Não mudar"; só o que for alterado é aplicado
- * aos lançamentos selecionados.
+ * Painel "Editar em lote": quem pagou, quem deveria pagar e o resto da configuração.
+ * Tudo começa em "Não mudar"; só o que for alterado é aplicado aos lançamentos selecionados.
  */
 export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[]; lookups: Lookups; onClose: () => void; onDone: () => void }) {
   const [pending, start] = useTransition();
+  const [kind, setKind] = useState(KEEP);
+  const [payer, setPayer] = useState(KEEP);
+  // Quem deveria pagar: nenhuma pessoa marcada = não mudar.
+  const [owers, setOwers] = useState<string[]>([]);
   const [status, setStatus] = useState(KEEP);
   const [category, setCategory] = useState(KEEP);
   const [project, setProject] = useState(KEEP);
-  const [payer, setPayer] = useState(KEEP);
   const [card, setCard] = useState(KEEP);
-  const [changeSplit, setChangeSplit] = useState(false);
-  const people = lookups.participants.filter((p) => !p.archived);
-  const [split, setSplit] = useState<string[]>(people.map((p) => p.id));
   const [changeDate, setChangeDate] = useState(false);
   const [date, setDate] = useState("");
   const dialog = useRef<HTMLDivElement>(null);
-  const name = (id: string | null) => lookups.participants.find((p) => p.id === id)?.name;
+  const people = lookups.participants.filter((p) => !p.archived);
+  const name = (id: string | null) => lookups.participants.find((p) => p.id === id)?.name ?? "alguém";
 
   useEffect(() => {
     dialog.current?.focus();
@@ -38,14 +39,33 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
   }, [onClose]);
 
   const patch: BulkPatch = {};
+  if (kind !== KEEP) patch.kind = kind as "expense" | "income";
+  if (payer !== KEEP) patch.payerId = payer || null;
+  if (owers.length) patch.splitIds = owers;
   if (status !== KEEP) patch.statusId = status;
   if (category !== KEEP) patch.categoryId = category || null;
   if (project !== KEEP) patch.projectId = project || null;
-  if (payer !== KEEP) patch.payerId = payer || null;
   if (card !== KEEP) patch.cardId = card || null;
-  if (changeSplit) patch.splitIds = split;
   if (changeDate && date) patch.date = date;
   const changes = Object.keys(patch).length;
+
+  // Resumo do efeito de quem pagou + quem deveria pagar.
+  const payerText = payer === KEEP ? "quem pagou continua o mesmo" : payer ? `${name(payer)} pagou` : "ninguém pagou ainda";
+  const owersOthers = owers.filter((o) => o !== payer);
+  let summary: string | null = null;
+  if (payer !== KEEP || owers.length) {
+    const should = owers.length === 0 ? "quem deveria pagar continua o mesmo" : owers.length === 1 ? `${name(owers[0])} deveria pagar tudo` : `${owers.map(name).join(", ")} dividem igualmente`;
+    let effect = "";
+    if (payer === "") effect = " → não gera dívida até alguém pagar.";
+    else if (payer !== KEEP && owers.length && owersOthers.length === 0) effect = ` → é só de ${name(payer)}, não gera dívida.`;
+    else if (payer !== KEEP && owersOthers.length) {
+      effect =
+        owers.length === 1
+          ? ` → ${name(owers[0])} fica devendo o valor todo para ${name(payer)}.`
+          : ` → ${owersOthers.map(name).join(", ")} ${owersOthers.length === 1 ? "fica devendo a parte dela" : "ficam devendo a parte de cada um"} para ${name(payer)}.`;
+    }
+    summary = `Em cada lançamento: ${payerText}; ${should}${effect}`;
+  }
 
   const apply = () =>
     start(async () => {
@@ -64,82 +84,103 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
             <X size={18} />
           </button>
         </div>
-        <p className="faint" style={{ marginBottom: 12 }}>Só muda o que você alterar aqui; o resto de cada lançamento fica como está.</p>
+        <p className="faint" style={{ marginBottom: 12 }}>Só muda o que você alterar; o resto de cada lançamento fica como está. Valor e descrição se editam um por um.</p>
+
         <div className="form">
-          <div className="field-row">
-            <label className="field">
-              <span>Status</span>
-              <Select value={status} onChange={setStatus} options={[keep, ...lookups.statuses.filter((s) => !s.archived).map((s) => ({ value: s.id, label: s.name, color: s.color }))]} />
-            </label>
-            <label className="field">
-              <span>Categoria</span>
-              <Select
-                value={category}
-                onChange={setCategory}
-                options={[keep, { value: "", label: "Sem categoria" }, ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))]}
-              />
-            </label>
-          </div>
-          <div className="field-row">
+          <fieldset className="bulk-group">
+            <legend>Quem pagou e quem deveria pagar</legend>
             <label className="field">
               <span>Quem pagou</span>
               <Select value={payer} onChange={setPayer} options={[keep, { value: "", label: "Ninguém ainda" }, ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]} />
             </label>
-            {lookups.cards.some((c) => !c.archived) && (
-              <label className="field">
-                <span>Cartão</span>
-                <Select
-                  value={card}
-                  onChange={setCard}
-                  options={[
-                    keep,
-                    { value: "", label: "Não foi no cartão" },
-                    ...lookups.cards.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.ownerId ? `${c.name} · ${name(c.ownerId)}` : c.name, color: c.color })),
-                  ]}
-                />
-              </label>
-            )}
-          </div>
-          {lookups.projects.some((p) => !p.archived) && (
-            <label className="field">
-              <span>Projeto</span>
-              <Select value={project} onChange={setProject} options={[keep, { value: "", label: "Nenhum" }, ...lookups.projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color }))]} />
-            </label>
-          )}
-          <div className="field">
-            <label className="check">
-              <input type="checkbox" checked={changeSplit} onChange={(e) => setChangeSplit(e.target.checked)} />
-              <span>Mudar a divisão (partes iguais entre:)</span>
-            </label>
-            {changeSplit && (
-              <div className="person-pills" style={{ margin: 0, flexWrap: "wrap" }}>
+            <div className="field">
+              <span className="label-text" id="bulk-owers">Quem deveria pagar</span>
+              <div className="person-pills" role="group" aria-labelledby="bulk-owers" style={{ margin: 0, flexWrap: "wrap" }}>
                 {people.map((p) => {
-                  const on = split.includes(p.id);
+                  const on = owers.includes(p.id);
                   return (
-                    <button key={p.id} type="button" className={`chip ${on ? "on" : ""}`} aria-pressed={on} onClick={() => setSplit((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}>
+                    <button key={p.id} type="button" className={`chip ${on ? "on" : ""}`} aria-pressed={on} onClick={() => setOwers((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}>
                       <Avatar name={p.name} color={p.color} size={22} /> {p.name}
                     </button>
                   );
                 })}
               </div>
+              <span className="faint">Nenhuma marcada: não muda. Uma pessoa: a conta é toda dela. Várias: dividem em partes iguais.</span>
+            </div>
+            {summary && (
+              <p className="bulk-summary" role="status">
+                {summary}
+              </p>
             )}
-          </div>
-          <div className="field">
-            <label className="check">
-              <input type="checkbox" checked={changeDate} onChange={(e) => setChangeDate(e.target.checked)} />
-              <span>Mudar a data</span>
-            </label>
-            {changeDate && <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Nova data" />}
-          </div>
+          </fieldset>
+
+          <fieldset className="bulk-group">
+            <legend>Classificação</legend>
+            <div className="field-row">
+              <label className="field">
+                <span>Tipo</span>
+                <Select value={kind} onChange={setKind} options={[keep, { value: "expense", label: "Despesa" }, { value: "income", label: "Receita" }]} />
+              </label>
+              <label className="field">
+                <span>Status</span>
+                <Select value={status} onChange={setStatus} options={[keep, ...lookups.statuses.filter((s) => !s.archived).map((s) => ({ value: s.id, label: s.name, color: s.color }))]} />
+              </label>
+            </div>
+            <div className="field-row">
+              <label className="field">
+                <span>Categoria</span>
+                <Select
+                  value={category}
+                  onChange={setCategory}
+                  options={[keep, { value: "", label: "Sem categoria" }, ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))]}
+                />
+              </label>
+              {lookups.projects.some((p) => !p.archived) && (
+                <label className="field">
+                  <span>Projeto</span>
+                  <Select value={project} onChange={setProject} options={[keep, { value: "", label: "Nenhum" }, ...lookups.projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color }))]} />
+                </label>
+              )}
+            </div>
+          </fieldset>
+
+          <fieldset className="bulk-group">
+            <legend>Cartão e data</legend>
+            <div className="field-row">
+              {lookups.cards.some((c) => !c.archived) && (
+                <label className="field">
+                  <span>Cartão</span>
+                  <Select
+                    value={card}
+                    onChange={setCard}
+                    options={[
+                      keep,
+                      { value: "", label: "Não foi no cartão" },
+                      ...lookups.cards.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.ownerId ? `${c.name} · ${name(c.ownerId)}` : c.name, color: c.color })),
+                    ]}
+                  />
+                </label>
+              )}
+              <div className="field">
+                <label className="check" style={{ minHeight: 0 }}>
+                  <input type="checkbox" checked={changeDate} onChange={(e) => setChangeDate(e.target.checked)} />
+                  <span>Mudar a data</span>
+                </label>
+                {changeDate && <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Nova data" />}
+              </div>
+            </div>
+          </fieldset>
+
           <p className="faint">
-            Empréstimos e acertos não mudam de quem pagou, divisão nem cartão (edite um por um). O cartão precisa ser de quem pagou; se quem pagou mudar, um cartão de outra pessoa sai.
+            Empréstimos e acertos não mudam de tipo, quem pagou, quem deveria pagar nem cartão (edite um por um). O cartão precisa ser de quem pagou; se quem pagou
+            mudar, um cartão de outra pessoa sai.
           </p>
         </div>
         <div className="bulk-actions">
           <button type="button" className="btn ghost" onClick={onClose} disabled={pending}>
             Cancelar
           </button>
-          <button type="button" className="btn primary" onClick={apply} disabled={pending || changes === 0 || (changeSplit && split.length === 0) || (changeDate && !date)}>
+          <button type="button" className="btn primary" onClick={apply} disabled={pending || changes === 0 || (changeDate && !date)}>
             {pending ? "Aplicando…" : changes === 0 ? "Escolha o que mudar" : `Aplicar em ${ids.length}`}
           </button>
         </div>

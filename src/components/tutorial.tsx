@@ -57,8 +57,8 @@ const STEPS: Step[] = [
   {
     route: "/transacoes/nova",
     targets: ["tx-split"],
-    title: "Divida entre as pessoas",
-    text: "Marque quem participa. Cada pessoa passa a dever a parte dela para quem pagou, em partes iguais ou com valores diferentes.",
+    title: "Quem deveria pagar",
+    text: "“Quem pagou” é quem tirou o dinheiro do bolso; aqui você marca de quem é a conta. Uma pessoa só: ela deve tudo para quem pagou. Várias: cada uma deve a sua parte.",
   },
   {
     route: "/transacoes/nova",

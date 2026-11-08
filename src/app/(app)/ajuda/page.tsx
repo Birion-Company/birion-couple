@@ -45,7 +45,7 @@ const SECTIONS: Section[] = [
       { term: "Receita", text: "Dinheiro que entrou (salário, venda, estorno). Se dividir, quem recebeu fica devendo a parte de cada um." },
       { term: "Empréstimo", text: "Dinheiro emprestado ou algo pago só para outra pessoa. Quem pegou emprestado fica devendo o valor todo para quem emprestou." },
       { term: "Acerto", text: "Pagamento de uma dívida entre pessoas. Abate o que uma deve para a outra. O botão “Registrar pagamento” já preenche um acerto." },
-      { term: "Dividir entre", text: "Em partes iguais ou com valores diferentes para cada pessoa. A soma das partes precisa dar o valor total." },
+      { term: "Quem pagou × quem deveria pagar", text: "Quem pagou é quem tirou o dinheiro do bolso. Quem deveria pagar é de quem é a conta: uma pessoa só (deve tudo para quem pagou) ou várias, em partes iguais ou com valores diferentes. A diferença entre os dois vira dívida." },
     ],
   },
   {
