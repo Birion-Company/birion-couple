@@ -126,6 +126,17 @@ const SECTIONS: Section[] = [
   },
 ];
 
+/** Causa → efeitos: como uma ação mexe nas outras partes do app. */
+const CONNECTIONS: { cause: string; effects: string[] }[] = [
+  { cause: "Despesa paga e dividida", effects: ["Dívidas: cada pessoa passa a dever a parte dela para quem pagou", "Painel: soma em Gastos e na categoria", "Pendências: entra se o status for pendente"] },
+  { cause: "Compra no cartão", effects: ["Fatura do dono do cartão, no mês certo pelo dia de fechamento", "A fatura mostra a parte de cada pessoa", "Aviso perto do fechamento e do vencimento"] },
+  { cause: "Parcelado ou todo mês", effects: ["Um lançamento por mês", "Uma parcela em cada fatura", "Cada parcela só vira dívida no mês dela"] },
+  { cause: "Empréstimo", effects: ["Dívidas: quem pegou emprestado deve o valor todo", "Não conta como gasto nem entrada"] },
+  { cause: "Registrar pagamento", effects: ["Cria um Acerto que diminui ou zera a dívida", "O pagamento fica no histórico"] },
+  { cause: "Marcar como acertado", effects: ["Sai das Dívidas e das Pendências", "Nenhum dinheiro é registrado"] },
+  { cause: "Alguém muda algo que te envolve", effects: ["Aviso “O que mudou” na sua próxima visita"] },
+];
+
 export default async function HelpPage() {
   await requireAuth();
   return (
@@ -136,6 +147,24 @@ export default async function HelpPage() {
           <p className="muted">Um guia rápido de cada parte do BIRION FINANCE.</p>
         </div>
       </div>
+      <section className="card section help-section" aria-labelledby="h-conecta" id="conecta">
+        <h2 id="h-conecta">Como tudo se conecta</h2>
+        <p className="faint">Cada ação mexe em outras partes do app. Ao preencher um lançamento, o quadro “O que este lançamento muda” mostra isso antes de salvar.</p>
+        <div className="connect">
+          {CONNECTIONS.map((c) => (
+            <div key={c.cause} className="connect-row">
+              <span className="connect-cause">{c.cause}</span>
+              <span className="connect-arrow" aria-hidden>→</span>
+              <ul className="connect-effects">
+                {c.effects.map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <nav className="help-toc" aria-label="Assuntos">
         {SECTIONS.map((s) => (
           <a key={s.id} href={`#${s.id}`} className="chip">

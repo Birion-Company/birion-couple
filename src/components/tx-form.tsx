@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
 import { deleteSeries, deleteTransactions, saveTransaction } from "@/app/actions/transactions";
-import { addMonthsIso, invoiceDates, invoiceOf, monthLabel, seriesLabel, shortDate } from "@/lib/cards";
+import { addMonthsIso, monthLabel, seriesLabel } from "@/lib/cards";
+import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
+import { ImpactBox } from "./impact-box";
 import { Avatar } from "./ui";
 
 type Kind = "expense" | "income" | "loan" | "transfer";
@@ -184,35 +186,11 @@ export function TxForm({
     });
   };
 
-  // Frase que deixa claro quem fica devendo para quem.
-  const nameOf = (id: string | undefined) => people.find((p) => p.id === id)?.name;
-  const betweenSummary =
-    between && payerId && splitIds[0] && cents > 0
-      ? kind === "loan"
-        ? `${nameOf(splitIds[0])} vai ficar devendo ${formatMoney(cents, currency)} para ${nameOf(payerId)}.`
-        : `${nameOf(payerId)} pagou ${formatMoney(cents, currency)} para ${nameOf(splitIds[0])}; a dívida diminui nesse valor.`
-      : null;
-
   const payerLabel =
     kind === "income" ? "Quem recebeu" : kind === "transfer" ? "Quem pagou o acerto" : kind === "loan" ? "Quem emprestou" : "Quem pagou";
   const amountLabel = isSeries ? (repeat === "installment" ? "Valor total da compra" : "Valor por mês") : "Valor";
   const seriesWord = initial?.seriesKind === "monthly" ? "lançamento recorrente" : "compra parcelada";
   const endless = initial?.seriesKind === "monthly" && !initial.seriesTotal;
-
-  // Em qual fatura cai (e, no parcelamento, até quando vai).
-  let cardHint: string | null = null;
-  if (card && !between && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const first = invoiceOf(date, card.closingDay);
-    const d = invoiceDates(first, card);
-    if (isForever) {
-      cardHint = `Começa na fatura de ${monthLabel(first)} (vence ${shortDate(d.due)}) e entra em todas as seguintes.`;
-    } else if (isSeries && n >= 2) {
-      const last = invoiceOf(addMonthsIso(date, n - 1), card.closingDay);
-      cardHint = `1ª na fatura de ${monthLabel(first)} (vence ${shortDate(d.due)}), última na de ${monthLabel(last)}.`;
-    } else {
-      cardHint = `Entra na fatura de ${monthLabel(first)}: fecha ${shortDate(d.closing)} e vence ${shortDate(d.due)}.`;
-    }
-  }
 
   // Resumo das parcelas.
   let seriesHint: string | null = null;
@@ -230,6 +208,30 @@ export function TxForm({
     }
   }
   const sharesNow = mode === "equal" ? equalParts : splitIds.map((id) => parseAmountToCents(custom[id] ?? "", ",") ?? 0);
+
+  // O que este lançamento muda em cada parte do app (mesmas regras do cálculo de verdade).
+  const statusBehavior = (lookups.statuses.find((x) => x.id === statusId)?.behavior ?? null) as "pending" | "open" | "settled" | null;
+  const impact =
+    cents > 0
+      ? describeImpact({
+          kind,
+          amountCents: cents,
+          payerId: payerId || null,
+          shares: between
+            ? splitIds.slice(0, 1).map((id) => ({ participantId: id, cents }))
+            : splitIds.map((id, i) => ({ participantId: id, cents: sharesNow[i] ?? 0 })),
+          me,
+          names: Object.fromEntries(people.map((p) => [p.id, p.name])),
+          statusBehavior,
+          card: card && !between ? { name: card.name, closingDay: card.closingDay, dueDay: card.dueDay } : null,
+          date,
+          repeat: isSeries ? repeat : "once",
+          count: isSeries ? (isForever ? null : n) : null,
+          categoryName: lookups.categories.find((c) => c.id === categoryId)?.name ?? null,
+          currency,
+          today: today(),
+        })
+      : null;
 
   return (
     <form className="form" onSubmit={submit}>
@@ -350,7 +352,6 @@ export function TxForm({
                     ...payerCards.map((c) => ({ value: c.id, label: c.name, color: c.color })),
                   ]}
                 />
-                {cardHint && <span className="faint">{cardHint}</span>}
               </label>
             ) : (
               kind === "expense" && !readOnly && (
@@ -438,11 +439,6 @@ export function TxForm({
                   ? "Use para dinheiro emprestado ou algo que você pagou só para outra pessoa."
                   : "Um acerto abate o que uma pessoa deve para a outra."}
               </span>
-              {betweenSummary && (
-                <span className="between-summary" role="status">
-                  {betweenSummary}
-                </span>
-              )}
             </div>
           ) : (
             <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }} data-tour="tx-split">
@@ -501,14 +497,6 @@ export function TxForm({
                   Soma das partes: {formatMoney(customSum, currency)} de {formatMoney(cents, currency)}
                 </p>
               )}
-              {isSeries && repeat === "installment" && n >= 2 && cents > 0 && splitIds.length > 1 && (
-                <p className="faint num">
-                  Por parcela:{" "}
-                  {splitIds
-                    .map((id, i) => `${people.find((p) => p.id === id)?.name} ${formatMoney(splitEqually(sharesNow[i] ?? 0, n)[n - 1], currency)}`)
-                    .join(" · ")}
-                </p>
-              )}
             </fieldset>
           )}
 
@@ -557,6 +545,8 @@ export function TxForm({
             <span>Observações</span>
             <textarea className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} placeholder="Opcional" />
           </label>
+
+          <ImpactBox impact={impact} />
 
         </div>
       </div>

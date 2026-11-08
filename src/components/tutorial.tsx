@@ -61,6 +61,13 @@ const STEPS: Step[] = [
     text: "Marque quem participa. Cada pessoa passa a dever a parte dela para quem pagou, em partes iguais ou com valores diferentes.",
   },
   {
+    route: "/transacoes/nova",
+    targets: ["tx-impact"],
+    title: "Veja o efeito antes de salvar",
+    text: "Este quadro mostra, enquanto você preenche, o que o lançamento muda: quem fica devendo para quem, em qual fatura entra, onde soma no painel e se fica pendente.",
+    tip: "Mude quem pagou, a divisão ou o cartão e veja o quadro mudar junto.",
+  },
+  {
     route: "/cartoes",
     targets: ["cards-stats", "cards-intro", "cards"],
     title: "Cartões e faturas",

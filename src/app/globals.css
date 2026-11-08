@@ -2816,3 +2816,96 @@ button.user-menu-item {
   text-align: right;
   font-size: 0.8rem;
 }
+
+/* ---------- O que este lançamento muda ---------- */
+.impact {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-edge);
+}
+.impact h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.impact ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.impact li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.impact-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--brand-strong);
+  background: color-mix(in srgb, var(--brand-strong) 14%, transparent);
+}
+.impact-area {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.impact li p {
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+.impact-empty {
+  font-size: 0.82rem;
+  color: var(--text-3);
+}
+
+/* ---------- Como tudo se conecta ---------- */
+.connect {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+}
+.connect-row {
+  display: grid;
+  grid-template-columns: 210px 20px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.connect-row:first-child {
+  border-top: 0;
+}
+.connect-cause {
+  font-weight: 600;
+  color: var(--brand-strong);
+}
+.connect-arrow {
+  color: var(--text-3);
+}
+.connect-effects {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-2);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .connect-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .connect-arrow {
+    display: none;
+  }
+}

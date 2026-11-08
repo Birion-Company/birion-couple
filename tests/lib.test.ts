@@ -6,6 +6,7 @@ import { parseOfx, normalizeOfxText } from "@/lib/import/ofx";
 import { applyCsvMapping, guessMapping, parseDate, readCsvTable } from "@/lib/import/csv";
 import { externalIds, matchCategory } from "@/lib/import/dedupe";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
+import { describeImpact } from "@/lib/impact";
 import { dueOccurrences, endOfMonth } from "@/lib/recurring";
 import { addMonthsIso, buildSeries, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, suggestDueDay, todayIn } from "@/lib/cards";
 
@@ -283,5 +284,50 @@ describe("visão de um membro (só entre ele e cada pessoa)", () => {
       { fromId: "clara", toId: "eu", amountCents: 2800 },
       { fromId: "mae", toId: "eu", amountCents: 2000 },
     ]);
+  });
+});
+
+describe("o que o lançamento muda", () => {
+  const base = {
+    kind: "expense" as const,
+    amountCents: 9000,
+    payerId: "eu",
+    shares: [
+      { participantId: "eu", cents: 3000 },
+      { participantId: "clara", cents: 3000 },
+      { participantId: "mae", cents: 3000 },
+    ],
+    me: "eu",
+    names: { eu: "Felipe", clara: "Clara", mae: "Mãe" },
+    statusBehavior: "pending" as const,
+    card: null,
+    date: "2026-11-05",
+    repeat: "once" as const,
+    count: null,
+    categoryName: "Mercado",
+    today: "2026-11-08",
+  };
+  const by = (r: ReturnType<typeof describeImpact>, a: string) => (r.find((x) => x.area === a)?.lines ?? []).map((l) => l.replace(/\u00a0/g, " "));
+  test("despesa dividida gera dívida, gasto e pendência", () => {
+    const r = describeImpact(base);
+    expect(by(r, "debts")).toEqual(["Clara fica devendo R$ 30,00 para você.", "Mãe fica devendo R$ 30,00 para você."]);
+    expect(by(r, "panel")[0]).toBe("Soma em Gastos de nov/2026, em Mercado.");
+    expect(by(r, "pending")).toHaveLength(1);
+  });
+  test("acertado ou sem quem pagou não geram dívida", () => {
+    expect(by(describeImpact({ ...base, statusBehavior: "settled" }), "debts")[0]).toMatch(/não gera dívida/);
+    expect(by(describeImpact({ ...base, payerId: null }), "debts")[0]).toMatch(/não gera dívida/);
+  });
+  test("parcelado no cartão: parcela por fatura e dívida por parcela", () => {
+    const r = describeImpact({ ...base, amountCents: 240000, shares: [{ participantId: "eu", cents: 120000 }, { participantId: "clara", cents: 120000 }], card: { name: "Nubank", closingDay: 10, dueDay: 17 }, repeat: "installment", count: 10 });
+    expect(by(r, "debts")[0]).toBe("Clara fica devendo R$ 120,00 por parcela para você.");
+    expect(by(r, "card")[0]).toBe("Uma parcela de R$ 240,00 em cada fatura do Nubank, de nov/2026 a ago/2027.");
+  });
+  test("empréstimo e acerto não contam como gasto", () => {
+    const loan = describeImpact({ ...base, kind: "loan", amountCents: 2040, shares: [{ participantId: "clara", cents: 2040 }] });
+    expect(by(loan, "debts")).toEqual(["Clara fica devendo R$ 20,40 para você."]);
+    expect(by(loan, "panel")[0]).toMatch(/Não conta como gasto/);
+    const pay = describeImpact({ ...base, kind: "transfer", payerId: "clara", amountCents: 1000, shares: [{ participantId: "eu", cents: 1000 }] });
+    expect(by(pay, "debts")).toEqual(["Abate R$ 10,00 do que Clara deve para você."]);
   });
 });
