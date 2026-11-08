@@ -3467,9 +3467,6 @@ button.user-menu-item {
 }
 
 /* ---------- Barra de cima estilo Waybar ---------- */
-.wb-left {
-  display: none;
-}
 .wb-group {
   display: flex;
   align-items: center;
@@ -3497,7 +3494,9 @@ button.user-menu-item {
     border: 0;
     border-bottom: 1px solid var(--line);
     border-radius: 0;
-    background: var(--topbar-bg);
+    /* Mesmo fundo da barra lateral, nos dois temas. */
+    background: var(--surface);
+    backdrop-filter: none;
     box-shadow: none;
   }
   .topbar .brand {
@@ -3521,33 +3520,8 @@ button.user-menu-item {
   html {
     scroll-padding-top: calc(var(--bar-h) + 12px);
   }
-  .wb-left {
-    padding-left: 10px;
-  }
   .main {
     padding-top: 28px;
-  }
-  .wb-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-  }
-  .wb-module {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    height: 34px;
-    padding: 0 12px;
-    border-radius: 10px;
-    background: var(--tile-bg);
-    border: 1px solid var(--tile-edge);
-    color: var(--text-2);
-    font-size: 0.84rem;
-    white-space: nowrap;
-  }
-  .wb-module svg {
-    color: var(--brand-strong);
   }
   .wb-group {
     height: 38px;

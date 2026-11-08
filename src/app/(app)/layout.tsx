@@ -1,4 +1,3 @@
-import { CalendarDays, Users } from "lucide-react";
 import { BottomNav, SideNav } from "@/components/nav";
 import { BellButton, NotificationCenter } from "@/components/notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -27,8 +26,6 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
   const lookups = await getLookups(auth.householdId);
   const [alerts, activity, toIdentify] = await Promise.all([getCardAlerts(auth), getActivityFeed(auth, lookups, auth.currency, { all: true }), countUnidentified(auth)]);
-  const todayRaw = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" }).format(new Date());
-  const today = todayRaw.charAt(0).toUpperCase() + todayRaw.slice(1);
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -39,17 +36,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </div>
       </aside>
       <div className="shell-body">
-        {/* Barra de cima (estilo Waybar): data e família à esquerda, módulos à direita. */}
+        {/* Barra de cima (estilo Waybar): marca à esquerda, módulos à direita. */}
         <header className="topbar">
           <Brand />
-          <div className="wb-left" aria-label="Hoje e família">
-            <span className="wb-module">
-              <CalendarDays size={15} strokeWidth={1.8} aria-hidden /> {today}
-            </span>
-            <span className="wb-module">
-              <Users size={15} strokeWidth={1.8} aria-hidden /> {auth.householdName}
-            </span>
-          </div>
           <span className="spacer" />
           <div className="wb-group" role="group" aria-label="Notificações, ajuda e tema">
             <BellButton />
