@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { DeleteImportButton } from "@/components/import-history";
 import { ImportWizard } from "@/components/import-wizard";
 import { requireAuth } from "@/lib/auth";
-import { getImportBatches, getLookups, getPresets } from "@/lib/queries";
+import { getImportBatches, getLookupsFor, getPresets } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Importar" };
 
 export default async function ImportPage() {
   const auth = await requireAuth();
   const [lookups, presets, batches] = await Promise.all([
-    getLookups(auth.householdId),
+    getLookupsFor(auth),
     getPresets(auth.householdId),
     getImportBatches(auth),
   ]);

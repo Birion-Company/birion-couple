@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { isAdmin, txScope, type Viewer } from "./access";
+import { cardsFor, isAdmin, txScope, type Viewer } from "./access";
 import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type StatusBehavior, type TransactionKind } from "./balances";
 import type { Filters } from "./filters";
 import { todayIn } from "./cards";
@@ -23,6 +23,12 @@ export async function getLookups(householdId: string) {
 }
 
 export type Lookups = Awaited<ReturnType<typeof getLookups>>;
+
+/** Listas da família como esta pessoa deve vê-las: cartões só os dela (quem administra vê todos). */
+export async function getLookupsFor(viewer: Viewer): Promise<Lookups> {
+  const l = await getLookups(viewer.householdId);
+  return { ...l, cards: cardsFor(viewer, l.cards) };
+}
 
 /** Último dia do mês atual: em "Todo o período", o que vem depois só aparece se pedir. */
 const endOfThisMonth = () => endOfMonth(todayIn());

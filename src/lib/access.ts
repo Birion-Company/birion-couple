@@ -53,3 +53,17 @@ export async function checkEditable(v: Viewer, ids: string[]): Promise<string | 
   if (rows.length !== new Set(ids).size) return "Lançamento não encontrado.";
   return rows.every((r) => canEditTx(v, r.createdBy)) ? null : NOT_YOURS;
 }
+
+// ---------- Cartões: cada pessoa tem os seus ----------
+
+type CardLike = { ownerId: string | null };
+
+/** Cartões que esta pessoa vê: os próprios; quem administra vê todos. */
+export function cardsFor<T extends CardLike>(v: Viewer, cards: T[]): T[] {
+  return isAdmin(v) ? cards : cards.filter((c) => c.ownerId !== null && c.ownerId === v.participantId);
+}
+
+/** Pode editar, arquivar ou excluir este cartão? Dono ou quem administra. */
+export function canManageCard(v: Viewer, card: CardLike) {
+  return isAdmin(v) || (card.ownerId !== null && card.ownerId === v.participantId);
+}

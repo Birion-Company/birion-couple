@@ -1,7 +1,7 @@
 import "server-only";
 import { asc, eq, gte, inArray, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { txScope, type Viewer } from "./access";
+import { cardsFor, txScope, type Viewer } from "./access";
 import { ensureRecurring } from "./recurring-server";
 import { addMonthsKey, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, todayIn, type CardAlert } from "./cards";
 
@@ -90,7 +90,9 @@ export async function getCardOverview(viewer: Viewer) {
   const today = todayIn();
   // Dois meses para trás bastam para a fatura fechada que ainda vai vencer.
   const since = `${addMonthsKey(today.slice(0, 7), -2)}-01`;
-  const { cards, rows } = await loadCards(viewer, since);
+  const { cards: all, rows } = await loadCards(viewer, since);
+  // Cada pessoa vê os próprios cartões; quem administra vê todos.
+  const cards = cardsFor(viewer, all);
 
   return {
     today,
@@ -147,8 +149,9 @@ export async function getCardAlerts(viewer: Viewer): Promise<CardAlert[]> {
   const today = todayIn();
   const since = `${addMonthsKey(today.slice(0, 7), -2)}-01`;
   const { cards, rows } = await loadCards(viewer, since);
+  // Aviso de fatura só para o dono do cartão.
   return cards
-    .filter((c) => !c.archived)
+    .filter((c) => !c.archived && c.ownerId !== null && c.ownerId === viewer.participantId)
     .flatMap((card) => {
       const mine = rows.filter((r) => r.cardId === card.id);
       const totals = totalsByInvoice(mine, card.closingDay);

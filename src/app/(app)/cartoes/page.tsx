@@ -7,7 +7,8 @@ import { requireAuth } from "@/lib/auth";
 import { getCardOverview } from "@/lib/card-queries";
 import { monthLabel, shortDate } from "@/lib/cards";
 import { filtersToQuery } from "@/lib/filters";
-import { getLookups } from "@/lib/queries";
+import { CARDS_PER_PERSON_MAX } from "@/lib/defaults";
+import { getLookupsFor } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Cartões" };
 
@@ -76,12 +77,30 @@ function InvoiceRows({ invoices, cardId, currency, me, names }: { invoices: Invo
 
 export default async function CardsPage() {
   const auth = await requireAuth();
-  const [overview, lookups] = await Promise.all([getCardOverview(auth), getLookups(auth.householdId)]);
+  const [overview, lookups] = await Promise.all([getCardOverview(auth), getLookupsFor(auth)]);
   const me = auth.participantId;
   const names: Names = new Map(lookups.participants.map((p) => [p.id, p.id === me ? "você" : p.name]));
   const cur = auth.currency;
   const active = overview.cards.filter((c) => !c.card.archived);
   const archived = overview.cards.filter((c) => c.card.archived);
+  const admin = auth.role === "owner";
+  // Cartões agrupados por dono: os seus primeiro (quem administra vê os de todos).
+  const countOf = (id: string) => active.filter((c) => c.card.ownerId === id).length;
+  const ownerIds = [...new Set(active.map((c) => c.card.ownerId ?? ""))].sort((a, b) =>
+    a === me ? -1 : b === me ? 1 : (names.get(a) ?? "").localeCompare(names.get(b) ?? ""),
+  );
+  const groups = ownerIds.map((id) => ({ id, cards: active.filter((c) => (c.card.ownerId ?? "") === id) }));
+  // Para quem dá para cadastrar mais um cartão.
+  const owners = admin
+    ? lookups.participants.filter((p) => !p.archived && countOf(p.id) < CARDS_PER_PERSON_MAX).map((p) => ({ id: p.id, name: p.id === me ? `${p.name} (você)` : p.name }))
+    : undefined;
+  const blocked = !me
+    ? "Sua conta não está ligada a uma pessoa da família."
+    : !admin && countOf(me) >= CARDS_PER_PERSON_MAX
+      ? `Você já tem ${CARDS_PER_PERSON_MAX} cartões. Arquive um para cadastrar outro.`
+      : admin && owners?.length === 0
+        ? `Todas as pessoas já têm ${CARDS_PER_PERSON_MAX} cartões.`
+        : null;
 
   return (
     <div className="cards-page">
@@ -90,7 +109,7 @@ export default async function CardsPage() {
           <h1>Cartões</h1>
           <p className="muted">Faturas, fechamento e vencimento de cada cartão de crédito.</p>
         </div>
-        {active.length > 0 && <NewCard startOpen={false} />}
+        {active.length > 0 && <NewCard startOpen={false} owners={owners} defaultOwner={me} blocked={blocked} />}
       </div>
 
       <div data-tour="cards">
@@ -98,17 +117,26 @@ export default async function CardsPage() {
         <>
           <div className="notice" style={{ marginBottom: 16 }} data-tour="cards-intro">
             <CreditCard size={16} strokeWidth={1.7} style={{ verticalAlign: -3, marginRight: 6 }} aria-hidden />
-            Cadastre um cartão com o dia em que a fatura fecha. O vencimento é sugerido na hora, e o app avisa quando o fechamento ou o
-            vencimento estiver chegando. Depois é só escolher o cartão ao lançar uma compra, inclusive parcelada.
+            Cada pessoa tem os próprios cartões (até {CARDS_PER_PERSON_MAX}). Cadastre o seu com o dia em que a fatura fecha: o vencimento é
+            sugerido na hora, e o app te avisa quando o fechamento ou o vencimento estiver chegando.
           </div>
-          <NewCard startOpen />
+          <NewCard startOpen owners={owners} defaultOwner={me} blocked={blocked} />
         </>
       )}
 
-      {active.map(({ card, schedule: s, openTotal, dueTotal, openShares, dueShares, invoices, series }) => (
+      {groups.map((g) => (
+        <section key={g.id || "sem-dono"} className="card-owner" aria-label={g.id === me ? "Seus cartões" : `Cartões de ${names.get(g.id) ?? "alguém"}`}>
+          {(admin || g.id !== me) && (
+            <h2 className="card-owner-title">
+              {g.id === me ? "Seus cartões" : g.id ? `Cartões de ${names.get(g.id) ?? "alguém"}` : "Sem dono"}
+              <span className="faint"> · {g.cards.length} de {CARDS_PER_PERSON_MAX}</span>
+            </h2>
+          )}
+          {g.cards.map(({ card, schedule: s, openTotal, dueTotal, openShares, dueShares, invoices, series }) => (
         <CardPanel
           key={card.id}
           card={card}
+          owners={admin ? lookups.participants.filter((p) => !p.archived && (p.id === card.ownerId || countOf(p.id) < CARDS_PER_PERSON_MAX)).map((p) => ({ id: p.id, name: p.name })) : undefined}
           header={
             <div className="credit-card-id">
               <span className="card-chip" style={{ background: card.color }} aria-hidden>
@@ -175,6 +203,8 @@ export default async function CardsPage() {
             </>
           )}
         </CardPanel>
+      ))}
+        </section>
       ))}
 
       </div>

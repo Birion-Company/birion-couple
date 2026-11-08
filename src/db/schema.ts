@@ -168,6 +168,8 @@ export const creditCards = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     name: text().notNull(),
     color: text().notNull().default("#1AC4DB"),
+    /** Dono do cartão (pessoa). Cada pessoa tem os próprios cartões, independentes dos outros. */
+    ownerId: uuid().references(() => participants.id, { onDelete: "cascade" }),
     /** Dia do mês em que a fatura fecha (1–31; em meses curtos vale o último dia). */
     closingDay: integer().notNull(),
     /** Dia do mês em que a fatura vence (1–31). Se for menor ou igual ao fechamento, vence no mês seguinte. */
@@ -177,7 +179,7 @@ export const creditCards = pgTable(
     archived: boolean().notNull().default(false),
     createdAt: createdAt(),
   },
-  (t) => [index("credit_cards_household_idx").on(t.householdId)],
+  (t) => [index("credit_cards_household_idx").on(t.householdId), index("credit_cards_owner_idx").on(t.ownerId)],
 );
 
 /**

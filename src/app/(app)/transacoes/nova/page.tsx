@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TxForm, type TxPrefill } from "@/components/tx-form";
 import { requireAuth } from "@/lib/auth";
-import { getLookups } from "@/lib/queries";
+import { getLookupsFor } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Novo lançamento" };
 
 export default async function NewTransactionPage({ searchParams }: PageProps<"/transacoes/nova">) {
   const auth = await requireAuth();
   const sp = await searchParams;
-  const lookups = await getLookups(auth.householdId);
+  const lookups = await getLookupsFor(auth);
   const ids = new Set(lookups.participants.map((p) => p.id));
 
   // Vindo de "Como acertar" no painel: ?acerto=deId.paraId.centavos

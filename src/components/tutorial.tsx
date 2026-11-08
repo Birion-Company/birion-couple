@@ -45,7 +45,7 @@ const STEPS: Step[] = [
     route: "/transacoes/nova",
     targets: ["tx-card"],
     title: "Foi no cartão?",
-    text: "Escolha o cartão de crédito e o lançamento entra na fatura certa, de acordo com o dia de fechamento.",
+    text: "Escolha o cartão de crédito e o lançamento entra na fatura certa. Aparecem só os cartões de quem pagou.",
     tip: "Ainda sem cartão? O link aqui leva para cadastrar.",
   },
   {
@@ -64,8 +64,8 @@ const STEPS: Step[] = [
     route: "/cartoes",
     targets: ["cards-stats", "cards-intro", "cards"],
     title: "Cartões e faturas",
-    text: "Cadastre o cartão com o dia de fechamento. Aqui você vê a fatura aberta, o vencimento, a sua parte e quanto cada pessoa deve daquela fatura.",
-    tip: "Perto do fechamento ou do vencimento, o app avisa ao abrir.",
+    text: "Cada pessoa tem os próprios cartões, até 3, e só ela vê os seus. Cadastre com o dia de fechamento e acompanhe a fatura, o vencimento e quanto cada pessoa deve daquela fatura.",
+    tip: "Perto do fechamento ou do vencimento, o app avisa o dono do cartão.",
   },
   {
     route: "/dividas",

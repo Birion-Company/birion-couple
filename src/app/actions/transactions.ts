@@ -5,7 +5,7 @@ import { and, eq, gt, gte, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
-import { canEditTx, checkEditable, NOT_YOURS } from "@/lib/access";
+import { canEditTx, canManageCard, checkEditable, NOT_YOURS } from "@/lib/access";
 import { diff, involved, logActivity, snapshots, type TxSnapshot } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { buildSeries, monthLabel, todayIn } from "@/lib/cards";
@@ -106,6 +106,16 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   if (data.series?.kind === "installment" && data.series.count! > 48) return { ok: false, error: "No máximo 48 parcelas." };
   if (data.series?.kind === "installment" && data.amountCents < data.series.count!) return { ok: false, error: "Valor pequeno demais para tantas parcelas." };
   if (data.cardId && between) return { ok: false, error: "Empréstimos e acertos não entram em cartão." };
+  if (data.cardId) {
+    // Cada pessoa tem os próprios cartões: a compra no cartão é de quem é dono dele.
+    const [card] = await getDb()
+      .select({ ownerId: schema.creditCards.ownerId })
+      .from(schema.creditCards)
+      .where(and(eq(schema.creditCards.id, data.cardId), eq(schema.creditCards.householdId, auth.householdId)));
+    if (!card) return { ok: false, error: "Cartão inválido." };
+    if (card.ownerId && card.ownerId !== data.payerId) return { ok: false, error: "Esse cartão é de outra pessoa. Em “Quem pagou”, escolha o dono do cartão." };
+    if (!canManageCard(auth, card)) return { ok: false, error: "Você só pode lançar nos seus cartões." };
+  }
 
   const db = getDb();
   const snapshot: TxSnapshot = {

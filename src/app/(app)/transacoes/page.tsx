@@ -7,7 +7,7 @@ import { TxList } from "@/components/tx-list";
 import { Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { filtersToQuery, parseFilters } from "@/lib/filters";
-import { getLookups, getRecurring, listTransactions } from "@/lib/queries";
+import { getLookupsFor, getRecurring, listTransactions } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Lançamentos" };
 
@@ -18,7 +18,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const pages = Math.min(50, Math.max(1, Number(sp.paginas) || 1));
-  const lookups = await getLookups(auth.householdId);
+  const lookups = await getLookupsFor(auth);
   const { rows, count, total, futureCount } = await listTransactions(auth, filters, PAGE * pages);
   // Depois da lista: ela é que cria os meses que faltam, e o "próximo em" já sai atualizado.
   const recurring = await getRecurring(auth);

@@ -81,9 +81,10 @@ const SECTIONS: Section[] = [
     id: "cartoes",
     title: "Cartões de crédito",
     items: [
+      { term: "Cartões de cada pessoa", text: "Cada pessoa tem os próprios cartões, até 3 ativos, independentes dos outros. Só o dono vê e mexe nos seus (quem administra vê todos). Ao lançar, o cartão escolhido tem que ser de quem pagou." },
       { term: "Fechamento e vencimento", text: "Ao cadastrar, informe o dia em que a fatura fecha; o vencimento é sugerido uma semana depois e pode ser ajustado. Compras a partir do dia de fechamento vão para a fatura seguinte." },
       { term: "Sua parte da fatura", text: "Quando uma compra no cartão é dividida, a fatura mostra quanto é seu e quanto cada pessoa deve daquela fatura." },
-      { term: "Avisos", text: "Perto do fechamento ou do vencimento aparece um aviso ao abrir o app. Dá para lembrar no dia seguinte ou não lembrar mais daquela fatura." },
+      { term: "Avisos", text: "Perto do fechamento ou do vencimento, o dono do cartão recebe um aviso ao abrir o app. Dá para lembrar no dia seguinte ou não lembrar mais daquela fatura." },
     ],
   },
   {

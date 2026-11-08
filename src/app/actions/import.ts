@@ -4,7 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
-import { canEditTx, NOT_YOURS } from "@/lib/access";
+import { canEditTx, canManageCard, NOT_YOURS } from "@/lib/access";
 import { involved, logActivity, snapshots, type ActivityItem } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { applyCsvMapping, guessMapping, readCsvTable } from "@/lib/import/csv";
@@ -148,6 +148,15 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
       .from(schema.categories)
       .where(and(eq(schema.categories.householdId, auth.householdId), inArray(schema.categories.id, catIds)));
     if (found.length !== catIds.length) return { ok: false, error: "Categoria inválida." };
+  }
+  if (data.cardId) {
+    const [card] = await db
+      .select({ ownerId: schema.creditCards.ownerId })
+      .from(schema.creditCards)
+      .where(and(eq(schema.creditCards.id, data.cardId), eq(schema.creditCards.householdId, auth.householdId)));
+    if (!card) return { ok: false, error: "Cartão inválido." };
+    if (!canManageCard(auth, card)) return { ok: false, error: "Você só pode importar para os seus cartões." };
+    if (card.ownerId && card.ownerId !== data.payerId) return { ok: false, error: "Em “Quem pagou”, escolha o dono do cartão." };
   }
   for (const [table, id] of [[schema.statuses, data.statusId], [schema.projects, data.projectId], [schema.creditCards, data.cardId ?? null]] as const) {
     if (!id) continue;

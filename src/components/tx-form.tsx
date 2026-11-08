@@ -82,7 +82,10 @@ export function TxForm({
   // "Todo mês": por padrão repete sem data para acabar.
   const [forever, setForever] = useState(true);
   const [applyToSeries, setApplyToSeries] = useState(true);
-  const card = cards.find((c) => c.id === cardId) ?? null;
+  // Cada pessoa tem os próprios cartões: só aparecem os de quem pagou.
+  const payerCards = cards.filter((c) => !c.ownerId || c.ownerId === payerId || c.id === initial?.cardId);
+  const card = payerCards.find((c) => c.id === cardId) ?? null;
+  const payerName = people.find((p) => p.id === payerId)?.name;
   const n = Math.min(Math.max(Number(count) || 0, 0), repeat === "installment" ? 48 : 60);
   const isSeries = !initial && !between && repeat !== "once";
   const isForever = isSeries && repeat === "monthly" && forever;
@@ -323,7 +326,12 @@ export function TxForm({
               <span>{payerLabel}</span>
               <Select
                 value={payerId}
-                onChange={setPayerId}
+                onChange={(v) => {
+                  setPayerId(v);
+                  // Cartão de outra pessoa não vale para o novo pagador.
+                  const c = cards.find((x) => x.id === cardId);
+                  if (c?.ownerId && c.ownerId !== v) setCardId("");
+                }}
                 options={[...(!between ? [{ value: "", label: "Ninguém ainda" }] : []), ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
                 placeholder="Escolha"
               />
@@ -331,15 +339,15 @@ export function TxForm({
           </div>
 
           {!between &&
-            (cards.length > 0 ? (
+            (payerCards.length > 0 ? (
               <label className="field" data-tour="tx-card">
-                <span>Cartão de crédito</span>
+                <span>{payerName && payerId !== me ? `Cartão de crédito de ${payerName}` : "Cartão de crédito"}</span>
                 <Select
                   value={cardId}
                   onChange={setCardId}
                   options={[
                     { value: "", label: "Não foi no cartão" },
-                    ...cards.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+                    ...payerCards.map((c) => ({ value: c.id, label: c.name, color: c.color })),
                   ]}
                 />
                 {cardHint && <span className="faint">{cardHint}</span>}
@@ -347,8 +355,14 @@ export function TxForm({
             ) : (
               kind === "expense" && !readOnly && (
                 <p className="faint card-cta" data-tour="tx-card">
-                  <CreditCard size={15} strokeWidth={1.7} aria-hidden /> Pagou no cartão de crédito?{" "}
-                  <Link href="/cartoes" className="pos">Cadastre o cartão</Link> para acompanhar a fatura.
+                  <CreditCard size={15} strokeWidth={1.7} aria-hidden />
+                  {payerId && payerId !== me ? (
+                    <>{payerName ?? "Essa pessoa"} não tem cartão cadastrado.</>
+                  ) : (
+                    <>
+                      Pagou no cartão de crédito? <Link href="/cartoes" className="pos">Cadastre o seu cartão</Link> para acompanhar a fatura.
+                    </>
+                  )}
                 </p>
               )
             ))}

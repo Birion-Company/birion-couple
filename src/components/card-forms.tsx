@@ -17,7 +17,10 @@ export type CardData = {
   dueDay: number;
   alertDays: number | null;
   archived: boolean;
+  ownerId: string | null;
 };
+
+type Owner = { id: string; name: string };
 
 const ALERTS = [
   { value: "none", label: "Não avisar" },
@@ -37,7 +40,19 @@ function dayValue(v: string) {
   return Number.isInteger(n) && n >= 1 && n <= 31 ? n : null;
 }
 
-export function CardForm({ card, onDone }: { card: CardData | null; onDone: () => void }) {
+export function CardForm({
+  card,
+  onDone,
+  owners,
+  defaultOwner,
+}: {
+  card: CardData | null;
+  onDone: () => void;
+  /** Só para quem administra: de quem é o cartão. */
+  owners?: Owner[];
+  defaultOwner?: string | null;
+}) {
+  const [ownerId, setOwnerId] = useState(card?.ownerId ?? defaultOwner ?? owners?.[0]?.id ?? "");
   const router = useRouter();
   const [pending, start] = useTransition();
   const [name, setName] = useState(card?.name ?? "");
@@ -65,6 +80,7 @@ export function CardForm({ card, onDone }: { card: CardData | null; onDone: () =
         closingDay: dayValue(closing) ?? 0,
         dueDay: dayValue(due) ?? 0,
         alertDays: alert === "none" ? null : Number(alert),
+        ownerId: owners ? ownerId || null : undefined,
       });
       toastResult(r);
       if (r.ok) {
@@ -77,6 +93,12 @@ export function CardForm({ card, onDone }: { card: CardData | null; onDone: () =
   const fieldId = card?.id ?? "novo";
   return (
     <form className="form card-form" onSubmit={submit}>
+      {owners && (
+        <label className="field">
+          <span>De quem é o cartão</span>
+          <Select value={ownerId} onChange={setOwnerId} options={owners.map((o) => ({ value: o.id, label: o.name }))} placeholder="Escolha" />
+        </label>
+      )}
       <label className="field">
         <span>Nome do cartão</span>
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Nubank, Itaú Visa" maxLength={40} required autoFocus={!card} />
@@ -142,9 +164,29 @@ export function CardForm({ card, onDone }: { card: CardData | null; onDone: () =
   );
 }
 
-/** Botão "Novo cartão" que abre o formulário no lugar. */
-export function NewCard({ startOpen }: { startOpen: boolean }) {
-  const [open, setOpen] = useState(startOpen);
+/** Botão "Novo cartão" que abre o formulário no lugar (desativado quando não cabe mais cartão). */
+export function NewCard({
+  startOpen,
+  owners,
+  defaultOwner,
+  blocked,
+}: {
+  startOpen: boolean;
+  owners?: Owner[];
+  defaultOwner?: string | null;
+  blocked?: string | null;
+}) {
+  const [open, setOpen] = useState(startOpen && !blocked);
+  if (blocked) {
+    return (
+      <div className="new-card-blocked">
+        <button type="button" className="btn primary" disabled aria-describedby="novo-cartao-motivo">
+          <Plus size={16} /> Novo cartão
+        </button>
+        <span id="novo-cartao-motivo" className="faint">{blocked}</span>
+      </div>
+    );
+  }
   if (!open) {
     return (
       <button type="button" className="btn primary" onClick={() => setOpen(true)}>
@@ -155,13 +197,23 @@ export function NewCard({ startOpen }: { startOpen: boolean }) {
   return (
     <section className="card section" aria-label="Novo cartão">
       <h2 style={{ marginBottom: 12 }}>Novo cartão</h2>
-      <CardForm card={null} onDone={() => setOpen(false)} />
+      <CardForm card={null} onDone={() => setOpen(false)} owners={owners} defaultOwner={defaultOwner} />
     </section>
   );
 }
 
 /** Painel de um cartão: o lápis troca o conteúdo pelo formulário de edição (com arquivar e excluir). */
-export function CardPanel({ card, header, children }: { card: CardData; header: React.ReactNode; children: React.ReactNode }) {
+export function CardPanel({
+  card,
+  header,
+  children,
+  owners,
+}: {
+  card: CardData;
+  header: React.ReactNode;
+  children: React.ReactNode;
+  owners?: Owner[];
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
@@ -184,7 +236,7 @@ export function CardPanel({ card, header, children }: { card: CardData; header: 
       </div>
       {editing ? (
         <div className="card-edit">
-          <CardForm card={card} onDone={() => setEditing(false)} />
+          <CardForm card={card} onDone={() => setEditing(false)} owners={owners} />
           <div className="actions card-danger">
             <button type="button" className="btn small ghost" disabled={pending} onClick={() => run(() => setCardArchived(card.id, true))}>
               <Archive size={15} strokeWidth={1.7} /> Arquivar

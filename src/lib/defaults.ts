@@ -1,5 +1,8 @@
 /** Valores iniciais de uma família nova. Tudo pode ser mudado depois em Ajustes. */
 
+/** Máximo de cartões ativos por pessoa (arquivados não contam). */
+export const CARDS_PER_PERSON_MAX = 3;
+
 /** Máximo de pessoas ativas numa família (arquivadas não contam). */
 export const FAMILY_PEOPLE_MAX = 10;
 export const FAMILY_FULL_MESSAGE = `A família já tem ${FAMILY_PEOPLE_MAX} pessoas, o máximo. Arquive alguém para abrir espaço.`;

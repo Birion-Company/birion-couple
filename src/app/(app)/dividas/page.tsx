@@ -6,7 +6,7 @@ import { Avatar, Money, formatDate } from "@/components/ui";
 import { canEditTx } from "@/lib/access";
 import { requireAuth } from "@/lib/auth";
 import { seriesLabel } from "@/lib/cards";
-import { getDebtLedger, getLookups } from "@/lib/queries";
+import { getDebtLedger, getLookupsFor } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Dívidas" };
 
@@ -14,7 +14,7 @@ const KIND: Record<string, string> = { expense: "despesa dividida", income: "rec
 
 export default async function DebtsPage() {
   const auth = await requireAuth();
-  const lookups = await getLookups(auth.householdId);
+  const lookups = await getLookupsFor(auth);
   const ledger = await getDebtLedger(auth, lookups);
   const cur = auth.currency;
   const people = new Map(lookups.participants.map((p) => [p.id, p]));

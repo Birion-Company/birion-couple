@@ -6,7 +6,7 @@ import { TxRowLink } from "@/components/tx-row";
 import { Avatar, Dot, Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { filtersToQuery, parseFilters, PERIODS } from "@/lib/filters";
-import { getDashboard, getDebts, getLookups } from "@/lib/queries";
+import { getDashboard, getDebts, getLookupsFor } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Painel" };
 
@@ -15,7 +15,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   const sp = await searchParams;
   // O painel abre no mês atual (o que importa agora); "Todo o período" continua no filtro.
   const filters = parseFilters(sp, "mes");
-  const lookups = await getLookups(auth.householdId);
+  const lookups = await getLookupsFor(auth);
   const [data, debts] = await Promise.all([getDashboard(auth, filters, lookups), getDebts(auth, lookups)]);
   const cur = auth.currency;
 

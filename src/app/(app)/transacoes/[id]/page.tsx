@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { TxForm } from "@/components/tx-form";
 import { requireAuth } from "@/lib/auth";
 import { canEditTx } from "@/lib/access";
-import { getLookups, getMembers, getTransaction } from "@/lib/queries";
+import { getLookupsFor, getMembers, getTransaction } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Editar lançamento" };
 
@@ -13,7 +13,7 @@ export default async function EditTransactionPage({ params }: PageProps<"/transa
   const auth = await requireAuth();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const [lookups, tx, members] = await Promise.all([getLookups(auth.householdId), getTransaction(auth, id), getMembers(auth.householdId)]);
+  const [lookups, tx, members] = await Promise.all([getLookupsFor(auth), getTransaction(auth, id), getMembers(auth.householdId)]);
   // Quem não está envolvido nem administra a família não vê: 404, como se não existisse.
   if (!tx) notFound();
   const canEdit = canEditTx(auth, tx.createdBy);

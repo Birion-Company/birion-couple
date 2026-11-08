@@ -65,7 +65,10 @@ export function ImportWizard({
       if (r.mapping) setMapping(r.mapping);
       setInclude(new Set((r.rows ?? []).filter((x) => !x.duplicate && !x.billPayment).map((x) => x.key)));
       // Fatura de cartão com um cartão só cadastrado: já escolhe ele.
-      if (r.statement === "card" && activeCards.length === 1) setCardId(activeCards[0].id);
+      if (r.statement === "card" && activeCards.length === 1) {
+        setCardId(activeCards[0].id);
+        if (activeCards[0].ownerId) setPayerId(activeCards[0].ownerId);
+      }
       setCats(Object.fromEntries((r.rows ?? []).map((x) => [x.key, x.categoryId ?? ""])));
     });
 
@@ -336,7 +339,12 @@ export function ImportWizard({
                   <span>Cartão de crédito</span>
                   <Select
                     value={cardId}
-                    onChange={setCardId}
+                    onChange={(v) => {
+                      setCardId(v);
+                      // A compra no cartão é do dono dele.
+                      const c = activeCards.find((x) => x.id === v);
+                      if (c?.ownerId) setPayerId(c.ownerId);
+                    }}
                     options={[
                       { value: "", label: "Não é de cartão" },
                       ...activeCards.map((c) => ({ value: c.id, label: c.name, color: c.color })),
