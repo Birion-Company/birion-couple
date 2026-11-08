@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ChevronUp, CircleHelp, Settings2, UserRound } from "lucide-react";
+import { ChevronUp, CircleHelp, LogOut, Settings2, UserRound } from "lucide-react";
+import { logout } from "@/app/actions/auth";
 import { Avatar } from "./ui";
 
 const ITEMS = [
@@ -119,6 +120,13 @@ export function UserMenu({
                 <span className="bf-select-option-label">{label}</span>
               </Link>
             ))}
+            <div className="user-menu-sep" role="separator" />
+            <form action={logout}>
+              <button type="submit" role="menuitem" className="bf-select-option user-menu-item danger">
+                <LogOut size={17} strokeWidth={1.7} />
+                <span className="bf-select-option-label">Sair</span>
+              </button>
+            </form>
           </div>,
           document.body,
         )}
