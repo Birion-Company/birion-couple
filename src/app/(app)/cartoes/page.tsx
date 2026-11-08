@@ -7,7 +7,6 @@ import { requireAuth } from "@/lib/auth";
 import { getCardOverview } from "@/lib/card-queries";
 import { monthLabel, shortDate } from "@/lib/cards";
 import { filtersToQuery } from "@/lib/filters";
-import { getLookups } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Cartões" };
 
@@ -46,12 +45,10 @@ function InvoiceRows({ invoices, cardId, currency }: { invoices: Invoice[]; card
 
 export default async function CardsPage() {
   const auth = await requireAuth();
-  const [lookups, overview] = await Promise.all([getLookups(auth.householdId), getCardOverview(auth.householdId)]);
+  const overview = await getCardOverview(auth);
   const cur = auth.currency;
   const active = overview.cards.filter((c) => !c.card.archived);
   const archived = overview.cards.filter((c) => c.card.archived);
-  const people = lookups.participants;
-  const nameOf = new Map(people.map((p) => [p.id, p.name]));
 
   return (
     <div className="cards-page">
@@ -60,7 +57,7 @@ export default async function CardsPage() {
           <h1>Cartões</h1>
           <p className="muted">Faturas, fechamento e vencimento de cada cartão de crédito.</p>
         </div>
-        {active.length > 0 && <NewCard people={people} startOpen={false} />}
+        {active.length > 0 && <NewCard startOpen={false} />}
       </div>
 
       {active.length === 0 && (
@@ -70,7 +67,7 @@ export default async function CardsPage() {
             Cadastre um cartão com o dia em que a fatura fecha. O vencimento é sugerido na hora, e o app avisa quando o fechamento ou o
             vencimento estiver chegando. Depois é só escolher o cartão ao lançar uma compra, inclusive parcelada.
           </div>
-          <NewCard people={people} startOpen />
+          <NewCard startOpen />
         </>
       )}
 
@@ -78,7 +75,6 @@ export default async function CardsPage() {
         <CardPanel
           key={card.id}
           card={card}
-          people={people}
           header={
             <div className="credit-card-id">
               <span className="card-chip" style={{ background: card.color }} aria-hidden>
@@ -88,7 +84,6 @@ export default async function CardsPage() {
                 <h2>{card.name}</h2>
                 <p className="faint">
                   Fecha dia {card.closingDay} · vence dia {card.dueDay}
-                  {card.holderId && nameOf.get(card.holderId) ? ` · paga ${nameOf.get(card.holderId)}` : ""}
                   {card.alertDays === null ? " · sem avisos" : ""}
                 </p>
               </div>
@@ -129,8 +124,9 @@ export default async function CardsPage() {
                     <div className="grow">
                       <p className="title">{x.description}</p>
                       <p className="sub">
-                        {x.kind === "installment" ? `parcela ${x.next} de ${x.total}` : `mês ${x.next} de ${x.total}`} · {x.remaining === 1 ? "última" : `faltam ${x.remaining}`} · até{" "}
-                        {monthLabel(x.lastDate.slice(0, 7))}
+                        {x.total === null
+                          ? "repete todo mês, sem data para acabar"
+                          : `${x.kind === "installment" ? `parcela ${x.next} de ${x.total}` : `mês ${x.next} de ${x.total}`} · ${x.remaining === 1 ? "última" : `faltam ${x.remaining}`} · até ${monthLabel(x.lastDate.slice(0, 7))}`}
                       </p>
                     </div>
                     <span className="amount">

@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { requireAuth, requireOwner } from "@/lib/auth";
+import { FAMILY_FULL_MESSAGE, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
+import { hasRoomForPerson } from "@/lib/household";
 import { destroySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
@@ -25,7 +27,16 @@ const firstIssue = (e: z.ZodError) => fail(e.issues[0].message);
 
 export async function updateHousehold(input: { name: string; currency: string }): Promise<ActionResult> {
   const auth = await requireOwner();
-  const parsed = z.object({ name: label("a família"), currency: z.enum(["BRL", "USD", "EUR"]) }).safeParse(input);
+  const parsed = z
+    .object({
+      name: z
+        .string()
+        .trim()
+        .min(1, { error: "Dê um nome para a família." })
+        .max(HOUSEHOLD_NAME_MAX, { error: `O nome da família pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.` }),
+      currency: z.enum(["BRL", "USD", "EUR"]),
+    })
+    .safeParse(input);
   if (!parsed.success) return firstIssue(parsed.error);
   await getDb().update(schema.households).set(parsed.data).where(eq(schema.households.id, auth.householdId));
   return done("Família atualizada.");
@@ -85,6 +96,7 @@ export async function saveListItem(kind: ListKind, id: string | null, input: Rec
   const db = getDb();
   const table = tables[kind];
   const data = parsed.data as Record<string, unknown>;
+  if (kind === "participants" && !id && !(await hasRoomForPerson(db, auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
 
   await db.transaction(async (tx) => {
     // Só pode haver um status padrão para lançamentos e um para importações.
@@ -105,6 +117,7 @@ export async function saveListItem(kind: ListKind, id: string | null, input: Rec
 export async function setArchived(kind: ListKind, id: string, archived: boolean): Promise<ActionResult> {
   const auth = await requireAuth();
   const table = tables[kind];
+  if (kind === "participants" && !archived && !(await hasRoomForPerson(getDb(), auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
   await getDb().update(table).set({ archived }).where(and(eq(table.id, id), eq(table.householdId, auth.householdId)));
   return done(archived ? "Arquivado. Continua nos lançamentos antigos, mas some das opções." : "Reativado.");
 }
@@ -180,6 +193,7 @@ export async function deletePreset(id: string): Promise<ActionResult> {
 
 export async function createInvite(role: "owner" | "member"): Promise<ActionResult & { code?: string }> {
   const auth = await requireOwner();
+  if (!(await hasRoomForPerson(getDb(), auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
   const code = randomBytes(12).toString("base64url");
   await getDb()
     .insert(schema.invites)

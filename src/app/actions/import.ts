@@ -4,6 +4,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
+import { canEditTx, NOT_YOURS } from "@/lib/access";
+import { involved, logActivity, snapshots, type ActivityItem } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { applyCsvMapping, guessMapping, readCsvTable } from "@/lib/import/csv";
 import { externalIds, matchCategory } from "@/lib/import/dedupe";
@@ -20,6 +22,8 @@ export type PreviewRow = {
   amountCents: number;
   duplicate: boolean;
   categoryId: string | null;
+  /** Pagamento da fatura (numa fatura de cartão): começa desmarcado, porque não é gasto. */
+  billPayment: boolean;
 };
 
 export type PreviewResult = {
@@ -31,7 +35,11 @@ export type PreviewResult = {
   mapping?: CsvMapping;
   rows?: PreviewRow[];
   issues?: ParseIssue[];
+  /** OFX: extrato de conta ou fatura de cartão. */
+  statement?: "bank" | "card";
 };
+
+const BILL_PAYMENT = /pagamento (recebido|de fatura|da fatura|efetuado)|pgto\.? ?(de )?fatura|pagamento fatura/i;
 
 const MappingSchema = z.object({
   dateColumn: z.number().int().min(0),
@@ -91,8 +99,10 @@ export async function previewImport(input: { fileName: string; text: string; map
     amountCents: r.amountCents,
     duplicate: existing.has(ids[i]),
     categoryId: matchCategory(r.description, rules),
+    billPayment: r.amountCents > 0 && BILL_PAYMENT.test(r.description),
   }));
-  return { ok: true, format, headers, sample, mapping, rows, issues: parsed.issues.slice(0, 20) };
+  const statement = "statement" in parsed ? parsed.statement : undefined;
+  return { ok: true, format, headers, sample, mapping, rows, issues: parsed.issues.slice(0, 20), statement };
 }
 
 const CommitSchema = z.object({
@@ -114,6 +124,7 @@ const CommitSchema = z.object({
   splitIds: z.array(z.uuid()).min(1, { error: "Escolha quem divide as despesas." }),
   statusId: z.uuid().nullable(),
   projectId: z.uuid().nullable(),
+  cardId: z.uuid().nullable().optional(),
 });
 
 export async function commitImport(input: z.input<typeof CommitSchema>): Promise<{ ok: boolean; error?: string; imported?: number; skipped?: number }> {
@@ -138,7 +149,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
       .where(and(eq(schema.categories.householdId, auth.householdId), inArray(schema.categories.id, catIds)));
     if (found.length !== catIds.length) return { ok: false, error: "Categoria inválida." };
   }
-  for (const [table, id] of [[schema.statuses, data.statusId], [schema.projects, data.projectId]] as const) {
+  for (const [table, id] of [[schema.statuses, data.statusId], [schema.projects, data.projectId], [schema.creditCards, data.cardId ?? null]] as const) {
     if (!id) continue;
     const [row] = await db.select({ id: table.id }).from(table).where(and(eq(table.id, id), eq(table.householdId, auth.householdId)));
     if (!row) return { ok: false, error: "Opção inválida." };
@@ -150,6 +161,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
       .values({ householdId: auth.householdId, fileName: data.fileName || "arquivo", format: data.format, createdBy: auth.userId })
       .returning({ id: schema.importBatches.id });
     let imported = 0;
+    const items: ActivityItem[] = [];
     for (let i = 0; i < data.rows.length; i += 200) {
       const chunk = data.rows.slice(i, i + 200);
       const inserted = await tx
@@ -165,6 +177,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
             categoryId: r.categoryId,
             projectId: data.projectId,
             statusId: data.statusId,
+            cardId: data.cardId ?? null,
             source: data.format,
             externalId: r.key,
             importBatchId: batch.id,
@@ -172,7 +185,8 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
           })),
         )
         .onConflictDoNothing()
-        .returning({ id: schema.transactions.id, amountCents: schema.transactions.amountCents });
+        .returning({ id: schema.transactions.id, amountCents: schema.transactions.amountCents, description: schema.transactions.description });
+      for (const row of inserted) items.push({ d: row.description, a: involved({ payerId: data.payerId, splits: data.splitIds.map((p) => ({ participantId: p, amountCents: 0 })) }) });
       const splits = inserted.flatMap((row) => {
         const parts = splitEqually(row.amountCents, data.splitIds.length);
         return data.splitIds.map((participantId, k) => ({ transactionId: row.id, participantId, amountCents: parts[k] }));
@@ -182,6 +196,9 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
     }
     const skipped = data.rows.length - imported;
     await tx.update(schema.importBatches).set({ imported, skipped }).where(eq(schema.importBatches.id, batch.id));
+    if (items.length) {
+      await logActivity(tx, auth, { action: "imported", data: { fileName: data.fileName || "arquivo", items }, audience: items.flatMap((x) => x.a) });
+    }
     return { imported, skipped };
   });
   revalidatePath("/", "layout");
@@ -195,4 +212,39 @@ export async function savePreset(name: string, mapping: CsvMapping) {
   await getDb().insert(schema.csvPresets).values({ householdId: auth.householdId, ...parsed.data });
   revalidatePath("/importar");
   return { ok: true, message: "Modelo salvo. Ele aparece na próxima importação de CSV." };
+}
+
+/** Apaga uma importação inteira: todos os lançamentos que vieram do arquivo e o registro dela. */
+export async function deleteImport(batchId: string): Promise<{ ok: boolean; error?: string; message?: string }> {
+  const auth = await requireAuth();
+  const id = z.uuid().safeParse(batchId);
+  if (!id.success) return { ok: false, error: "Importação inválida." };
+  const db = getDb();
+  const removed = await db.transaction(async (tx) => {
+    const [batch] = await tx
+      .select({ id: schema.importBatches.id, createdBy: schema.importBatches.createdBy, fileName: schema.importBatches.fileName })
+      .from(schema.importBatches)
+      .where(and(eq(schema.importBatches.id, id.data), eq(schema.importBatches.householdId, auth.householdId)));
+    if (!batch) return null;
+    if (!canEditTx(auth, batch.createdBy)) return "forbidden" as const;
+    const ids = (
+      await tx
+        .select({ id: schema.transactions.id })
+        .from(schema.transactions)
+        .where(and(eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.importBatchId, batch.id)))
+    ).map((r) => r.id);
+    const snaps = await snapshots(tx, auth.householdId, ids);
+    const rows = await tx
+      .delete(schema.transactions)
+      .where(and(eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.importBatchId, batch.id)))
+      .returning({ id: schema.transactions.id });
+    await tx.delete(schema.importBatches).where(eq(schema.importBatches.id, batch.id));
+    const items = [...snaps.values()].map((x) => ({ d: x.description, a: involved(x) }));
+    if (items.length) await logActivity(tx, auth, { action: "import_deleted", data: { fileName: batch.fileName, items }, audience: items.flatMap((x) => x.a) });
+    return rows.length;
+  });
+  if (removed === null) return { ok: false, error: "Importação não encontrada." };
+  if (removed === "forbidden") return { ok: false, error: NOT_YOURS };
+  revalidatePath("/", "layout");
+  return { ok: true, message: removed === 1 ? "Importação apagada: 1 lançamento removido." : `Importação apagada: ${removed} lançamentos removidos.` };
 }

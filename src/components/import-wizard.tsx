@@ -48,6 +48,8 @@ export function ImportWizard({
     lookups.statuses.find((s) => s.isImportDefault && !s.archived)?.id ?? lookups.statuses.find((s) => !s.archived)?.id ?? "",
   );
   const [projectId, setProjectId] = useState("");
+  const activeCards = lookups.cards.filter((c) => !c.archived);
+  const [cardId, setCardId] = useState("");
   const [presetName, setPresetName] = useState("");
   const [done, setDone] = useState<{ imported: number; skipped: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +63,9 @@ export function ImportWizard({
       }
       setPreview(r);
       if (r.mapping) setMapping(r.mapping);
-      setInclude(new Set((r.rows ?? []).filter((x) => !x.duplicate).map((x) => x.key)));
+      setInclude(new Set((r.rows ?? []).filter((x) => !x.duplicate && !x.billPayment).map((x) => x.key)));
+      // Fatura de cartão com um cartão só cadastrado: já escolhe ele.
+      if (r.statement === "card" && activeCards.length === 1) setCardId(activeCards[0].id);
       setCats(Object.fromEntries((r.rows ?? []).map((x) => [x.key, x.categoryId ?? ""])));
     });
 
@@ -107,6 +111,7 @@ export function ImportWizard({
         splitIds,
         statusId: statusId || null,
         projectId: projectId || null,
+        cardId: cardId || null,
       });
       if (!r.ok) return toast(r.error ?? "Falha ao importar.", "error");
       setDone({ imported: r.imported ?? 0, skipped: r.skipped ?? 0 });
@@ -309,9 +314,35 @@ export function ImportWizard({
             </div>
           )}
 
+          {preview.statement === "card" && (
+            <div className="notice section">
+              Este arquivo é uma <strong>fatura de cartão de crédito</strong>. Compras viram despesas, estornos abatem a fatura e o
+              pagamento da fatura fica desmarcado.
+              {activeCards.length === 0 && (
+                <>
+                  {" "}
+                  <Link href="/cartoes" className="pos">Cadastre o cartão</Link> para acompanhar a fatura e receber avisos.
+                </>
+              )}
+            </div>
+          )}
+
           <section className="card section" aria-labelledby="def">
             <h2 id="def" style={{ marginBottom: 12 }}>Como lançar</h2>
             <div className="form">
+              {activeCards.length > 0 && (
+                <label className="field">
+                  <span>Cartão de crédito</span>
+                  <Select
+                    value={cardId}
+                    onChange={setCardId}
+                    options={[
+                      { value: "", label: "Não é de cartão" },
+                      ...activeCards.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+                    ]}
+                  />
+                </label>
+              )}
               <div className="field-row">
                 <label className="field">
                   <span>Quem pagou / recebeu</span>
@@ -400,6 +431,7 @@ export function ImportWizard({
                     <p className="sub">
                       {formatDate(r.date, { day: "2-digit", month: "short", year: "numeric" })}
                       {r.duplicate ? " · já importado" : ""}
+                      {r.billPayment ? " · pagamento da fatura (não é gasto)" : ""}
                     </p>
                     <Select
                       ariaLabel={`Categoria de ${r.description}`}

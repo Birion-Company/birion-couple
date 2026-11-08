@@ -13,10 +13,10 @@ export default async function ProfilePage() {
         <AvatarEditor name={auth.userName} avatarUrl={avatarUrl} />
         <div className="profile-id">
           <h1>{auth.userName}</h1>
-          <p className="muted">{auth.email}</p>
-          <span className="badge">
+          <span className="badge profile-family">
             {auth.householdName} · {auth.role === "owner" ? "administra a família" : "membro"}
           </span>
+          <p className="muted">{auth.email}</p>
         </div>
       </section>
       <div className="grid">

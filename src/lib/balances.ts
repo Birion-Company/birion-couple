@@ -1,5 +1,6 @@
 export type StatusBehavior = "pending" | "open" | "settled";
-export type TransactionKind = "expense" | "income" | "transfer";
+/** loan = empréstimo (quem emprestou → quem deve); transfer = acerto (quem deve → quem recebe). */
+export type TransactionKind = "expense" | "income" | "transfer" | "loan";
 
 export type BalanceInput = {
   amountCents: number;
@@ -12,15 +13,15 @@ export type BalanceInput = {
 /**
  * Saldo de cada pessoa: positivo = tem a receber, negativo = deve.
  *
- * Só entram transações com status de comportamento "open" (alguém pagou e ainda não foi acertado).
- * - Despesa ou acerto (transfer): quem pagou adianta o valor; cada participante deve a sua parte.
+ * Entra tudo que tem quem pagou e ainda não foi acertado (status de comportamento "settled" fica de fora).
+ * - Despesa, empréstimo ou acerto: quem pagou adianta o valor; cada participante deve a sua parte.
  * - Receita: quem recebeu ficou com dinheiro que é de todos; deve a parte de cada um.
  */
 export function computeBalances(rows: BalanceInput[]): Map<string, number> {
   const net = new Map<string, number>();
   const add = (id: string, v: number) => net.set(id, (net.get(id) ?? 0) + v);
   for (const t of rows) {
-    if (t.behavior !== "open" || !t.payerId) continue;
+    if (t.behavior === "settled" || !t.payerId) continue;
     const sign = t.kind === "income" ? -1 : 1;
     add(t.payerId, sign * t.amountCents);
     for (const s of t.splits) add(s.participantId, -sign * s.amountCents);
@@ -48,4 +49,32 @@ export function suggestSettlements(net: Map<string, number>): Settlement[] {
     if (creditors[j].v === 0) j++;
   }
   return out;
+}
+
+/**
+ * Visão de uma pessoa só: quanto cada outra pessoa deve a ela (positivo) ou ela deve (negativo),
+ * olhando apenas os lançamentos entre as duas. Usado para membros que não administram a família,
+ * que não veem os lançamentos dos outros e por isso não podem usar a compensação geral.
+ */
+export function pairwiseFor(me: string, rows: BalanceInput[]): Map<string, number> {
+  const net = new Map<string, number>();
+  const add = (id: string, v: number) => net.set(id, (net.get(id) ?? 0) + v);
+  for (const t of rows) {
+    if (t.behavior === "settled" || !t.payerId) continue;
+    const sign = t.kind === "income" ? -1 : 1;
+    if (t.payerId === me) {
+      for (const s of t.splits) if (s.participantId !== me) add(s.participantId, sign * s.amountCents);
+    } else {
+      for (const s of t.splits) if (s.participantId === me) add(t.payerId, -sign * s.amountCents);
+    }
+  }
+  return net;
+}
+
+/** Converte a visão de uma pessoa em linhas "quem deve para quem". */
+export function pairwiseSettlements(me: string, net: Map<string, number>): Settlement[] {
+  return [...net]
+    .filter(([, v]) => v !== 0)
+    .map(([other, v]) => (v > 0 ? { fromId: other, toId: me, amountCents: v } : { fromId: me, toId: other, amountCents: -v }))
+    .sort((a, b) => b.amountCents - a.amountCents);
 }

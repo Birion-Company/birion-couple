@@ -196,6 +196,7 @@ function splitCents(total: number, count: number) {
 
 /** "3/10" para parcelas; "3/12" também para recorrentes (o rótulo diz qual é). */
 export function seriesLabel(kind: string | null, index: number | null, total: number | null) {
-  if (!kind || !index || !total) return null;
+  if (!kind || !index) return null;
+  if (!total) return kind === "monthly" ? "Todo mês" : null;
   return kind === "installment" ? `Parcela ${index}/${total}` : `Mês ${index}/${total}`;
 }

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock3, Inbox, Plus, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, HandCoins, Inbox, Plus, Upload } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
 import { Avatar, Dot, Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { filtersToQuery, parseFilters, PERIODS } from "@/lib/filters";
-import { getDashboard, getLookups } from "@/lib/queries";
+import { getDashboard, getDebts, getLookups } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Painel" };
 
@@ -15,22 +15,26 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const lookups = await getLookups(auth.householdId);
-  const data = await getDashboard(auth.householdId, filters, lookups);
+  const [data, debts] = await Promise.all([getDashboard(auth, filters, lookups), getDebts(auth, lookups)]);
   const cur = auth.currency;
 
   const people = new Map(lookups.participants.map((p) => [p.id, p]));
   const cats = new Map(lookups.categories.map((c) => [c.id, c]));
   const firstName = auth.userName.split(" ")[0];
   const me = auth.participantId;
-  const myBalance = me ? data.balances.get(me) ?? 0 : null;
   const focus = filters.person ? people.get(filters.person) : null;
 
   const pendingStatus = lookups.statuses.find((s) => s.behavior === "pending" && !s.archived);
   const maxCat = Math.max(1, ...data.byCategory.map((c) => c.cents));
   const balanceList = lookups.participants
-    .filter((p) => !p.archived || (data.balances.get(p.id) ?? 0) !== 0)
-    .map((p) => ({ p, v: data.balances.get(p.id) ?? 0 }))
+    .filter((p) => !p.archived || (debts.balances.get(p.id) ?? 0) !== 0)
+    .map((p) => ({ p, v: debts.balances.get(p.id) ?? 0 }))
     .sort((a, b) => b.v - a.v);
+  // Dívidas que envolvem você primeiro.
+  const debtLines = [...debts.settlements].sort((a, b) => Number(b.fromId === me || b.toId === me) - Number(a.fromId === me || a.toId === me));
+  const nameOf = (id: string) => people.get(id)?.name ?? "Alguém";
+  const sentence = (fromId: string, toId: string) =>
+    fromId === me ? <>Você deve para <strong>{nameOf(toId)}</strong></> : toId === me ? <><strong>{nameOf(fromId)}</strong> te deve</> : <><strong>{nameOf(fromId)}</strong> deve para <strong>{nameOf(toId)}</strong></>;
   const periodLabel = PERIODS.find((p) => p.value === filters.period)?.label.toLowerCase();
   const welcome = sp.bemvindo === "1";
 
@@ -40,7 +44,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         <div>
           <h1>Olá, {firstName}</h1>
           <p className="muted">
-            {focus ? `Vendo só ${focus.name}` : "Resumo da família"} · {periodLabel}
+            {focus ? `Vendo só ${focus.name}` : auth.role === "owner" ? "Resumo da família" : "Seu resumo"} · {periodLabel}
           </p>
         </div>
       </div>
@@ -51,6 +55,61 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           depois registre um gasto ou importe um extrato. Categorias, status e projetos também são todos editáveis em Ajustes.
         </div>
       )}
+
+      <section className="card debts" aria-labelledby="dividas">
+        <div className="card-head">
+          <h2 id="dividas">Quem deve para quem</h2>
+          <Link className="btn small" href="/transacoes/nova?tipo=emprestimo">
+            <HandCoins size={15} strokeWidth={1.7} /> Registrar empréstimo
+          </Link>
+        </div>
+        {debtLines.length === 0 ? (
+          <p className="debts-empty">
+            <CheckCircle2 size={18} strokeWidth={1.7} aria-hidden /> Ninguém deve nada a ninguém.
+          </p>
+        ) : (
+          <div className="rows">
+            {debtLines.map((d) => (
+              <div key={d.fromId + d.toId} className={`row debt-row ${d.toId === me ? "in" : d.fromId === me ? "out" : ""}`}>
+                <span className="debt-people" aria-hidden>
+                  <Avatar name={nameOf(d.fromId)} color={people.get(d.fromId)?.color ?? "#94A3B8"} size={30} />
+                  <ArrowRight size={14} strokeWidth={1.8} />
+                  <Avatar name={nameOf(d.toId)} color={people.get(d.toId)?.color ?? "#94A3B8"} size={30} />
+                </span>
+                <p className="grow title">{sentence(d.fromId, d.toId)}</p>
+                <span className="amount debt-amount"><Money cents={d.amountCents} currency={cur} /></span>
+                <Link
+                  className="btn small"
+                  href={`/transacoes/nova?acerto=${d.fromId}.${d.toId}.${d.amountCents}`}
+                  aria-label={`Registrar pagamento de ${nameOf(d.fromId)} para ${nameOf(d.toId)}`}
+                >
+                  Registrar pagamento
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+        {debts.whole && balanceList.some((b) => b.v !== 0) && (
+          <details className="debts-detail">
+            <summary>Saldo de cada pessoa</summary>
+            <div className="rows">
+              {balanceList.map(({ p, v }) => (
+                <Link key={p.id} href={`/painel${filtersToQuery({ ...filters, person: p.id })}`} className="row balance-row">
+                  <Avatar name={p.name} color={p.color} size={28} />
+                  <p className="grow title">{p.name}{p.id === me ? " (você)" : ""}</p>
+                  <span className={`sub balance-tag ${v > 0 ? "pos" : v < 0 ? "neg" : ""}`}>{v > 0 ? "tem a receber" : v < 0 ? "deve" : "em dia"}</span>
+                  <span className="amount"><Money cents={v} currency={cur} signed /></span>
+                </Link>
+              ))}
+            </div>
+          </details>
+        )}
+        <p className="faint debts-hint">
+          {debts.whole
+            ? "Conta tudo o que alguém pagou e dividiu com outra pessoa, até ser marcado como acertado. Não depende dos filtros abaixo."
+            : "Mostra só as dívidas entre você e cada pessoa da família, até serem acertadas. Não depende dos filtros abaixo."}
+        </p>
+      </section>
 
       <FilterBar
         filters={filters}
@@ -67,30 +126,16 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           <p className="value"><Money cents={data.spent} currency={cur} /></p>
           <p className="hint">em despesas</p>
         </div>
+        <div className="stat">
+          <p className="label">Entradas</p>
+          <p className="value"><Money cents={data.income} currency={cur} /></p>
+          <p className="hint">em receitas</p>
+        </div>
         <Link className="stat" href={`/transacoes${filtersToQuery({ ...filters, status: pendingStatus?.id ?? null })}`}>
           <p className="label">Pendências</p>
           <p className="value"><Money cents={data.pendingTotal} currency={cur} /></p>
           <p className="hint">{data.pendingCount} {data.pendingCount === 1 ? "lançamento" : "lançamentos"}</p>
         </Link>
-        {focus ? (
-          <div className="stat">
-            <p className="label">Saldo de {focus.name}</p>
-            <p className="value"><Money cents={data.balances.get(focus.id) ?? 0} currency={cur} signed /></p>
-            <p className="hint">{(data.balances.get(focus.id) ?? 0) >= 0 ? "a receber" : "a pagar"}</p>
-          </div>
-        ) : myBalance !== null ? (
-          <div className="stat">
-            <p className="label">Seu saldo</p>
-            <p className="value"><Money cents={myBalance} currency={cur} signed /></p>
-            <p className="hint">{myBalance > 0 ? "você tem a receber" : myBalance < 0 ? "você deve" : "tudo em dia"}</p>
-          </div>
-        ) : (
-          <div className="stat">
-            <p className="label">Entradas</p>
-            <p className="value"><Money cents={data.income} currency={cur} /></p>
-            <p className="hint">em receitas</p>
-          </div>
-        )}
         <div className="stat">
           <p className="label">Lançamentos</p>
           <p className="value num">{data.count}</p>
@@ -111,54 +156,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         </div>
       ) : (
         <div className="grid grid-2 section">
-          <section className="card" aria-labelledby="saldos">
-            <div className="card-head">
-              <h2 id="saldos">Quem deve e quem recebe</h2>
-            </div>
-            <div className="rows">
-              {balanceList.map(({ p, v }) => (
-                <Link key={p.id} href={`/painel${filtersToQuery({ ...filters, person: p.id })}`} className="row balance-row">
-                  <Avatar name={p.name} color={p.color} />
-                  <div className="grow">
-                    <p className="title">{p.name}{p.id === me ? " (você)" : ""}</p>
-                    <p className={`sub balance-tag ${v > 0 ? "pos" : v < 0 ? "neg" : ""}`}>
-                      {v > 0 ? "tem a receber" : v < 0 ? "deve" : "em dia"}
-                    </p>
-                  </div>
-                  <span className="amount"><Money cents={v} currency={cur} signed /></span>
-                </Link>
-              ))}
-            </div>
-            {data.settlements.length > 0 && (
-              <div className="sheet">
-                <p className="label-text" style={{ marginBottom: 6 }}>Como acertar</p>
-                <div className="rows">
-                  {data.settlements.map((s) => (
-                    <div key={s.fromId + s.toId} className="row" style={{ minHeight: 44 }}>
-                      <div className="grow">
-                        <p className="title" style={{ fontSize: "0.9rem" }}>
-                          {people.get(s.fromId)?.name} paga <Money cents={s.amountCents} currency={cur} /> para {people.get(s.toId)?.name}
-                        </p>
-                      </div>
-                      <Link
-                        className="btn small"
-                        href={`/transacoes/nova?acerto=${s.fromId}.${s.toId}.${s.amountCents}`}
-                        aria-label={`Registrar acerto de ${people.get(s.fromId)?.name} para ${people.get(s.toId)?.name}`}
-                      >
-                        Registrar
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {data.settlements.length === 0 && (
-              <p className="faint" style={{ marginTop: 8, display: "flex", gap: 6, alignItems: "center" }}>
-                <CheckCircle2 size={15} strokeWidth={1.6} /> Ninguém deve nada no filtro atual.
-              </p>
-            )}
-          </section>
-
           <section className="card" aria-labelledby="pend">
             <div className="card-head">
               <h2 id="pend">Pendências</h2>

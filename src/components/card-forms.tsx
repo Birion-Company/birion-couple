@@ -16,11 +16,8 @@ export type CardData = {
   closingDay: number;
   dueDay: number;
   alertDays: number | null;
-  holderId: string | null;
   archived: boolean;
 };
-
-type Person = { id: string; name: string; color: string; archived: boolean };
 
 const ALERTS = [
   { value: "none", label: "Não avisar" },
@@ -40,7 +37,7 @@ function dayValue(v: string) {
   return Number.isInteger(n) && n >= 1 && n <= 31 ? n : null;
 }
 
-export function CardForm({ card, people, onDone }: { card: CardData | null; people: Person[]; onDone: () => void }) {
+export function CardForm({ card, onDone }: { card: CardData | null; onDone: () => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [name, setName] = useState(card?.name ?? "");
@@ -50,7 +47,6 @@ export function CardForm({ card, people, onDone }: { card: CardData | null; peop
   // Enquanto a pessoa não mexer no vencimento, ele acompanha o fechamento.
   const [dueTouched, setDueTouched] = useState(!!card);
   const [alert, setAlert] = useState(card ? (card.alertDays === null ? "none" : String(card.alertDays)) : "3");
-  const [holderId, setHolderId] = useState(card?.holderId ?? "");
   const alertOptions = ALERTS.some((a) => a.value === alert) ? ALERTS : [...ALERTS, { value: alert, label: `${alert} dias antes` }];
 
   const onClosing = (v: string) => {
@@ -69,7 +65,6 @@ export function CardForm({ card, people, onDone }: { card: CardData | null; peop
         closingDay: dayValue(closing) ?? 0,
         dueDay: dayValue(due) ?? 0,
         alertDays: alert === "none" ? null : Number(alert),
-        holderId: holderId || null,
       });
       toastResult(r);
       if (r.ok) {
@@ -127,23 +122,10 @@ export function CardForm({ card, people, onDone }: { card: CardData | null; peop
           </span>
         </div>
       </div>
-      <div className="field-row">
-        <label className="field">
-          <span>Avisar antes do fechamento e do vencimento</span>
-          <Select value={alert} onChange={setAlert} options={alertOptions} />
-        </label>
-        <label className="field">
-          <span>Quem paga a fatura</span>
-          <Select
-            value={holderId}
-            onChange={setHolderId}
-            options={[
-              { value: "", label: "Ninguém em especial" },
-              ...people.filter((p) => !p.archived || p.id === holderId).map((p) => ({ value: p.id, label: p.name, color: p.color })),
-            ]}
-          />
-        </label>
-      </div>
+      <label className="field">
+        <span>Avisar a família antes do fechamento e do vencimento</span>
+        <Select value={alert} onChange={setAlert} options={alertOptions} />
+      </label>
       <div className="field">
         <span className="label-text">Cor</span>
         <ColorPicker value={color} onChange={setColor} palette={CARD_COLORS} />
@@ -161,7 +143,7 @@ export function CardForm({ card, people, onDone }: { card: CardData | null; peop
 }
 
 /** Botão "Novo cartão" que abre o formulário no lugar. */
-export function NewCard({ people, startOpen }: { people: Person[]; startOpen: boolean }) {
+export function NewCard({ startOpen }: { startOpen: boolean }) {
   const [open, setOpen] = useState(startOpen);
   if (!open) {
     return (
@@ -173,13 +155,13 @@ export function NewCard({ people, startOpen }: { people: Person[]; startOpen: bo
   return (
     <section className="card section" aria-label="Novo cartão">
       <h2 style={{ marginBottom: 12 }}>Novo cartão</h2>
-      <CardForm card={null} people={people} onDone={() => setOpen(false)} />
+      <CardForm card={null} onDone={() => setOpen(false)} />
     </section>
   );
 }
 
 /** Painel de um cartão: o lápis troca o conteúdo pelo formulário de edição (com arquivar e excluir). */
-export function CardPanel({ card, people, header, children }: { card: CardData; people: Person[]; header: React.ReactNode; children: React.ReactNode }) {
+export function CardPanel({ card, header, children }: { card: CardData; header: React.ReactNode; children: React.ReactNode }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
@@ -202,7 +184,7 @@ export function CardPanel({ card, people, header, children }: { card: CardData; 
       </div>
       {editing ? (
         <div className="card-edit">
-          <CardForm card={card} people={people} onDone={() => setEditing(false)} />
+          <CardForm card={card} onDone={() => setEditing(false)} />
           <div className="actions card-danger">
             <button type="button" className="btn small ghost" disabled={pending} onClick={() => run(() => setCardArchived(card.id, true))}>
               <Archive size={15} strokeWidth={1.7} /> Arquivar

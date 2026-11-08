@@ -1,8 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { computeBalances, suggestSettlements, type StatusBehavior, type TransactionKind } from "./balances";
+import { isAdmin, txScope, type Viewer } from "./access";
+import { computeBalances, pairwiseFor, pairwiseSettlements, suggestSettlements, type StatusBehavior, type TransactionKind } from "./balances";
 import type { Filters } from "./filters";
+import { ensureRecurring } from "./recurring-server";
 
 const t = schema.transactions;
 
@@ -20,8 +22,8 @@ export async function getLookups(householdId: string) {
 
 export type Lookups = Awaited<ReturnType<typeof getLookups>>;
 
-function whereFor(householdId: string, f: Filters): SQL {
-  const parts: (SQL | undefined)[] = [eq(t.householdId, householdId)];
+function whereFor(viewer: Viewer, f: Filters): SQL {
+  const parts: (SQL | undefined)[] = [];
   if (f.from) parts.push(gte(t.date, f.from));
   if (f.to) parts.push(lte(t.date, f.to));
   if (f.category === "sem") parts.push(isNull(t.categoryId));
@@ -34,11 +36,11 @@ function whereFor(householdId: string, f: Filters): SQL {
     parts.push(
       or(
         eq(t.payerId, f.person),
-        sql`exists (select 1 from ${schema.transactionSplits} s where s."transactionId" = ${t.id} and s."participantId" = ${f.person})`,
+        sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person})`,
       ),
     );
   }
-  return and(...parts)!;
+  return txScope(viewer, ...parts);
 }
 
 export type TxRow = {
@@ -58,6 +60,8 @@ export type TxRow = {
   seriesKind: string | null;
   seriesIndex: number | null;
   seriesTotal: number | null;
+  /** Quem criou (usuário); só essa pessoa ou quem administra pode alterar. */
+  createdBy: string | null;
   splits: { participantId: string; amountCents: number }[];
 };
 
@@ -100,11 +104,13 @@ const txColumns = {
   seriesKind: t.seriesKind,
   seriesIndex: t.seriesIndex,
   seriesTotal: t.seriesTotal,
+  createdBy: t.createdBy,
 };
 
-export async function listTransactions(householdId: string, f: Filters, limit = 100, offset = 0) {
+export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, offset = 0) {
+  await ensureRecurring(viewer.householdId);
   const db = getDb();
-  const where = whereFor(householdId, f);
+  const where = whereFor(viewer, f);
   const [rows, [{ count, total }]] = await Promise.all([
     db.select(txColumns).from(t).where(where).orderBy(desc(t.date), desc(t.createdAt)).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${t.amountCents} else 0 end), 0)::int` }).from(t).where(where),
@@ -112,26 +118,26 @@ export async function listTransactions(householdId: string, f: Filters, limit = 
   return { rows: await attachSplits(rows as Omit<TxRow, "splits">[]), count, total };
 }
 
-export async function getTransaction(householdId: string, id: string): Promise<TxRow | null> {
+/** Um lançamento, se esta pessoa puder vê-lo. */
+export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();
-  const rows = await db.select(txColumns).from(t).where(and(eq(t.householdId, householdId), eq(t.id, id))).limit(1);
+  const rows = await db.select(txColumns).from(t).where(txScope(viewer, eq(t.id, id))).limit(1);
   const [row] = await attachSplits(rows as Omit<TxRow, "splits">[]);
   return row ?? null;
 }
 
 /** Tudo o que o painel precisa, calculado a partir das transações filtradas. */
-export async function getDashboard(householdId: string, f: Filters, lookups: Lookups) {
+export async function getDashboard(viewer: Viewer, f: Filters, lookups: Lookups) {
+  await ensureRecurring(viewer.householdId);
   const db = getDb();
   const rows = await attachSplits(
-    (await db.select(txColumns).from(t).where(whereFor(householdId, f)).orderBy(desc(t.date), desc(t.createdAt))) as Omit<TxRow, "splits">[],
+    (await db.select(txColumns).from(t).where(whereFor(viewer, f)).orderBy(desc(t.date), desc(t.createdAt))) as Omit<TxRow, "splits">[],
   );
   const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
   const behavior = (r: TxRow) => (r.statusId ? behaviorOf.get(r.statusId) ?? null : null);
 
-  const balances = computeBalances(rows.map((r) => ({ ...r, behavior: behavior(r) })));
-  const settlements = suggestSettlements(balances);
-
-  const pending = rows.filter((r) => behavior(r) === "pending");
+  // Pendências são contas a resolver: só despesas (somar receitas junto confundiria o total).
+  const pending = rows.filter((r) => r.kind === "expense" && behavior(r) === "pending");
   const pendingTotal = pending.reduce((a, r) => a + r.amountCents, 0);
 
   // Gastos: despesas do período (acertos entre pessoas não são gasto).
@@ -150,8 +156,6 @@ export async function getDashboard(householdId: string, f: Filters, lookups: Loo
   for (const r of expenses) for (const s of r.splits) byPerson.set(s.participantId, (byPerson.get(s.participantId) ?? 0) + s.amountCents);
 
   return {
-    balances,
-    settlements,
     pending: pending.slice(0, 6),
     pendingCount: pending.length,
     pendingTotal,
@@ -162,6 +166,40 @@ export async function getDashboard(householdId: string, f: Filters, lookups: Loo
     recent: rows.slice(0, 6),
     count: rows.length,
   };
+}
+
+/**
+ * Quem deve para quem considerando todo o histórico (sem os filtros do painel):
+ * uma dívida antiga continua valendo até ser acertada.
+ * - Quem administra vê a família inteira, com a compensação geral.
+ * - Os outros veem só as dívidas entre eles e cada pessoa.
+ */
+export async function getDebts(viewer: Viewer, lookups: Lookups) {
+  await ensureRecurring(viewer.householdId);
+  const db = getDb();
+  const rows = await attachSplits(
+    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId)))) as Omit<TxRow, "splits">[],
+  );
+  const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
+  const input = rows.map((r) => ({ ...r, behavior: r.statusId ? behaviorOf.get(r.statusId) ?? null : null }));
+  if (isAdmin(viewer) || !viewer.participantId) {
+    const balances = computeBalances(input);
+    return { balances, settlements: suggestSettlements(balances), whole: true };
+  }
+  const net = pairwiseFor(viewer.participantId, input);
+  const mine = [...net.values()].reduce((a, v) => a + v, 0);
+  return { balances: new Map([[viewer.participantId, mine]]), settlements: pairwiseSettlements(viewer.participantId, net), whole: false };
+}
+
+/** Lançamentos que se repetem todo mês sem data para acabar (ativos). */
+export async function getRecurring(viewer: Viewer) {
+  const db = getDb();
+  const r = schema.recurringSeries;
+  return db
+    .select()
+    .from(r)
+    .where(and(eq(r.householdId, viewer.householdId), eq(r.active, true), isAdmin(viewer) ? undefined : eq(r.createdBy, viewer.userId)))
+    .orderBy(asc(schema.recurringSeries.description));
 }
 
 export async function getMembers(householdId: string) {
@@ -199,7 +237,23 @@ export async function getPresets(householdId: string) {
   return db.select().from(schema.csvPresets).where(eq(schema.csvPresets.householdId, householdId)).orderBy(asc(schema.csvPresets.name));
 }
 
-export async function getImportBatches(householdId: string) {
+/** Últimas importações (de quem está vendo; quem administra vê todas), com quantos lançamentos ainda existem. */
+export async function getImportBatches(viewer: Viewer) {
+  const householdId = viewer.householdId;
   const db = getDb();
-  return db.select().from(schema.importBatches).where(eq(schema.importBatches.householdId, householdId)).orderBy(desc(schema.importBatches.createdAt)).limit(10);
+  const ib = schema.importBatches;
+  const batches = await db
+    .select()
+    .from(ib)
+    .where(and(eq(ib.householdId, householdId), isAdmin(viewer) ? undefined : eq(ib.createdBy, viewer.userId)))
+    .orderBy(desc(schema.importBatches.createdAt))
+    .limit(10);
+  if (batches.length === 0) return [];
+  const counts = await db
+    .select({ batchId: t.importBatchId, n: sql<number>`count(*)::int` })
+    .from(t)
+    .where(and(eq(t.householdId, householdId), inArray(t.importBatchId, batches.map((b) => b.id))))
+    .groupBy(t.importBatchId);
+  const left = new Map(counts.map((c) => [c.batchId, c.n]));
+  return batches.map((b) => ({ ...b, remaining: left.get(b.id) ?? 0 }));
 }

@@ -47,6 +47,8 @@ export const memberships = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     role: text().notNull().default("member"), // owner | member
     participantId: uuid(),
+    /** Até quando a pessoa já viu o popup de alterações; quem entra agora não recebe o histórico antigo. */
+    activitySeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.householdId, t.userId] })],
@@ -172,12 +174,67 @@ export const creditCards = pgTable(
     dueDay: integer().notNull(),
     /** Quantos dias antes avisar do fechamento e do vencimento; nulo = não avisar. */
     alertDays: integer().default(3),
-    /** Quem paga a fatura; vira o "quem pagou" padrão das compras no cartão. */
-    holderId: uuid().references(() => participants.id, { onDelete: "set null" }),
     archived: boolean().notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [index("credit_cards_household_idx").on(t.householdId)],
+);
+
+/**
+ * Lançamento que se repete todo mês sem data para acabar. Guarda o modelo; o lançamento de cada
+ * mês é criado quando o mês chega (até o fim do mês corrente), e todos têm seriesId = id daqui.
+ */
+export const recurringSeries = pgTable(
+  "recurring_series",
+  {
+    id: id(),
+    householdId: uuid()
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    description: text().notNull(),
+    amountCents: integer().notNull(),
+    kind: text().notNull().default("expense"),
+    payerId: uuid().references(() => participants.id, { onDelete: "set null" }),
+    categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
+    projectId: uuid().references(() => projects.id, { onDelete: "set null" }),
+    statusId: uuid().references(() => statuses.id, { onDelete: "set null" }),
+    cardId: uuid().references(() => creditCards.id, { onDelete: "set null" }),
+    notes: text(),
+    /** [{ participantId, amountCents }] de cada mês. */
+    splits: jsonb().notNull(),
+    /** Data do primeiro lançamento; os seguintes caem no mesmo dia dos meses seguintes. */
+    startDate: date({ mode: "string" }).notNull(),
+    /** Número do próximo lançamento a criar (1 = o primeiro). */
+    nextIndex: integer().notNull().default(1),
+    active: boolean().notNull().default(true),
+    createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("recurring_series_household_idx").on(t.householdId)],
+);
+
+/**
+ * O que cada pessoa fez nos lançamentos (criou, alterou, excluiu, importou…).
+ * Vira o popup "o que mudou" para quem está envolvido (audience = ids de pessoas) e para o admin.
+ */
+export const activities = pgTable(
+  "activities",
+  {
+    id: id(),
+    householdId: uuid()
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    actorUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+    action: text().notNull(), // created | updated | deleted | status | bulk | series | imported | import_deleted | stopped
+    /** Lançamento afetado (sem chave estrangeira: continua aqui depois de excluído). */
+    transactionId: uuid(),
+    /** Resumo para montar a frase: descrição, valor, tipo, quem pagou, divisão, mudanças… */
+    data: jsonb().notNull(),
+    /** Pessoas envolvidas (ids de participantes) que devem ver o aviso. */
+    audience: jsonb().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("activities_household_created_idx").on(t.householdId, t.createdAt)],
 );
 
 export const importBatches = pgTable("import_batches", {

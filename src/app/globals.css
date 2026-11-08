@@ -1,5 +1,5 @@
-/* BIRIUN FINANCE — tokens e componentes base.
-   Tema tirado do logo da Biriun: ciano #1AC4DB, ciano claro #DDFCFF e azul-marinho #0F1D38. */
+/* BIRION FINANCE — tokens e componentes base.
+   Tema tirado do logo da Birion: ciano #1AC4DB, ciano claro #DDFCFF e azul-marinho #0F1D38. */
 
 :root {
   --brand: #1ac4db;
@@ -562,6 +562,30 @@ a.row:hover .title {
   flex-direction: column;
   gap: 14px;
 }
+/* Lançamento: uma coluna no celular, duas lado a lado em telas largas. */
+.tx-page {
+  max-width: 1080px;
+}
+.tx-cols {
+  display: grid;
+  gap: 14px;
+}
+.tx-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+@media (min-width: 1000px) {
+  .tx-page .card {
+    padding: 24px 28px;
+  }
+  .tx-cols {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px 44px;
+    align-items: start;
+  }
+}
 .field {
   display: flex;
   flex-direction: column;
@@ -1008,7 +1032,7 @@ body {
 }
 
 /* =========================================================
-   Telas de entrada — reprodução do protótipo com a identidade Biriun
+   Telas de entrada — reprodução do protótipo com a identidade Birion
    ========================================================= */
 .auth-scene {
   --auth-base-width: 1440px;
@@ -1043,8 +1067,9 @@ body {
   color: var(--au-text);
 }
 .auth-scene {
-  background-image: linear-gradient(rgba(238, 246, 248, 0.82), rgba(238, 246, 248, 0.82)),
-    url("/images/background-waves.jpg");
+  /* Modo claro: ondas brancas; um véu leve só para o bloco do login se destacar. */
+  background-image: linear-gradient(rgba(238, 246, 248, 0.18), rgba(238, 246, 248, 0.18)),
+    url("/images/background-waves-white.jpg");
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -1618,7 +1643,7 @@ html.theme-switching *::after {
 }
 
 /* =========================================================
-   Menus de seleção (componente Select) no tema Biriun
+   Menus de seleção (componente Select) no tema Birion
    ========================================================= */
 .bf-select {
   display: inline-flex;
@@ -1964,7 +1989,7 @@ button.user-menu-item {
   overflow-wrap: anywhere;
 }
 .profile-hero .badge {
-  margin-top: 6px;
+  margin: 2px 0 4px;
   max-width: 100%;
   white-space: normal;
   line-height: 1.35;
@@ -2139,6 +2164,15 @@ button.user-menu-item {
   font-weight: 500;
   font-size: 0.9rem;
 }
+.between-summary {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-edge);
+  color: var(--brand-strong);
+  font-weight: 500;
+}
 .series-notice {
   display: flex;
   flex-direction: column;
@@ -2252,4 +2286,94 @@ button.user-menu-item {
   .alert-dialog {
     animation: none;
   }
+}
+
+/* ---------- Painel: quem deve para quem ---------- */
+.debts {
+  margin-bottom: 16px;
+}
+.debts-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 4px;
+  color: var(--pos);
+  font-weight: 500;
+}
+.debt-row {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.debt-row .title {
+  font-size: 1rem;
+  min-width: 140px;
+}
+.debt-people {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+}
+.debt-amount {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.debt-row.in .debt-amount {
+  color: var(--pos);
+}
+.debt-row.out .debt-amount {
+  color: var(--neg);
+}
+.debts-detail summary {
+  cursor: pointer;
+  padding: 10px 0 4px;
+  font-size: 0.85rem;
+  color: var(--brand-strong);
+}
+.debts-hint {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+@media (max-width: 520px) {
+  .debt-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.recurring h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+.recurring .row {
+  flex-wrap: wrap;
+}
+
+/* ---------- Popup: o que mudou ---------- */
+.activity-dialog {
+  width: min(520px, 100%);
+}
+.activity-list li {
+  align-items: flex-start;
+}
+.activity-list .sub + .sub {
+  margin-top: 2px;
+}
+
+.tx-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.tx-fieldset:disabled {
+  opacity: 0.85;
+}
+.readonly-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }

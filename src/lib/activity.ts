@@ -1,0 +1,307 @@
+import "server-only";
+import { and, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { getDb, schema } from "@/db";
+import { isAdmin, type Viewer } from "./access";
+import { formatMoney } from "./money";
+import type { Lookups } from "./queries";
+
+type Db = ReturnType<typeof getDb>;
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+type Conn = Db | Tx;
+
+export type Split = { participantId: string; amountCents: number };
+
+/** Retrato de um lançamento, guardado na atividade para montar a frase depois. */
+export type TxSnapshot = {
+  description: string;
+  amountCents: number;
+  kind: string;
+  date: string;
+  payerId: string | null;
+  categoryId: string | null;
+  projectId: string | null;
+  statusId: string | null;
+  cardId: string | null;
+  splits: Split[];
+};
+
+export type Change = { field: "amount" | "description" | "date" | "kind" | "payer" | "category" | "project" | "status" | "card" | "splits"; from: unknown; to: unknown };
+
+/** Item de uma ação em lote; cada pessoa só vê os itens que a envolvem. */
+export type ActivityItem = { d: string; a: string[] };
+
+export type ActivityData = {
+  tx?: TxSnapshot;
+  changes?: Change[];
+  seriesKind?: string | null;
+  seriesCount?: number | null;
+  statusId?: string;
+  fileName?: string;
+  items?: ActivityItem[];
+};
+
+export type ActivityAction =
+  | "created"
+  | "updated"
+  | "deleted"
+  | "status"
+  | "bulk"
+  | "series_deleted"
+  | "stopped"
+  | "imported"
+  | "import_deleted";
+
+/** Pessoas envolvidas num lançamento: quem pagou e quem tem parte. */
+export function involved(...snaps: (Pick<TxSnapshot, "payerId" | "splits"> | null | undefined)[]): string[] {
+  const ids = new Set<string>();
+  for (const s of snaps) {
+    if (!s) continue;
+    if (s.payerId) ids.add(s.payerId);
+    for (const x of s.splits) ids.add(x.participantId);
+  }
+  return [...ids];
+}
+
+/** Lê o retrato atual de lançamentos (com a divisão). */
+export async function snapshots(db: Conn, householdId: string, ids: string[]): Promise<Map<string, TxSnapshot & { createdBy: string | null }>> {
+  const out = new Map<string, TxSnapshot & { createdBy: string | null }>();
+  if (ids.length === 0) return out;
+  const t = schema.transactions;
+  const rows = await db
+    .select({
+      id: t.id,
+      description: t.description,
+      amountCents: t.amountCents,
+      kind: t.kind,
+      date: t.date,
+      payerId: t.payerId,
+      categoryId: t.categoryId,
+      projectId: t.projectId,
+      statusId: t.statusId,
+      cardId: t.cardId,
+      createdBy: t.createdBy,
+    })
+    .from(t)
+    .where(and(eq(t.householdId, householdId), inArray(t.id, ids)));
+  const splits = await db
+    .select()
+    .from(schema.transactionSplits)
+    .where(inArray(schema.transactionSplits.transactionId, ids));
+  for (const r of rows) {
+    const { id, ...rest } = r;
+    out.set(id, { ...rest, splits: splits.filter((s) => s.transactionId === id).map((s) => ({ participantId: s.participantId, amountCents: s.amountCents })) });
+  }
+  return out;
+}
+
+/** O que mudou entre dois retratos do mesmo lançamento. */
+export function diff(before: TxSnapshot, after: TxSnapshot): Change[] {
+  const out: Change[] = [];
+  const add = (field: Change["field"], a: unknown, b: unknown) => {
+    if (JSON.stringify(a) !== JSON.stringify(b)) out.push({ field, from: a, to: b });
+  };
+  add("amount", before.amountCents, after.amountCents);
+  add("description", before.description, after.description);
+  add("date", before.date, after.date);
+  add("kind", before.kind, after.kind);
+  add("payer", before.payerId, after.payerId);
+  add("category", before.categoryId, after.categoryId);
+  add("project", before.projectId, after.projectId);
+  add("status", before.statusId, after.statusId);
+  add("card", before.cardId, after.cardId);
+  const norm = (s: Split[]) => [...s].sort((x, y) => x.participantId.localeCompare(y.participantId));
+  add("splits", norm(before.splits), norm(after.splits));
+  return out;
+}
+
+export async function logActivity(
+  db: Conn,
+  viewer: Viewer,
+  entry: { action: ActivityAction; transactionId?: string | null; data: ActivityData; audience: string[] },
+) {
+  await db.insert(schema.activities).values({
+    householdId: viewer.householdId,
+    actorUserId: viewer.userId,
+    action: entry.action,
+    transactionId: entry.transactionId ?? null,
+    data: entry.data,
+    audience: [...new Set(entry.audience)],
+  });
+}
+
+// ---------- Leitura: o popup "o que mudou" ----------
+
+export type FeedItem = { id: string; actor: string; text: string; detail: string | null; when: string; href: string | null };
+
+const KIND_WORD: Record<string, string> = { expense: "a despesa", income: "a receita", loan: "o empréstimo", transfer: "o acerto" };
+const FIELD: Record<Change["field"], string> = {
+  amount: "valor",
+  description: "descrição",
+  date: "data",
+  kind: "tipo",
+  payer: "quem pagou",
+  category: "categoria",
+  project: "projeto",
+  status: "status",
+  card: "cartão",
+  splits: "divisão",
+};
+const KIND_NAME: Record<string, string> = { expense: "despesa", income: "receita", loan: "empréstimo", transfer: "acerto" };
+
+/** Atividades que esta pessoa ainda não viu, já em frases. */
+export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency: string): Promise<FeedItem[]> {
+  const db = getDb();
+  if (!isAdmin(viewer) && !viewer.participantId) return [];
+  const [m] = await db
+    .select({ seen: schema.memberships.activitySeenAt })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, viewer.householdId), eq(schema.memberships.userId, viewer.userId)));
+  if (!m) return [];
+  const a = schema.activities;
+  const rows = await db
+    .select({ id: a.id, action: a.action, transactionId: a.transactionId, data: a.data, audience: a.audience, createdAt: a.createdAt, actor: schema.users.name })
+    .from(a)
+    .leftJoin(schema.users, eq(schema.users.id, a.actorUserId))
+    .where(
+      and(
+        eq(a.householdId, viewer.householdId),
+        or(isNull(a.actorUserId), ne(a.actorUserId, viewer.userId)),
+        gt(a.createdAt, m.seen),
+        isAdmin(viewer) ? undefined : sql`${a.audience} @> ${JSON.stringify([viewer.participantId])}::jsonb`,
+      ),
+    )
+    .orderBy(desc(a.createdAt))
+    .limit(30);
+
+  const me = viewer.participantId;
+  const person = (id: unknown) => (typeof id === "string" ? (id === me ? "você" : lookups.participants.find((p) => p.id === id)?.name ?? "alguém") : "ninguém");
+  const nameIn = (list: { id: string; name: string }[], id: unknown, none: string) =>
+    typeof id === "string" ? list.find((x) => x.id === id)?.name ?? "(removido)" : none;
+  const money = (c: number) => formatMoney(c, currency);
+  const describeChange = (c: Change) => {
+    // Divisão: para quem lê, o que importa é a própria parte.
+    if (c.field === "splits" && me) {
+      const mine = (x: unknown) => (x as Split[]).find((s) => s.participantId === me)?.amountCents ?? 0;
+      const [a, b] = [mine(c.from), mine(c.to)];
+      if (a !== b) return `sua parte: ${money(a)} → ${money(b)}`;
+    }
+    const v = (x: unknown) => {
+      switch (c.field) {
+        case "amount":
+          return money(Number(x));
+        case "date":
+          return typeof x === "string" ? `${x.slice(8, 10)}/${x.slice(5, 7)}/${x.slice(0, 4)}` : "";
+        case "kind":
+          return KIND_NAME[String(x)] ?? String(x);
+        case "payer":
+          return person(x);
+        case "category":
+          return nameIn(lookups.categories, x, "sem categoria");
+        case "project":
+          return nameIn(lookups.projects, x, "nenhum");
+        case "status":
+          return nameIn(lookups.statuses, x, "sem status");
+        case "card":
+          return nameIn(lookups.cards, x, "sem cartão");
+        case "splits":
+          return (x as Split[]).map((s) => `${person(s.participantId)} ${money(s.amountCents)}`).join(", ") || "ninguém";
+        default:
+          return `"${String(x)}"`;
+      }
+    };
+    return `${FIELD[c.field]}: ${v(c.from)} → ${v(c.to)}`;
+  };
+  const myPart = (tx: TxSnapshot) => {
+    if (!me) return null;
+    if (tx.kind === "loan" || tx.kind === "transfer") {
+      const to = tx.splits[0]?.participantId;
+      return `${person(tx.payerId)} → ${person(to)}`;
+    }
+    const share = tx.splits.find((s) => s.participantId === me)?.amountCents;
+    const parts = [];
+    if (share) parts.push(`sua parte: ${money(share)}`);
+    if (tx.payerId) parts.push(`${tx.kind === "income" ? "quem recebeu" : "quem pagou"}: ${person(tx.payerId)}`);
+    return parts.join(" · ") || null;
+  };
+  const visibleItems = (items: ActivityItem[] = []) => (isAdmin(viewer) ? items : items.filter((i) => me && i.a.includes(me)));
+
+  const out: FeedItem[] = [];
+  for (const r of rows) {
+    const d = r.data as ActivityData;
+    const actor = r.actor ?? "Alguém";
+    const tx = d.tx;
+    let text = "";
+    let detail: string | null = null;
+    let href: string | null = r.transactionId ? `/transacoes/${r.transactionId}` : null;
+    switch (r.action) {
+      case "created": {
+        if (!tx) continue;
+        const series = d.seriesKind === "installment" ? ` em ${d.seriesCount} parcelas` : d.seriesKind === "monthly" ? (d.seriesCount ? ` por ${d.seriesCount} meses` : " todo mês") : "";
+        text = `${actor} lançou ${KIND_WORD[tx.kind] ?? "o lançamento"} "${tx.description}" de ${money(tx.amountCents)}${series}`;
+        detail = myPart(tx);
+        break;
+      }
+      case "updated": {
+        if (!tx) continue;
+        text = `${actor} alterou "${tx.description}"`;
+        detail = (d.changes ?? []).map(describeChange).join(" · ") || null;
+        break;
+      }
+      case "deleted": {
+        href = null;
+        if (tx) {
+          text = `${actor} excluiu "${tx.description}" (${money(tx.amountCents)})`;
+          break;
+        }
+        const items = visibleItems(d.items);
+        if (items.length === 0) continue;
+        text = items.length === 1 ? `${actor} excluiu "${items[0].d}"` : `${actor} excluiu ${items.length} lançamentos`;
+        detail = items.length > 1 ? items.slice(0, 4).map((i) => i.d).join(", ") + (items.length > 4 ? "…" : "") : null;
+        break;
+      }
+      case "series_deleted": {
+        const n = visibleItems(d.items).length;
+        if (!tx || n === 0) continue;
+        text = `${actor} excluiu ${n} ${n === 1 ? "lançamento" : "lançamentos"} de "${tx.description}"`;
+        href = null;
+        break;
+      }
+      case "stopped":
+        if (!tx) continue;
+        text = `${actor} parou de repetir "${tx.description}"`;
+        href = null;
+        break;
+      case "status":
+      case "bulk": {
+        const items = visibleItems(d.items);
+        if (items.length === 0) continue;
+        const what = r.action === "status" ? `como "${nameIn(lookups.statuses, d.statusId, "sem status")}"` : "";
+        text =
+          r.action === "status"
+            ? `${actor} marcou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`} ${what}`
+            : `${actor} mudou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`}`;
+        detail = items.length > 1 ? items.slice(0, 4).map((i) => i.d).join(", ") + (items.length > 4 ? "…" : "") : (d.changes ?? []).map(describeChange).join(" · ") || null;
+        href = items.length === 1 ? href : null;
+        break;
+      }
+      case "imported": {
+        const n = visibleItems(d.items).length;
+        if (n === 0) continue;
+        text = `${actor} importou ${n} ${n === 1 ? "lançamento" : "lançamentos"} de "${d.fileName ?? "arquivo"}" que envolvem ${isAdmin(viewer) ? "a família" : "você"}`;
+        href = null;
+        break;
+      }
+      case "import_deleted": {
+        const n = visibleItems(d.items).length;
+        if (n === 0) continue;
+        text = `${actor} apagou a importação "${d.fileName ?? "arquivo"}" (${n} ${n === 1 ? "lançamento" : "lançamentos"})`;
+        href = null;
+        break;
+      }
+      default:
+        continue;
+    }
+    out.push({ id: r.id, actor, text, detail, when: r.createdAt.toISOString(), href });
+  }
+  return out;
+}

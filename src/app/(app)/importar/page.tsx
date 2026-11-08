@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DeleteImportButton } from "@/components/import-history";
 import { ImportWizard } from "@/components/import-wizard";
 import { requireAuth } from "@/lib/auth";
 import { getImportBatches, getLookups, getPresets } from "@/lib/queries";
@@ -10,7 +11,7 @@ export default async function ImportPage() {
   const [lookups, presets, batches] = await Promise.all([
     getLookups(auth.householdId),
     getPresets(auth.householdId),
-    getImportBatches(auth.householdId),
+    getImportBatches(auth),
   ]);
   return (
     <div style={{ maxWidth: 720 }}>
@@ -39,8 +40,10 @@ export default async function ImportPage() {
                   </p>
                 </div>
                 <span className="faint num">
-                  {b.imported} novos{b.skipped ? ` · ${b.skipped} ignorados` : ""}
+                  {b.remaining === b.imported ? `${b.imported} lançamentos` : `${b.remaining} de ${b.imported} lançamentos`}
+                  {b.skipped ? ` · ${b.skipped} ignorados` : ""}
                 </span>
+                <DeleteImportButton id={b.id} fileName={b.fileName} remaining={b.remaining} />
               </div>
             ))}
           </div>

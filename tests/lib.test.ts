@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { computeBalances, suggestSettlements } from "@/lib/balances";
+import { computeBalances, pairwiseFor, pairwiseSettlements, suggestSettlements } from "@/lib/balances";
 import { parseAmountToCents, splitEqually } from "@/lib/money";
 import { parseOfx, normalizeOfxText } from "@/lib/import/ofx";
 import { applyCsvMapping, guessMapping, parseDate, readCsvTable } from "@/lib/import/csv";
 import { externalIds, matchCategory } from "@/lib/import/dedupe";
+import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
+import { dueOccurrences, endOfMonth } from "@/lib/recurring";
 import { addMonthsIso, buildSeries, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, suggestDueDay, todayIn } from "@/lib/cards";
 
 const fx = (n: string) => readFileSync(`tests/fixtures/${n}`, n.endsWith(".ofx") ? "latin1" : "utf8");
@@ -47,13 +49,26 @@ describe("saldos", () => {
       { fromId: "nam", toId: "eu", amountCents: 3000 },
     ]);
   });
-  test("pendente e reembolsado não entram no saldo", () => {
+  test("pendente já conta; só acertado sai do saldo", () => {
     const split = [{ participantId: "mae", amountCents: 100 }];
     const net = computeBalances([
       { ...base, behavior: "pending", amountCents: 100, payerId: "eu", splits: split },
       { ...base, behavior: "settled", amountCents: 100, payerId: "eu", splits: split },
     ]);
+    expect(net.get("eu")).toBe(100);
+    expect(net.get("mae")).toBe(-100);
+  });
+  test("sem quem pagou não gera dívida", () => {
+    const net = computeBalances([{ ...base, behavior: "pending", amountCents: 100, payerId: null, splits: [{ participantId: "mae", amountCents: 100 }] }]);
     expect(net.size).toBe(0);
+  });
+  test("empréstimo: quem pegou emprestado deve para quem emprestou", () => {
+    const net = computeBalances([
+      { kind: "loan", behavior: "pending", amountCents: 2040, payerId: "eu", splits: [{ participantId: "clara", amountCents: 2040 }] },
+    ]);
+    expect(net.get("eu")).toBe(2040);
+    expect(net.get("clara")).toBe(-2040);
+    expect(suggestSettlements(net)).toEqual([{ fromId: "clara", toId: "eu", amountCents: 2040 }]);
   });
   test("acerto zera a dívida", () => {
     const net = computeBalances([
@@ -204,5 +219,69 @@ describe("cartão de crédito", () => {
   });
   test("data de hoje no fuso de Brasília", () => {
     expect(todayIn("America/Sao_Paulo", new Date("2026-11-08T02:00:00Z"))).toBe("2026-11-07");
+  });
+});
+
+describe("OFX de cartão de crédito", () => {
+  const r = parseOfx(fx("cartao-nubank.ofx"));
+  test("lê as transações da fatura", () => {
+    expect(r.statement).toBe("card");
+    expect(r.rows).toHaveLength(6);
+    expect(r.rows[0]).toEqual({ date: "2026-03-02", description: "Padaria Exemplo", amountCents: -700, bankId: "aaaa-0001" });
+    expect(r.rows[1].description).toBe('Estorno de "Hotel Exemplo"');
+  });
+  test("FITID repetido não vira duplicata", () => {
+    const ids = externalIds(r.rows, "ofx");
+    expect(new Set(ids).size).toBe(6);
+    expect(ids[0]).toBe("ofx:aaaa-0001");
+    // Reimportar o mesmo arquivo gera os mesmos identificadores.
+    expect(externalIds(parseOfx(fx("cartao-nubank.ofx")).rows, "ofx")).toEqual(ids);
+  });
+  test("extrato de conta continua igual", () => {
+    expect(parseOfx(fx("extrato.ofx")).statement).toBe("bank");
+  });
+});
+
+describe("nome da família", () => {
+  test("padrão cabe em 20 caracteres", () => {
+    expect(defaultHouseholdName("Felipe Gabriel")).toBe("Família de Felipe");
+    expect(defaultHouseholdName("Maximiliano Souza").length).toBeLessThanOrEqual(HOUSEHOLD_NAME_MAX);
+    expect(HOUSEHOLD_NAME_MAX).toBe(20);
+  });
+});
+
+describe("recorrência sem fim", () => {
+  test("cria do próximo número até o fim do mês corrente", () => {
+    expect(dueOccurrences("2026-09-05", 1, "2026-11-30")).toEqual([
+      { index: 1, date: "2026-09-05" },
+      { index: 2, date: "2026-10-05" },
+      { index: 3, date: "2026-11-05" },
+    ]);
+    expect(dueOccurrences("2026-09-05", 4, "2026-11-30")).toEqual([]);
+    expect(dueOccurrences("2026-12-10", 1, "2026-11-30")).toEqual([]);
+  });
+  test("dia 31 cai no último dia dos meses curtos", () => {
+    expect(dueOccurrences("2027-01-31", 2, "2027-02-28")).toEqual([{ index: 2, date: "2027-02-28" }]);
+    expect(endOfMonth("2028-02-10")).toBe("2028-02-29");
+  });
+});
+
+describe("visão de um membro (só entre ele e cada pessoa)", () => {
+  test("despesa paga por mim e dividida; empréstimo; receita", () => {
+    const rows = [
+      { kind: "expense" as const, behavior: "pending" as const, amountCents: 9000, payerId: "eu", splits: [
+        { participantId: "eu", amountCents: 3000 }, { participantId: "mae", amountCents: 3000 }, { participantId: "clara", amountCents: 3000 },
+      ] },
+      { kind: "expense" as const, behavior: "open" as const, amountCents: 1000, payerId: "mae", splits: [{ participantId: "eu", amountCents: 1000 }] },
+      { kind: "loan" as const, behavior: "open" as const, amountCents: 500, payerId: "clara", splits: [{ participantId: "mae", amountCents: 500 }] },
+      { kind: "income" as const, behavior: "open" as const, amountCents: 200, payerId: "eu", splits: [{ participantId: "clara", amountCents: 200 }] },
+    ];
+    const net = pairwiseFor("eu", rows);
+    expect(net.get("mae")).toBe(2000); // mãe me deve 3000, eu devo 1000
+    expect(net.get("clara")).toBe(2800); // clara me deve 3000, eu devo 200 da receita
+    expect(pairwiseSettlements("eu", net)).toEqual([
+      { fromId: "clara", toId: "eu", amountCents: 2800 },
+      { fromId: "mae", toId: "eu", amountCents: 2000 },
+    ]);
   });
 });

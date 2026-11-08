@@ -16,7 +16,6 @@ const CardSchema = z.object({
   closingDay: day("fechamento"),
   dueDay: day("vencimento"),
   alertDays: z.number().int().min(0).max(15).nullable(),
-  holderId: z.union([z.uuid(), z.literal(""), z.null()]).transform((v) => v || null),
 });
 
 export type CardInput = z.input<typeof CardSchema>;
@@ -28,13 +27,6 @@ export async function saveCard(id: string | null, input: CardInput): Promise<Act
   const data = parsed.data;
   if (data.closingDay === data.dueDay) return { ok: false, error: "O vencimento precisa ser em outro dia que o fechamento." };
   const db = getDb();
-  if (data.holderId) {
-    const [p] = await db
-      .select({ id: schema.participants.id })
-      .from(schema.participants)
-      .where(and(eq(schema.participants.id, data.holderId), eq(schema.participants.householdId, auth.householdId)));
-    if (!p) return { ok: false, error: "Pessoa inválida." };
-  }
   let savedId = id;
   if (id) {
     const updated = await db

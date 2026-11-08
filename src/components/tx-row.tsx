@@ -15,7 +15,7 @@ export function txMeta(tx: TxRow, lookups: Lookups) {
 }
 
 export function amountTone(kind: string) {
-  return kind === "income" ? "pos" : kind === "transfer" ? "muted" : "";
+  return kind === "income" ? "pos" : kind === "transfer" || kind === "loan" ? "muted" : "";
 }
 
 /** Linha compacta de lançamento, usada no painel. */

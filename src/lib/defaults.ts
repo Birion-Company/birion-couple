@@ -1,5 +1,18 @@
 /** Valores iniciais de uma família nova. Tudo pode ser mudado depois em Ajustes. */
 
+/** Máximo de pessoas ativas numa família (arquivadas não contam). */
+export const FAMILY_PEOPLE_MAX = 10;
+export const FAMILY_FULL_MESSAGE = `A família já tem ${FAMILY_PEOPLE_MAX} pessoas, o máximo. Arquive alguém para abrir espaço.`;
+
+/** Tamanho máximo do nome da família (aparece no menu lateral, abaixo da marca). */
+export const HOUSEHOLD_NAME_MAX = 20;
+
+/** "Família de Felipe", cortado para caber no limite quando o primeiro nome é muito longo. */
+export function defaultHouseholdName(fullName: string) {
+  const first = fullName.trim().split(/\s+/)[0] || "";
+  return `Família de ${first}`.slice(0, HOUSEHOLD_NAME_MAX).trim();
+}
+
 export const DEFAULT_STATUSES = [
   { name: "Pendente", color: "#E0A526", behavior: "pending", isDefault: true, isImportDefault: true },
   { name: "Pago por mim", color: "#1AC4DB", behavior: "open", isDefault: false, isImportDefault: false },
@@ -30,14 +43,15 @@ export const PALETTE = [
 ];
 
 export const STATUS_BEHAVIORS = [
-  { value: "pending", label: "Pendente", help: "Ainda não foi pago. Aparece em Pendências e não entra nos saldos." },
-  { value: "open", label: "Pago, a acertar", help: "Alguém pagou e os outros ainda devem a sua parte. Entra nos saldos." },
-  { value: "settled", label: "Acertado", help: "Já foi reembolsado ou acertado. Não entra nos saldos." },
+  { value: "pending", label: "Pendente", help: "Ainda falta resolver. Aparece em Pendências; se alguém já pagou, os outros já devem a parte deles." },
+  { value: "open", label: "Pago, a acertar", help: "Alguém pagou e os outros devem a parte deles. Entra em quem deve para quem." },
+  { value: "settled", label: "Acertado", help: "Já foi reembolsado ou acertado. Sai de quem deve para quem." },
 ] as const;
 
 export const KINDS = [
   { value: "expense", label: "Despesa" },
   { value: "income", label: "Receita" },
+  { value: "loan", label: "Empréstimo" },
   { value: "transfer", label: "Acerto entre pessoas" },
 ] as const;
 

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteListItem, saveListItem, setArchived } from "@/app/actions/settings";
-import { PALETTE, STATUS_BEHAVIORS } from "@/lib/defaults";
+import { FAMILY_PEOPLE_MAX, PALETTE, STATUS_BEHAVIORS } from "@/lib/defaults";
 import { toastResult } from "./toaster";
 import { Avatar, Dot } from "./ui";
 
@@ -124,6 +124,9 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
   const w = WORDS[kind];
   const visible = items.filter((i) => showArchived || !i.archived);
   const archivedCount = items.filter((i) => i.archived).length;
+  // Pessoas: no máximo FAMILY_PEOPLE_MAX ativas.
+  const activeCount = items.length - archivedCount;
+  const full = kind === "participants" && activeCount >= FAMILY_PEOPLE_MAX;
   const behaviorLabel = (b?: string) => STATUS_BEHAVIORS.find((x) => x.value === b)?.label;
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) => start(async () => toastResult(await fn()));
@@ -159,7 +162,7 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
               </button>
               <button
                 className="icon-btn"
-                disabled={pending}
+                disabled={pending || (item.archived && full)}
                 onClick={() => act(() => setArchived(kind, item.id, !item.archived))}
                 aria-label={item.archived ? `Reativar ${item.name}` : `Arquivar ${item.name}`}
                 title={item.archived ? "Reativar" : "Arquivar"}
@@ -185,9 +188,16 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
         <ItemForm kind={kind} item={null} onDone={() => setEditing(null)} defaultColor={PALETTE[items.length % PALETTE.length]} />
       ) : (
         <div className="actions" style={{ marginTop: 12, justifyContent: "space-between" }}>
-          <button className="btn" onClick={() => setEditing("new")}>
-            <Plus size={16} /> {w.add}
-          </button>
+          <div className="actions" style={{ alignItems: "center" }}>
+            <button className="btn" onClick={() => setEditing("new")} disabled={full} aria-describedby={kind === "participants" ? "limite-pessoas" : undefined}>
+              <Plus size={16} /> {w.add}
+            </button>
+            {kind === "participants" && (
+              <span id="limite-pessoas" className={`faint ${full ? "neg" : ""}`}>
+                {activeCount} de {FAMILY_PEOPLE_MAX} pessoas{full ? " · arquive alguém para adicionar outra" : ""}
+              </span>
+            )}
+          </div>
           {archivedCount > 0 && (
             <button className="btn ghost small" onClick={() => setShowArchived((s) => !s)}>
               {showArchived ? "Esconder arquivados" : `Ver arquivados (${archivedCount})`}

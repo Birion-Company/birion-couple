@@ -26,7 +26,19 @@ function groupByMonth(rows: TxRow[]) {
   return groups;
 }
 
-export function TxList({ rows, lookups, currency }: { rows: TxRow[]; lookups: Lookups; currency: string }) {
+export function TxList({
+  rows,
+  lookups,
+  currency,
+  viewer,
+}: {
+  rows: TxRow[];
+  lookups: Lookups;
+  currency: string;
+  /** Quem está vendo: só marca para ações em lote o que pode alterar. */
+  viewer: { userId: string; admin: boolean };
+}) {
+  const canEdit = (r: TxRow) => viewer.admin || r.createdBy === viewer.userId;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
 
@@ -62,7 +74,8 @@ export function TxList({ rows, lookups, currency }: { rows: TxRow[]; lookups: Lo
   return (
     <>
       {groupByMonth(rows).map((g) => {
-        const allOn = g.rows.every((r) => selected.has(r.id));
+        const mine = g.rows.filter(canEdit);
+        const allOn = mine.length > 0 && mine.every((r) => selected.has(r.id));
         return (
           <section key={g.key} className="card" style={{ marginBottom: 12, paddingTop: 10 }}>
             <div className="card-head" style={{ marginBottom: 4 }}>
@@ -74,7 +87,7 @@ export function TxList({ rows, lookups, currency }: { rows: TxRow[]; lookups: Lo
                   onChange={() =>
                     setSelected((s) => {
                       const n = new Set(s);
-                      g.rows.forEach((r) => (allOn ? n.delete(r.id) : n.add(r.id)));
+                      mine.forEach((r) => (allOn ? n.delete(r.id) : n.add(r.id)));
                       return n;
                     })
                   }
@@ -90,7 +103,9 @@ export function TxList({ rows, lookups, currency }: { rows: TxRow[]; lookups: Lo
                   <div key={tx.id} className="row">
                     <input
                       type="checkbox"
-                      aria-label={`Selecionar ${tx.description}`}
+                      aria-label={canEdit(tx) ? `Selecionar ${tx.description}` : `${tx.description} (lançado por outra pessoa)`}
+                      title={canEdit(tx) ? undefined : "Lançado por outra pessoa"}
+                      disabled={!canEdit(tx)}
                       checked={selected.has(tx.id)}
                       onChange={() => toggle(tx.id)}
                       style={{ width: 18, height: 18, accentColor: "var(--brand-strong)", flex: "none" }}

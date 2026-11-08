@@ -1,6 +1,8 @@
 import "server-only";
-import { and, asc, eq, gte, isNotNull } from "drizzle-orm";
+import { asc, eq, gte, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { txScope, type Viewer } from "./access";
+import { ensureRecurring } from "./recurring-server";
 import { addMonthsKey, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, todayIn, type CardAlert } from "./cards";
 
 const t = schema.transactions;
@@ -21,7 +23,10 @@ type CardTx = {
 /** Despesas somam na fatura; receitas no cartão (estornos) abatem; acertos não entram. */
 const signed = (r: CardTx) => (r.kind === "expense" ? r.amountCents : r.kind === "income" ? -r.amountCents : 0);
 
-async function loadCards(householdId: string, since: string) {
+/** Cartões da família e os lançamentos de cartão que esta pessoa pode ver. */
+async function loadCards(viewer: Viewer, since: string) {
+  const householdId = viewer.householdId;
+  await ensureRecurring(householdId);
   const db = getDb();
   const [cards, rows] = await Promise.all([
     db.select().from(schema.creditCards).where(eq(schema.creditCards.householdId, householdId)).orderBy(asc(schema.creditCards.createdAt)),
@@ -39,7 +44,7 @@ async function loadCards(householdId: string, since: string) {
         seriesTotal: t.seriesTotal,
       })
       .from(t)
-      .where(and(eq(t.householdId, householdId), isNotNull(t.cardId), gte(t.date, since)))
+      .where(txScope(viewer, isNotNull(t.cardId), gte(t.date, since)))
       .orderBy(asc(t.date)),
   ]);
   return { cards, rows: rows as CardTx[] };
@@ -55,11 +60,11 @@ function totalsByInvoice(rows: CardTx[], closingDay: number) {
 }
 
 /** Tudo o que a página Cartões mostra: situação de cada cartão, próximas faturas e parcelamentos em andamento. */
-export async function getCardOverview(householdId: string) {
+export async function getCardOverview(viewer: Viewer) {
   const today = todayIn();
   // Dois meses para trás bastam para a fatura fechada que ainda vai vencer.
   const since = `${addMonthsKey(today.slice(0, 7), -2)}-01`;
-  const { cards, rows } = await loadCards(householdId, since);
+  const { cards, rows } = await loadCards(viewer, since);
 
   return {
     today,
@@ -82,9 +87,9 @@ export async function getCardOverview(householdId: string) {
         state: key < s.open ? ("closed" as const) : key === s.open ? ("open" as const) : ("future" as const),
       }));
 
-      const series = new Map<string, { id: string; nextId: string; description: string; kind: string; total: number; next: number; remaining: number; amountCents: number; lastDate: string }>();
+      const series = new Map<string, { id: string; nextId: string; description: string; kind: string; total: number | null; next: number; remaining: number; amountCents: number; lastDate: string }>();
       for (const r of mine) {
-        if (!r.seriesId || !r.seriesTotal || !r.seriesIndex) continue;
+        if (!r.seriesId || !r.seriesIndex) continue;
         if (invoiceOf(r.date, card.closingDay) < s.open) continue;
         const cur = series.get(r.seriesId);
         if (!cur) {
@@ -108,10 +113,10 @@ export async function getCardOverview(householdId: string) {
 }
 
 /** Avisos de fechamento e vencimento próximos, para o popup. */
-export async function getCardAlerts(householdId: string): Promise<CardAlert[]> {
+export async function getCardAlerts(viewer: Viewer): Promise<CardAlert[]> {
   const today = todayIn();
   const since = `${addMonthsKey(today.slice(0, 7), -2)}-01`;
-  const { cards, rows } = await loadCards(householdId, since);
+  const { cards, rows } = await loadCards(viewer, since);
   return cards
     .filter((c) => !c.archived)
     .flatMap((card) => {

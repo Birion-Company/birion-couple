@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { getDb, schema } from "@/db";
 import { exchangeCode, GOOGLE_COOKIE } from "@/lib/google";
+import { defaultHouseholdName } from "@/lib/defaults";
 import { createHouseholdForUser } from "@/lib/household";
 import { createSession } from "@/lib/session";
 
@@ -51,8 +52,7 @@ export async function GET(request: NextRequest) {
         .insert(schema.users)
         .values({ email: profile.email, name: profile.name, passwordHash })
         .returning({ id: schema.users.id });
-      const first = profile.name.split(" ")[0];
-      const h = await createHouseholdForUser(tx, { userId: u.id, userName: profile.name, householdName: `Família de ${first}` });
+      const h = await createHouseholdForUser(tx, { userId: u.id, userName: profile.name, householdName: defaultHouseholdName(profile.name) });
       return { uid: u.id, hid: h };
     });
     uid = ids.uid;

@@ -15,7 +15,7 @@ import {
   setMemberRole,
   updateHousehold,
 } from "@/app/actions/settings";
-import { CURRENCIES } from "@/lib/defaults";
+import { CURRENCIES, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Dot } from "./ui";
@@ -67,10 +67,22 @@ export function HouseholdForm({ name, currency, isOwner }: { name: string; curre
         act(() => updateHousehold({ name: n, currency: c }));
       }}
     >
-      <label className="field">
-        <span>Nome da família ou grupo</span>
-        <input className="input" value={n} onChange={(e) => setN(e.target.value)} disabled={!isOwner} maxLength={60} required />
-      </label>
+      <div className="field">
+        <label htmlFor="familia-nome">Nome da família ou grupo</label>
+        <input
+          id="familia-nome"
+          className="input"
+          value={n}
+          onChange={(e) => setN(e.target.value)}
+          disabled={!isOwner}
+          maxLength={HOUSEHOLD_NAME_MAX}
+          aria-describedby="familia-limite"
+          required
+        />
+        <span id="familia-limite" className="faint">
+          {n.length}/{HOUSEHOLD_NAME_MAX} caracteres
+        </span>
+      </div>
       <label className="field">
         <span>Moeda</span>
         <Select value={c} onChange={setC} disabled={!isOwner} options={CURRENCIES.map((x) => ({ value: x.value, label: x.label }))} />

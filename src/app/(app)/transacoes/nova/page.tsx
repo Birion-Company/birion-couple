@@ -17,6 +17,8 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
   const acerto = typeof sp.acerto === "string" ? sp.acerto.split(".") : null;
   if (acerto && acerto.length === 3 && ids.has(acerto[0]) && ids.has(acerto[1]) && Number(acerto[2]) > 0) {
     prefill = { kind: "transfer", payerId: acerto[0], toId: acerto[1], amountCents: Number(acerto[2]), description: "Acerto" };
+  } else if (sp.tipo === "emprestimo") {
+    prefill = { kind: "loan", payerId: auth.participantId ?? undefined };
   }
 
   if (lookups.participants.filter((p) => !p.archived).length === 0) {
@@ -34,9 +36,9 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
 
   const defaultStatus = lookups.statuses.find((s) => s.isDefault && !s.archived) ?? lookups.statuses.find((s) => !s.archived);
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div className="tx-page">
       <div className="page-head">
-        <h1>{prefill ? "Registrar acerto" : "Novo lançamento"}</h1>
+        <h1>{prefill?.kind === "transfer" ? "Registrar pagamento" : prefill?.kind === "loan" ? "Registrar empréstimo" : "Novo lançamento"}</h1>
       </div>
       <div className="card">
         <TxForm lookups={lookups} currency={auth.currency} initial={null} prefill={prefill} defaultStatusId={defaultStatus?.id ?? null} me={auth.participantId} />

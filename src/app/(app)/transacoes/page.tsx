@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
+import { RecurringList } from "@/components/recurring-list";
 import { TxList } from "@/components/tx-list";
 import { Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { filtersToQuery, parseFilters } from "@/lib/filters";
-import { getLookups, listTransactions } from "@/lib/queries";
+import { getLookups, getRecurring, listTransactions } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Lançamentos" };
 
@@ -18,7 +19,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const filters = parseFilters(sp);
   const pages = Math.min(50, Math.max(1, Number(sp.paginas) || 1));
   const lookups = await getLookups(auth.householdId);
-  const { rows, count, total } = await listTransactions(auth.householdId, filters, PAGE * pages);
+  const { rows, count, total } = await listTransactions(auth, filters, PAGE * pages);
+  // Depois da lista: ela é que cria os meses que faltam, e o "próximo em" já sai atualizado.
+  const recurring = await getRecurring(auth);
 
   return (
     <>
@@ -53,7 +56,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         cards={lookups.cards}
       />
 
-      <TxList rows={rows} lookups={lookups} currency={auth.currency} />
+      <RecurringList items={recurring} currency={auth.currency} />
+
+      <TxList rows={rows} lookups={lookups} currency={auth.currency} viewer={{ userId: auth.userId, admin: auth.role === "owner" }} />
 
       {rows.length < count && (
         <div style={{ textAlign: "center", marginTop: 16 }}>

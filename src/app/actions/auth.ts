@@ -4,8 +4,9 @@ import bcrypt from "bcryptjs";
 import { and, eq, gte, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import * as z from "zod";
+import { defaultHouseholdName, FAMILY_PEOPLE_MAX, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { getDb, schema } from "@/db";
-import { createHouseholdForUser } from "@/lib/household";
+import { createHouseholdForUser, hasRoomForPerson } from "@/lib/household";
 import { createSession, destroySession } from "@/lib/session";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
@@ -16,7 +17,7 @@ const name = z.string().trim().min(1, { error: "Digite seu nome." }).max(60);
 
 const SignupSchema = z.object({
   // Opcional: sem nome, a família vira "Família de <primeiro nome>" (dá para mudar em Ajustes).
-  household: z.string().trim().max(60).optional(),
+  household: z.string().trim().max(HOUSEHOLD_NAME_MAX, { error: `O nome da família pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.` }).optional(),
   name,
   email,
   password,
@@ -27,7 +28,7 @@ export async function signup(_: FormState, form: FormData): Promise<FormState> {
   const parsed = SignupSchema.safeParse({ ...fields, household: form.get("household") ?? undefined, password: form.get("password") });
   if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
   const { name: userName, email: mail, password: pass } = parsed.data;
-  const household = parsed.data.household || `Família de ${userName.split(" ")[0]}`;
+  const household = parsed.data.household || defaultHouseholdName(userName);
   const db = getDb();
 
   const [existing] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, mail)).limit(1);
@@ -51,7 +52,21 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
   const db = getDb();
-  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, parsed.data.email)).limit(1);
+  let user: typeof schema.users.$inferSelect | undefined;
+  try {
+    [user] = await db.select().from(schema.users).where(eq(schema.users.email, parsed.data.email)).limit(1);
+  } catch (error) {
+    const cause = error instanceof Error ? error.cause : undefined;
+    const causeFields = cause && typeof cause === "object" ? cause as { message?: unknown; code?: unknown; detail?: unknown } : undefined;
+    console.error("Login user query failed", {
+      message: error instanceof Error ? error.message : String(error),
+      cause,
+      causeMessage: causeFields?.message,
+      causeCode: causeFields?.code,
+      causeDetail: causeFields?.detail,
+    });
+    throw error;
+  }
   const ok = user && (await bcrypt.compare(parsed.data.password, user.passwordHash));
   if (!user || !ok) return { error: "E-mail ou senha incorretos.", fields };
   const [membership] = await db
@@ -83,6 +98,15 @@ export async function acceptInvite(_: FormState, form: FormData): Promise<FormSt
     .where(and(eq(schema.invites.code, code), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date())))
     .limit(1);
   if (!invite) return { error: "Este convite não vale mais. Peça um novo para quem administra a família.", fields };
+  const [member] = await db
+    .select({ hid: schema.memberships.householdId })
+    .from(schema.memberships)
+    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+    .where(and(eq(schema.memberships.householdId, invite.householdId), eq(schema.users.email, parsed.data.email)))
+    .limit(1);
+  if (!member && !(await hasRoomForPerson(db, invite.householdId))) {
+    return { error: `Esta família já tem ${FAMILY_PEOPLE_MAX} pessoas, o máximo. Peça para quem administra abrir espaço.`, fields };
+  }
 
   const [existing] = await db.select().from(schema.users).where(eq(schema.users.email, parsed.data.email)).limit(1);
   let userId: string;
