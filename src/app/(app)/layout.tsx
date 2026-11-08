@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <Brand />
         <SideNav />
         <div className="side-foot">
-          <UserMenu name={auth.userName} avatarUrl={avatarUrl} />
+          <UserMenu name={auth.userName} household={auth.householdName} avatarUrl={avatarUrl} />
           <div className="theme-row">
             <form action={logout} style={{ flex: 1 }}>
               <button className="btn logout-btn">

@@ -13,7 +13,18 @@ const ITEMS = [
 ];
 
 /** Botão com o nome de quem está logado; abre um menu com Meu perfil e Ajustes. */
-export function UserMenu({ name, avatarUrl, compact = false }: { name: string; avatarUrl?: string | null; compact?: boolean }) {
+export function UserMenu({
+  name,
+  household,
+  avatarUrl,
+  compact = false,
+}: {
+  name: string;
+  /** Nome da família, mostrado embaixo do nome da pessoa. */
+  household?: string;
+  avatarUrl?: string | null;
+  compact?: boolean;
+}) {
   const menuId = useId();
   const pathname = usePathname();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -93,6 +104,7 @@ export function UserMenu({ name, avatarUrl, compact = false }: { name: string; a
         {!compact && (
           <span className="user-btn-text">
             <span className="user-btn-name">{name}</span>
+            {household && <span className="user-btn-sub">{household}</span>}
           </span>
         )}
         {!compact && <ChevronUp size={16} strokeWidth={1.8} className="user-btn-chevron" aria-hidden />}
