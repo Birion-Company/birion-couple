@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { seriesLabel } from "@/lib/cards";
 import { explainTx } from "@/lib/explain";
 import type { Lookups, TxRow } from "@/lib/queries";
@@ -31,6 +32,24 @@ export function txExplain(tx: TxRow, lookups: Lookups, me: string | null, curren
   });
 }
 
+const SETTLED = " · já acertado";
+
+/** Frase explicativa do lançamento; "já acertado" vira um selo verde. */
+export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | null; currency: string }) {
+  const full = txExplain(props.tx, props.lookups, props.me, props.currency);
+  const settled = full.endsWith(SETTLED);
+  return (
+    <p className="sub tx-explain">
+      {settled ? full.slice(0, -SETTLED.length) : full}
+      {settled && (
+        <span className="settled-badge">
+          <Check size={12} strokeWidth={2.6} aria-hidden /> Já acertado
+        </span>
+      )}
+    </p>
+  );
+}
+
 /** Bolinha com a cor do status do lançamento (pendente, pago, acertado…). */
 export function StatusDot({ status }: { status?: { name: string; color: string } | null }) {
   const label = status ? `Status: ${status.name}` : "Sem status";
@@ -54,7 +73,7 @@ export function TxRowLink({ tx, lookups, currency, me = null }: { tx: TxRow; loo
           {series && <span className="tx-series">{series.replace("Parcela ", "")}</span>}
         </p>
         <p className="sub">{[formatDate(tx.date), cat?.name ?? "Sem categoria"].join(" · ")}</p>
-        <p className="sub tx-explain">{txExplain(tx, lookups, me, currency)}</p>
+        <TxExplain tx={tx} lookups={lookups} me={me} currency={currency} />
       </div>
       <div className="amount">
         <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />

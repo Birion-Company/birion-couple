@@ -9,7 +9,7 @@ import { deleteTransactions, setTransactionsStatus } from "@/app/actions/transac
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
 import { toastResult } from "./toaster";
-import { StatusDot, amountTone, txExplain, txMeta } from "./tx-row";
+import { StatusDot, amountTone, TxExplain, txMeta } from "./tx-row";
 import { CategoryIcon, Money, formatDate } from "./ui";
 
 function groupByMonth(rows: TxRow[]) {
@@ -121,7 +121,7 @@ export function TxList({
                           {series && <span className="tx-series">{series.replace("Parcela ", "")}</span>}
                         </p>
                         <p className="sub">{details}</p>
-                        <p className="sub tx-explain">{txExplain(tx, lookups, viewer.participantId, currency)}</p>
+                        <TxExplain tx={tx} lookups={lookups} me={viewer.participantId} currency={currency} />
                       </div>
                       <span className="amount">
                         <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />
