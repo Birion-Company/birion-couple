@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock3, HandCoins, Inbox, Plus, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Inbox, Plus, Upload } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
 import { Avatar, Dot, Money } from "@/components/ui";
@@ -13,7 +13,8 @@ export const metadata: Metadata = { title: "Painel" };
 export default async function DashboardPage({ searchParams }: PageProps<"/painel">) {
   const auth = await requireAuth();
   const sp = await searchParams;
-  const filters = parseFilters(sp);
+  // O painel abre no mês atual (o que importa agora); "Todo o período" continua no filtro.
+  const filters = parseFilters(sp, "mes");
   const lookups = await getLookups(auth.householdId);
   const [data, debts] = await Promise.all([getDashboard(auth, filters, lookups), getDebts(auth, lookups)]);
   const cur = auth.currency;
@@ -26,10 +27,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
   const pendingStatus = lookups.statuses.find((s) => s.behavior === "pending" && !s.archived);
   const maxCat = Math.max(1, ...data.byCategory.map((c) => c.cents));
-  const balanceList = lookups.participants
-    .filter((p) => !p.archived || (debts.balances.get(p.id) ?? 0) !== 0)
-    .map((p) => ({ p, v: debts.balances.get(p.id) ?? 0 }))
-    .sort((a, b) => b.v - a.v);
   // Dívidas que envolvem você primeiro.
   const debtLines = [...debts.settlements].sort((a, b) => Number(b.fromId === me || b.toId === me) - Number(a.fromId === me || a.toId === me));
   const nameOf = (id: string) => people.get(id)?.name ?? "Alguém";
@@ -59,14 +56,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
       <section className="card debts" aria-labelledby="dividas" data-tour="dash-debts">
         <div className="card-head">
           <h2 id="dividas">Quem deve para quem</h2>
-          <div className="actions">
-            <Link className="btn small ghost" href="/dividas">
-              Ver detalhes <ArrowRight size={13} />
-            </Link>
-            <Link className="btn small" href="/transacoes/nova?tipo=emprestimo">
-              <HandCoins size={15} strokeWidth={1.7} /> Registrar empréstimo
-            </Link>
-          </div>
+          <Link href="/dividas">
+            Ver tudo <ArrowRight size={13} style={{ verticalAlign: -2 }} />
+          </Link>
         </div>
         {debtLines.length === 0 ? (
           <p className="debts-empty">
@@ -81,8 +73,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                   <ArrowRight size={14} strokeWidth={1.8} />
                   <Avatar name={nameOf(d.toId)} color={people.get(d.toId)?.color ?? "#94A3B8"} size={30} />
                 </span>
-                <p className="grow title">{sentence(d.fromId, d.toId)}</p>
-                <span className="amount debt-amount"><Money cents={d.amountCents} currency={cur} /></span>
+                <p className="grow title">
+                  {sentence(d.fromId, d.toId)} <span className="debt-amount"><Money cents={d.amountCents} currency={cur} /></span>
+                </p>
                 <Link
                   className="btn small"
                   href={`/transacoes/nova?acerto=${d.fromId}.${d.toId}.${d.amountCents}`}
@@ -94,26 +87,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             ))}
           </div>
         )}
-        {debts.whole && balanceList.some((b) => b.v !== 0) && (
-          <details className="debts-detail">
-            <summary>Saldo de cada pessoa</summary>
-            <div className="rows">
-              {balanceList.map(({ p, v }) => (
-                <Link key={p.id} href={`/painel${filtersToQuery({ ...filters, person: p.id })}`} className="row balance-row">
-                  <Avatar name={p.name} color={p.color} size={28} />
-                  <p className="grow title">{p.name}{p.id === me ? " (você)" : ""}</p>
-                  <span className={`sub balance-tag ${v > 0 ? "pos" : v < 0 ? "neg" : ""}`}>{v > 0 ? "tem a receber" : v < 0 ? "deve" : "em dia"}</span>
-                  <span className="amount"><Money cents={v} currency={cur} signed /></span>
-                </Link>
-              ))}
-            </div>
-          </details>
-        )}
-        <p className="faint debts-hint">
-          {debts.whole
-            ? "Conta tudo o que alguém pagou e dividiu com outra pessoa, até ser marcado como acertado. Não depende dos filtros abaixo."
-            : "Mostra só as dívidas entre você e cada pessoa da família, até serem acertadas. Não depende dos filtros abaixo."}
-        </p>
       </section>
 
       <div data-tour="dash-filters">
@@ -124,10 +97,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         projects={lookups.projects}
         statuses={lookups.statuses}
         cards={lookups.cards}
+        defaultPeriod="mes"
       />
       </div>
 
-      <div className="stats">
+      <div className="stats stats-3">
         <div className="stat">
           <p className="label">{focus ? `Parte de ${focus.name}` : "Gastos"}</p>
           <p className="value"><Money cents={data.spent} currency={cur} /></p>
@@ -143,11 +117,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           <p className="value"><Money cents={data.pendingTotal} currency={cur} /></p>
           <p className="hint">{data.pendingCount} {data.pendingCount === 1 ? "lançamento" : "lançamentos"}</p>
         </Link>
-        <div className="stat">
-          <p className="label">Lançamentos</p>
-          <p className="value num">{data.count}</p>
-          <p className="hint">no filtro atual</p>
-        </div>
       </div>
 
       {data.count === 0 ? (
@@ -215,19 +184,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             )}
           </section>
 
-          <section className="card" aria-labelledby="recent">
-            <div className="card-head">
-              <h2 id="recent">Últimos lançamentos</h2>
-              <Link href={`/transacoes${filtersToQuery(filters)}`}>
-                Ver todos <ArrowRight size={13} style={{ verticalAlign: -2 }} />
-              </Link>
-            </div>
-            <div className="rows">
-              {data.recent.map((t) => (
-                <TxRowLink key={t.id} tx={t} lookups={lookups} currency={cur} />
-              ))}
-            </div>
-          </section>
         </div>
       )}
     </>

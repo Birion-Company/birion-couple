@@ -20,19 +20,16 @@ export function amountTone(kind: string) {
 
 /** Linha compacta de lançamento, usada no painel. */
 export function TxRowLink({ tx, lookups, currency }: { tx: TxRow; lookups: Lookups; currency: string }) {
-  const { payer, cat, status, card, series } = txMeta(tx, lookups);
+  const { cat, status, card, series } = txMeta(tx, lookups);
   return (
     <Link href={`/transacoes/${tx.id}`} className="row">
       <Dot color={cat?.color ?? "#CBD5E1"} />
-      <div className="grow">
-        <p className="title">{tx.description}</p>
-        <p className="sub">
-          {formatDate(tx.date)}
-          {payer ? ` · ${payer.name}` : ""}
-          {cat ? ` · ${cat.name}` : ""}
-          {card ? ` · ${card.name}` : ""}
-          {series ? ` · ${series}` : ""}
+      <div className="grow" style={{ minWidth: 0 }}>
+        <p className="title">
+          {tx.description}
+          {series && <span className="tx-series">{series.replace("Parcela ", "")}</span>}
         </p>
+        <p className="sub">{[formatDate(tx.date), cat?.name, card?.name].filter(Boolean).join(" · ")}</p>
       </div>
       <div className="amount">
         <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />

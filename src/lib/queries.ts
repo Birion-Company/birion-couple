@@ -1,10 +1,11 @@
 import "server-only";
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { isAdmin, txScope, type Viewer } from "./access";
 import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type StatusBehavior, type TransactionKind } from "./balances";
 import type { Filters } from "./filters";
 import { todayIn } from "./cards";
+import { endOfMonth } from "./recurring";
 import { ensureRecurring } from "./recurring-server";
 
 const t = schema.transactions;
@@ -23,10 +24,14 @@ export async function getLookups(householdId: string) {
 
 export type Lookups = Awaited<ReturnType<typeof getLookups>>;
 
-function whereFor(viewer: Viewer, f: Filters): SQL {
+/** Último dia do mês atual: em "Todo o período", o que vem depois só aparece se pedir. */
+const endOfThisMonth = () => endOfMonth(todayIn());
+
+function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean } = {}): SQL {
   const parts: (SQL | undefined)[] = [];
   if (f.from) parts.push(gte(t.date, f.from));
   if (f.to) parts.push(lte(t.date, f.to));
+  if (f.period === "tudo" && !f.future && !opts.includeFuture) parts.push(lte(t.date, endOfThisMonth()));
   if (f.category === "sem") parts.push(isNull(t.categoryId));
   else if (f.category) parts.push(eq(t.categoryId, f.category));
   if (f.project) parts.push(eq(t.projectId, f.project));
@@ -112,11 +117,14 @@ export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, 
   await ensureRecurring(viewer.householdId);
   const db = getDb();
   const where = whereFor(viewer, f);
-  const [rows, [{ count, total }]] = await Promise.all([
+  // Quantos ficaram escondidos por serem futuros (para o botão "Mostrar futuros").
+  const futureWhere = f.period === "tudo" && !f.future ? and(whereFor(viewer, f, { includeFuture: true }), gt(t.date, endOfThisMonth())) : null;
+  const [rows, [{ count, total }], future] = await Promise.all([
     db.select(txColumns).from(t).where(where).orderBy(desc(t.date), desc(t.createdAt)).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${t.amountCents} else 0 end), 0)::int` }).from(t).where(where),
+    futureWhere ? db.select({ n: sql<number>`count(*)::int` }).from(t).where(futureWhere) : Promise.resolve([{ n: 0 }]),
   ]);
-  return { rows: await attachSplits(rows as Omit<TxRow, "splits">[]), count, total };
+  return { rows: await attachSplits(rows as Omit<TxRow, "splits">[]), count, total, futureCount: future[0].n };
 }
 
 /** Um lançamento, se esta pessoa puder vê-lo. */
@@ -138,7 +146,8 @@ export async function getDashboard(viewer: Viewer, f: Filters, lookups: Lookups)
   const behavior = (r: TxRow) => (r.statusId ? behaviorOf.get(r.statusId) ?? null : null);
 
   // Pendências são contas a resolver: só despesas (somar receitas junto confundiria o total).
-  const pending = rows.filter((r) => r.kind === "expense" && behavior(r) === "pending");
+  const today = todayIn();
+  const pending = rows.filter((r) => r.kind === "expense" && behavior(r) === "pending" && r.date <= today);
   const pendingTotal = pending.reduce((a, r) => a + r.amountCents, 0);
 
   // Gastos: despesas do período (acertos entre pessoas não são gasto).

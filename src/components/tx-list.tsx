@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { CreditCard, Inbox, Repeat, X } from "lucide-react";
+import { Inbox, X } from "lucide-react";
 import { bulkUpdate, deleteTransactions, setTransactionsStatus } from "@/app/actions/transactions";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
@@ -73,34 +73,17 @@ export function TxList({
 
   return (
     <>
-      {groupByMonth(rows).map((g) => {
-        const mine = g.rows.filter(canEdit);
-        const allOn = mine.length > 0 && mine.every((r) => selected.has(r.id));
-        return (
-          <section key={g.key} className="card" style={{ marginBottom: 12, paddingTop: 10 }}>
-            <div className="card-head" style={{ marginBottom: 4 }}>
-              <h2 style={{ fontSize: "0.9rem" }} className="muted">{g.label}</h2>
-              <label className="faint" style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={allOn}
-                  onChange={() =>
-                    setSelected((s) => {
-                      const n = new Set(s);
-                      mine.forEach((r) => (allOn ? n.delete(r.id) : n.add(r.id)));
-                      return n;
-                    })
-                  }
-                  style={{ accentColor: "var(--brand-strong)" }}
-                />
-                Selecionar
-              </label>
-            </div>
+      <section className="card tx-months">
+        {groupByMonth(rows).map((g) => (
+          <div key={g.key} className="tx-month">
+            <h2 className="tx-month-label">{g.label}</h2>
             <div className="rows">
               {g.rows.map((tx) => {
-                const { payer, cat, status, project, card, series, people } = txMeta(tx, lookups);
+                const { payer, cat, status, project, card, series } = txMeta(tx, lookups);
+                // Uma linha de detalhes só: data · categoria · cartão · projeto · quem pagou.
+                const details = [formatDate(tx.date), cat?.name, card?.name, project?.name, payer ? `pago por ${payer.name}` : null].filter(Boolean).join(" · ");
                 return (
-                  <div key={tx.id} className="row">
+                  <div key={tx.id} className="row tx-line">
                     <input
                       type="checkbox"
                       aria-label={canEdit(tx) ? `Selecionar ${tx.description}` : `${tx.description} (lançado por outra pessoa)`}
@@ -108,35 +91,29 @@ export function TxList({
                       disabled={!canEdit(tx)}
                       checked={selected.has(tx.id)}
                       onChange={() => toggle(tx.id)}
-                      style={{ width: 18, height: 18, accentColor: "var(--brand-strong)", flex: "none" }}
+                      className="tx-check"
                     />
-                    <Link href={`/transacoes/${tx.id}`} className="grow" style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                      <div className="grow">
-                        <p className="title">{tx.description}</p>
-                        <p className="sub">
-                          {formatDate(tx.date)}
-                          {payer ? ` · pago por ${payer.name}` : ""}
-                          {people.length ? ` · ${people.length === lookups.participants.length && people.length > 2 ? "todos" : people.join(", ")}` : ""}
+                    <Link href={`/transacoes/${tx.id}`} className="grow tx-line-link">
+                      <Dot color={cat?.color ?? "#CBD5E1"} />
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        <p className="title">
+                          {tx.description}
+                          {series && <span className="tx-series">{series.replace("Parcela ", "")}</span>}
                         </p>
-                        <p className="sub" style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                          {cat && <span className="badge"><Dot color={cat.color} />{cat.name}</span>}
-                          {project && <span className="badge"><Dot color={project.color} />{project.name}</span>}
-                          {status && <span className="badge"><Dot color={status.color} />{status.name}</span>}
-                          {card && <span className="badge"><CreditCard size={12} strokeWidth={1.8} aria-hidden />{card.name}</span>}
-                          {series && <span className="badge"><Repeat size={12} strokeWidth={1.8} aria-hidden />{series}</span>}
-                        </p>
+                        <p className="sub">{details}</p>
                       </div>
                       <span className="amount">
                         <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />
+                        {status && <span className="sub tx-status">{status.name}</span>}
                       </span>
                     </Link>
                   </div>
                 );
               })}
             </div>
-          </section>
-        );
-      })}
+          </div>
+        ))}
+      </section>
 
       {selected.size > 0 && (
         <div className="bulkbar" role="region" aria-label="Ações para os selecionados">

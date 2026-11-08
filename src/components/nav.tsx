@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, CreditCard, HandCoins, LayoutGrid, Plus, Upload } from "lucide-react";
+import { ArrowLeftRight, CreditCard, HandCoins, LayoutGrid, Plus } from "lucide-react";
 
 const items = [
   { href: "/painel", label: "Painel", icon: LayoutGrid },
@@ -10,8 +10,6 @@ const items = [
   { href: "/transacoes/nova", label: "Novo", icon: Plus, add: true },
   { href: "/dividas", label: "Dívidas", icon: HandCoins },
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
-  // No celular, Importar fica no botão da página Lançamentos (a barra tem 5 lugares).
-  { href: "/importar", label: "Importar", icon: Upload, desktopOnly: true },
 ];
 
 function isActive(path: string, href: string) {
@@ -37,7 +35,7 @@ export function BottomNav() {
   const path = usePathname();
   return (
     <nav className="bottom-nav" aria-label="Principal">
-      {items.filter((i) => !i.desktopOnly).map(({ href, label, icon: Icon, add }) => (
+      {items.map(({ href, label, icon: Icon, add }) => (
         <Link key={href} href={href} className={add ? "add" : undefined} aria-current={isActive(path, href) ? "page" : undefined} aria-label={add ? "Novo lançamento" : undefined}>
           <span className="icon">
             <Icon size={add ? 22 : 20} strokeWidth={add ? 2 : 1.6} />

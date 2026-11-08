@@ -2348,9 +2348,21 @@ button.user-menu-item {
   font-size: 0.8rem;
 }
 @media (max-width: 520px) {
+  .debt-row {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
   .debt-row .btn {
-    width: 100%;
-    justify-content: center;
+    margin-left: auto;
+  }
+  .debt-row .debt-people {
+    display: none;
+  }
+  .debt-row .title {
+    flex: 1 1 100%;
+    min-width: 0;
+    font-size: 0.95rem;
+    white-space: normal;
   }
 }
 
@@ -2448,13 +2460,9 @@ button.user-menu-item {
 }
 
 .tab-help {
-  margin: -4px 0 14px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--tile-bg);
-  border: 1px solid var(--tile-edge);
-  color: var(--text-2);
-  font-size: 0.875rem;
+  margin: -2px 0 14px;
+  color: var(--text-3);
+  font-size: 0.85rem;
   line-height: 1.45;
 }
 
@@ -2693,4 +2701,100 @@ button.user-menu-item {
 }
 .tour-demo-row strong {
   white-space: nowrap;
+}
+
+.filter-bar {
+  margin-bottom: 14px;
+}
+.filter-bar .filters {
+  margin-bottom: 0;
+}
+.filters-more {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-edge);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.filters-more .person-pills {
+  margin: 0;
+}
+
+.stats.stats-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 520px) {
+  .stats.stats-3 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .stats.stats-3 > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+.debt-row .debt-amount {
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+/* ---------- Lista de lançamentos (enxuta) ---------- */
+.tx-months {
+  padding-top: 6px;
+}
+.tx-month + .tx-month {
+  margin-top: 10px;
+}
+.tx-month-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 10px 0 2px;
+}
+.tx-line {
+  gap: 10px;
+}
+.tx-check {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  accent-color: var(--brand-strong);
+}
+.tx-line-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.tx-series {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--tile-bg);
+  border: 1px solid var(--tile-edge);
+  vertical-align: 1px;
+}
+.tx-status {
+  display: block;
+  text-align: right;
+}
+
+.future-toggle {
+  white-space: normal;
+  text-align: center;
+  height: auto;
+}
+@media (max-width: 520px) {
+  .page-head .actions {
+    flex-wrap: nowrap;
+  }
+  .page-head .hide-sm {
+    display: none;
+  }
 }

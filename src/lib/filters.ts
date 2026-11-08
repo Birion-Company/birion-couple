@@ -21,6 +21,8 @@ export type Filters = {
   status: string | null;
   card: string | null;
   q: string | null;
+  /** Em "Todo o período": incluir lançamentos depois do mês atual (parcelas e meses futuros). */
+  future: boolean;
 };
 
 type Search = Record<string, string | string[] | undefined>;
@@ -71,14 +73,18 @@ export function parseFilters(sp: Search, defaultPeriod: PeriodKey = "tudo"): Fil
     project: isId(one(sp.projeto)),
     status: isId(one(sp.status)),
     card: isId(one(sp.cartao)),
+    future: one(sp.futuros) === "1",
     q: one(sp.q)?.slice(0, 100) ?? null,
   };
 }
 
-/** Monta a query string de volta (usada nos links e no formulário de filtros). */
-export function filtersToQuery(f: Partial<Filters>): string {
+/**
+ * Monta a query string de volta (usada nos links e no formulário de filtros).
+ * `defaultPeriod` é o período que a página usa sem parâmetro (o painel abre em "Este mês").
+ */
+export function filtersToQuery(f: Partial<Filters>, defaultPeriod: PeriodKey = "tudo"): string {
   const p = new URLSearchParams();
-  if (f.period && f.period !== "tudo") p.set("periodo", f.period);
+  if (f.period && f.period !== defaultPeriod) p.set("periodo", f.period);
   if (f.period === "custom") {
     if (f.from) p.set("de", f.from);
     if (f.to) p.set("ate", f.to);
@@ -89,6 +95,7 @@ export function filtersToQuery(f: Partial<Filters>): string {
   if (f.status) p.set("status", f.status);
   if (f.card) p.set("cartao", f.card);
   if (f.q) p.set("q", f.q);
+  if (f.future) p.set("futuros", "1");
   const s = p.toString();
   return s ? `?${s}` : "";
 }

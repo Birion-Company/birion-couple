@@ -19,7 +19,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const filters = parseFilters(sp);
   const pages = Math.min(50, Math.max(1, Number(sp.paginas) || 1));
   const lookups = await getLookups(auth.householdId);
-  const { rows, count, total } = await listTransactions(auth, filters, PAGE * pages);
+  const { rows, count, total, futureCount } = await listTransactions(auth, filters, PAGE * pages);
   // Depois da lista: ela é que cria os meses que faltam, e o "próximo em" já sai atualizado.
   const recurring = await getRecurring(auth);
 
@@ -34,7 +34,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         </div>
         <div className="actions">
           <Link className="btn" href="/importar">
-            <Upload size={16} strokeWidth={1.6} /> <span>Importar</span>
+            <Upload size={16} strokeWidth={1.6} aria-hidden /> <span className="hide-sm">Importar</span>
+            <span className="sr-only">Importar extrato</span>
           </Link>
           <Link className="btn primary" href="/transacoes/nova">
             <Plus size={16} /> <span>Novo</span>
@@ -64,6 +65,16 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       <RecurringList items={recurring} currency={auth.currency} />
 
       <TxList rows={rows} lookups={lookups} currency={auth.currency} viewer={{ userId: auth.userId, admin: auth.role === "owner" }} />
+
+      {(futureCount > 0 || filters.future) && filters.period === "tudo" && (
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <Link className="btn ghost small future-toggle" href={`/transacoes${filtersToQuery({ ...filters, future: !filters.future })}`} scroll={false}>
+            {filters.future
+              ? "Esconder lançamentos futuros"
+              : `Mostrar ${futureCount} ${futureCount === 1 ? "lançamento futuro" : "lançamentos futuros"} (parcelas que ainda vão chegar)`}
+          </Link>
+        </div>
+      )}
 
       {rows.length < count && (
         <div style={{ textAlign: "center", marginTop: 16 }}>
