@@ -11,7 +11,12 @@ export type ParsedRow = {
 
 export type ParseIssue = { line: number; message: string };
 
-export type ParseResult = { rows: ParsedRow[]; issues: ParseIssue[] };
+export type ParseResult = {
+  rows: ParsedRow[];
+  issues: ParseIssue[];
+  /** OFX: extrato de conta ou fatura de cartão de crédito. */
+  statement?: "bank" | "card";
+};
 
 export type DateFormat = "DD/MM/YYYY" | "YYYY-MM-DD" | "MM/DD/YYYY";
 

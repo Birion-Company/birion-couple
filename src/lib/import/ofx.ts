@@ -27,16 +27,48 @@ function toIsoDate(value: unknown): string | null {
   return null;
 }
 
+/** Valor de uma tag OFX dentro de um bloco (aceita SGML sem fechamento e XML). */
+function tag(block: string, name: string): string | null {
+  const m = block.match(new RegExp(`<${name}>([^<\\r\\n]*)`, "i"));
+  if (!m) return null;
+  return m[1]
+    .trim()
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+/**
+ * Leitura direta dos blocos <STMTTRN>, usada quando a biblioteca não encontra nada
+ * (acontece com faturas de cartão, como as do Nubank). Serve para conta e cartão.
+ */
+export function readStatementBlocks(text: string) {
+  const body = normalizeOfxText(text);
+  const blocks = body.split(/<STMTTRN>/i).slice(1).map((b) => b.split(/<\/STMTTRN>|<\/BANKTRANLIST>/i)[0]);
+  return blocks.map((b) => ({
+    postedAt: tag(b, "DTPOSTED"),
+    amount: tag(b, "TRNAMT"),
+    fitId: tag(b, "FITID"),
+    description: tag(b, "MEMO") || tag(b, "NAME") || tag(b, "TRNTYPE") || "",
+  }));
+}
+
 export function parseOfx(text: string): ParseResult {
   const issues: ParseResult["issues"] = [];
-  let ofx: Ofx;
+  const statement = /<CREDITCARDMSGSRSV1>|<CCSTMTRS>/i.test(text) ? "card" : "bank";
+  let list: { postedAt: unknown; amount: unknown; fitId?: string | null; description?: string | null }[] = [];
   try {
-    ofx = new Ofx(normalizeOfxText(text), { parserMode: "lenient" });
+    list = new Ofx(normalizeOfxText(text), { parserMode: "lenient" }).toNormalized({ dateMode: "formatted", amountMode: "number" }).transactions;
   } catch {
-    return { rows: [], issues: [{ line: 0, message: "Não foi possível ler este arquivo OFX." }] };
+    list = [];
+  }
+  if (list.length === 0) list = readStatementBlocks(text);
+  if (list.length === 0 && !/<STMTTRN>/i.test(text)) {
+    return { rows: [], issues: [{ line: 0, message: /<OFX>/i.test(text) ? "Nenhuma transação encontrada no arquivo." : "Não foi possível ler este arquivo OFX." }], statement };
   }
   const rows: ParsedRow[] = [];
-  const list = ofx.toNormalized({ dateMode: "formatted", amountMode: "number" }).transactions;
   list.forEach((t, i) => {
     const date = toIsoDate(t.postedAt);
     const cents = t.amount === null ? null : parseAmountToCents(t.amount as number | string, ".");
@@ -54,5 +86,5 @@ export function parseOfx(text: string): ParseResult {
   if (rows.length === 0 && issues.length === 0) {
     issues.push({ line: 0, message: "Nenhuma transação encontrada no arquivo." });
   }
-  return { rows, issues };
+  return { rows, issues, statement };
 }

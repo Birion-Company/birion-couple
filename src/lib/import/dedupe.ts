@@ -8,12 +8,17 @@ import type { ParsedRow } from "./types";
  */
 export function externalIds(rows: ParsedRow[], format: "ofx" | "csv"): string[] {
   const seen = new Map<string, number>();
+  // Alguns bancos repetem o FITID (o Nubank usa o mesmo na compra e nos estornos dela).
+  // Nesses casos o identificador também leva data, valor e descrição.
+  const fitCount = new Map<string, number>();
+  for (const r of rows) if (r.bankId) fitCount.set(r.bankId, (fitCount.get(r.bankId) ?? 0) + 1);
   return rows.map((r) => {
-    if (format === "ofx" && r.bankId) return `ofx:${r.bankId}`;
+    if (format === "ofx" && r.bankId && fitCount.get(r.bankId) === 1) return `ofx:${r.bankId}`;
     const key = `${r.date}|${r.amountCents}|${r.description.toLowerCase().replace(/\s+/g, " ").trim()}`;
     const n = (seen.get(key) ?? 0) + 1;
     seen.set(key, n);
-    return `${format}:${createHash("sha256").update(`${key}|${n}`).digest("hex").slice(0, 32)}`;
+    const hash = createHash("sha256").update(r.bankId ? `${r.bankId}|${key}|${n}` : `${key}|${n}`).digest("hex").slice(0, 32);
+    return `${format}:${hash}`;
   });
 }
 
