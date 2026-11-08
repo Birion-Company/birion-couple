@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, Search, Upload } from "lucide-react";
+import { ListPlus, Plus, Search, Upload } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { RecurringList } from "@/components/recurring-list";
 import { TxList } from "@/components/tx-list";
@@ -36,6 +36,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
           <Link className="btn" href="/importar">
             <Upload size={16} strokeWidth={1.6} aria-hidden /> <span className="hide-sm">Importar</span>
             <span className="sr-only">Importar extrato</span>
+          </Link>
+          <Link className="btn" href="/transacoes/lote">
+            <ListPlus size={16} strokeWidth={1.6} aria-hidden /> <span className="hide-sm">Lançar vários</span>
+            <span className="sr-only">Lançar vários</span>
           </Link>
           <Link className="btn primary" href="/transacoes/nova">
             <Plus size={16} /> <span>Novo</span>

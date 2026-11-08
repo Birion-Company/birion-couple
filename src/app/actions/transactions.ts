@@ -431,50 +431,6 @@ export async function setTransactionsStatus(ids: string[], statusId: string): Pr
   return { ok: true, message: `Marcado como "${status.name}".` };
 }
 
-/** Atualiza só o que veio preenchido (categoria, projeto ou quem pagou) em vários lançamentos. */
-export async function bulkUpdate(ids: string[], patch: { categoryId?: string | null; projectId?: string | null }): Promise<ActionResult> {
-  const auth = await requireAuth();
-  const list = z.array(uuid).max(1000).safeParse(ids);
-  if (!list.success || list.data.length === 0) return { ok: false, error: "Nada selecionado." };
-  const db = getDb();
-  const set: Record<string, string | null | Date> = { updatedAt: new Date() };
-  if (patch.categoryId !== undefined) {
-    if (patch.categoryId) {
-      const [c] = await db.select().from(schema.categories).where(and(eq(schema.categories.id, patch.categoryId), eq(schema.categories.householdId, auth.householdId)));
-      if (!c) return { ok: false, error: "Categoria inválida." };
-    }
-    set.categoryId = patch.categoryId;
-  }
-  if (patch.projectId !== undefined) {
-    if (patch.projectId) {
-      const [p] = await db.select().from(schema.projects).where(and(eq(schema.projects.id, patch.projectId), eq(schema.projects.householdId, auth.householdId)));
-      if (!p) return { ok: false, error: "Projeto inválido." };
-    }
-    set.projectId = patch.projectId;
-  }
-  const notAllowed = await checkEditable(auth, list.data);
-  if (notAllowed) return { ok: false, error: notAllowed };
-  const snaps = await snapshots(db, auth.householdId, list.data);
-  await db.transaction(async (tx) => {
-    await tx
-      .update(schema.transactions)
-      .set(set)
-      .where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, list.data)));
-    const items = [...snaps.values()].map((x) => ({ d: x.description, a: involved(x) }));
-    const [only] = [...snaps];
-    const changes =
-      snaps.size === 1 && only
-        ? [
-            ...(patch.categoryId !== undefined ? [{ field: "category" as const, from: only[1].categoryId, to: patch.categoryId }] : []),
-            ...(patch.projectId !== undefined ? [{ field: "project" as const, from: only[1].projectId, to: patch.projectId }] : []),
-          ]
-        : [];
-    await logActivity(tx, auth, { action: "bulk", transactionId: snaps.size === 1 ? only[0] : null, data: { items, changes }, audience: items.flatMap((i) => i.a) });
-  });
-  revalidatePath("/", "layout");
-  return { ok: true, message: "Lançamentos atualizados." };
-}
-
 /** Marca o popup "o que mudou" como visto por quem está logado. */
 export async function markActivitySeen(): Promise<ActionResult> {
   const auth = await requireAuth();

@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Inbox, X } from "lucide-react";
-import { bulkUpdate, deleteTransactions, setTransactionsStatus } from "@/app/actions/transactions";
+import { useRouter } from "next/navigation";
+import { Inbox, Pencil, X } from "lucide-react";
+import { BulkEditDialog } from "./bulk-edit";
+import { deleteTransactions, setTransactionsStatus } from "@/app/actions/transactions";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { Select } from "./select";
 import { toastResult } from "./toaster";
@@ -41,6 +43,8 @@ export function TxList({
   const canEdit = (r: TxRow) => viewer.admin || r.createdBy === viewer.userId;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const router = useRouter();
 
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -69,10 +73,26 @@ export function TxList({
   }
 
   const ids = [...selected];
+  const editable = rows.filter(canEdit);
+  const allOn = editable.length > 0 && editable.every((r) => selected.has(r.id));
   const activeStatuses = lookups.statuses.filter((s) => !s.archived);
 
   return (
     <>
+      {editable.length > 0 && (
+        <div className="select-all">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={allOn}
+              onChange={() => setSelected(allOn ? new Set() : new Set(editable.map((r) => r.id)))}
+              className="tx-check"
+            />
+            <span>{allOn ? "Desmarcar todos" : `Selecionar todos (${editable.length})`}</span>
+          </label>
+          <span className="faint">Marque vários para editar ou excluir de uma vez.</span>
+        </div>
+      )}
       <section className="card tx-months">
         {groupByMonth(rows).map((g) => (
           <div key={g.key} className="tx-month">
@@ -115,6 +135,18 @@ export function TxList({
         ))}
       </section>
 
+      {editing && (
+        <BulkEditDialog
+          ids={ids}
+          lookups={lookups}
+          onClose={() => setEditing(false)}
+          onDone={() => {
+            setEditing(false);
+            setSelected(new Set());
+            router.refresh();
+          }}
+        />
+      )}
       {selected.size > 0 && (
         <div className="bulkbar" role="region" aria-label="Ações para os selecionados">
           <button className="icon-btn" style={{ color: "#fff", width: 32, height: 32 }} onClick={() => setSelected(new Set())} aria-label="Limpar seleção">
@@ -131,32 +163,9 @@ export function TxList({
             options={activeStatuses.map((s) => ({ value: s.id, label: s.name, color: s.color }))}
             onChange={(v) => run(() => setTransactionsStatus(ids, v))}
           />
-          <Select
-            variant="bulk"
-            ariaLabel="Mudar categoria"
-            value=""
-            placeholder="Categoria…"
-            disabled={pending}
-            options={[
-              ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color })),
-              { value: "none", label: "Sem categoria" },
-            ]}
-            onChange={(v) => run(() => bulkUpdate(ids, { categoryId: v === "none" ? null : v }))}
-          />
-          {lookups.projects.some((p) => !p.archived) && (
-            <Select
-              variant="bulk"
-              ariaLabel="Mudar projeto"
-              value=""
-              placeholder="Projeto…"
-              disabled={pending}
-              options={[
-                ...lookups.projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color })),
-                { value: "none", label: "Sem projeto" },
-              ]}
-              onChange={(v) => run(() => bulkUpdate(ids, { projectId: v === "none" ? null : v }))}
-            />
-          )}
+          <button type="button" className="btn small primary" disabled={pending} onClick={() => setEditing(true)}>
+            <Pencil size={14} /> Editar em lote
+          </button>
           <button
             className="btn small"
             disabled={pending}

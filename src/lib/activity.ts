@@ -38,6 +38,8 @@ export type ActivityData = {
   statusId?: string;
   fileName?: string;
   items?: ActivityItem[];
+  /** Edição em lote: nomes dos campos alterados ("quem pagou", "divisão"…). */
+  fields?: string[];
 };
 
 export type ActivityAction =
@@ -49,7 +51,8 @@ export type ActivityAction =
   | "series_deleted"
   | "stopped"
   | "imported"
-  | "import_deleted";
+  | "import_deleted"
+  | "batch";
 
 /** Pessoas envolvidas num lançamento: quem pagou e quem tem parte. */
 export function involved(...snaps: (Pick<TxSnapshot, "payerId" | "splits"> | null | undefined)[]): string[] {
@@ -280,8 +283,20 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
           r.action === "status"
             ? `${actor} marcou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`} ${what}`
             : `${actor} mudou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`}`;
+        if (r.action === "bulk" && d.fields?.length) {
+          detail = `mudou ${d.fields.join(", ")}` + (items.length > 1 ? ` · ${items.slice(0, 3).map((i) => i.d).join(", ")}${items.length > 3 ? "…" : ""}` : "");
+          break;
+        }
         detail = items.length > 1 ? items.slice(0, 4).map((i) => i.d).join(", ") + (items.length > 4 ? "…" : "") : (d.changes ?? []).map(describeChange).join(" · ") || null;
         href = items.length === 1 ? href : null;
+        break;
+      }
+      case "batch": {
+        const items = visibleItems(d.items);
+        if (items.length === 0) continue;
+        text = `${actor} lançou ${items.length} ${items.length === 1 ? "lançamento" : "lançamentos"} de uma vez`;
+        detail = items.slice(0, 4).map((i) => i.d).join(", ") + (items.length > 4 ? "…" : "");
+        href = null;
         break;
       }
       case "imported": {
