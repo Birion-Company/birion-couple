@@ -1,22 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import { ChevronDown, Repeat } from "lucide-react";
-import { stopRecurring } from "@/app/actions/transactions";
 import { addMonthsIso } from "@/lib/cards";
 import { formatMoney } from "@/lib/money";
-import { toastResult } from "./toaster";
 import { formatDate } from "./ui";
 
 export type RecurringItem = { id: string; description: string; amountCents: number; kind: string; startDate: string; nextIndex: number };
 
 const KIND: Record<string, string> = { expense: "despesa", income: "receita" };
 
-/** Contas fixas (cadastradas como "Todo mês"): bloco recolhível com o botão para parar cada uma. */
+/** Contas fixas (cadastradas como "Todo mês"): bloco recolhível, só para consulta. Para parar ou mudar,
+ * a pessoa abre o lançamento em Lançamentos (sem botão de parar aqui, para não apagar sem querer). */
 export function RecurringList({ items, currency }: { items: RecurringItem[]; currency: string }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
   if (items.length === 0) return null;
   const perMonth = items.filter((r) => r.kind === "expense").reduce((a, r) => a + r.amountCents, 0);
   return (
@@ -45,21 +40,6 @@ export function RecurringList({ items, currency }: { items: RecurringItem[]; cur
                 </p>
               </div>
               <span className={`amount ${r.kind === "income" ? "pos" : r.kind === "expense" ? "neg" : ""}`}>{formatMoney(r.amountCents, currency)}</span>
-              <button
-                type="button"
-                className="btn small ghost danger"
-                disabled={pending}
-                onClick={() => {
-                  if (!window.confirm(`Parar de repetir "${r.description}"? Os meses que já passaram continuam.`)) return;
-                  start(async () => {
-                    const res = await stopRecurring(r.id);
-                    toastResult(res);
-                    if (res.ok) router.refresh();
-                  });
-                }}
-              >
-                Parar de repetir
-              </button>
             </div>
           );
         })}

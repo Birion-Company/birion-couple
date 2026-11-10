@@ -64,7 +64,7 @@ const SECTIONS: Section[] = [
     title: "Parcelado e todo mês",
     items: [
       { term: "Parcelado", text: "Valor total e número de parcelas. Ex.: R$ 1.200 em 12x cria 12 meses de R$ 100." },
-      { term: "Todo mês", text: "Repete sem data para acabar (ex.: aluguel, Spotify). Para parar: “Parar de repetir”." },
+      { term: "Todo mês", text: "Repete sem data para acabar (ex.: aluguel, Spotify). Para parar: abra o lançamento em Lançamentos e toque em “Parar de repetir”." },
       { term: "Começou no passado?", text: "O app olha de hoje para frente: parcelas que já venceram não entram. Ex.: celular em 24x desde abril começa na 7ª." },
       { term: "Virar repetição depois", text: "Abra um lançamento avulso e escolha Parcelado ou Todo mês: ele vira o primeiro." },
     ],
