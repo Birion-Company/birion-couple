@@ -5829,6 +5829,8 @@ body.modal-open {
 .who-pays .profit-badge,
 .who-pays .rest-badge {
   margin-left: 0;
+  vertical-align: 0;
+  align-self: center;
 }
 .who-badge {
   display: inline-flex;

@@ -128,7 +128,8 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
     ) : null;
   return (
     <p className="sub tx-explain">
-      {head}
+      {/* Acerto ligado a uma dívida: a frase diz o que ele paga; o "falta" vai junto dos selos. */}
+      {tx.settles ? `${head.replace(/^Acerto para /, "Para ")} · paga “${tx.settles.description}”, de ${formatMoney(tx.settles.owedCents, currency)}` : head}
       {who.length > 0 && (
         <span className="who-pays">
           {who.map((x) => (
@@ -142,13 +143,8 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
               {x.state === "paid" && x.paidCents != null && <ProfitBadge paidCents={x.paidCents} owedCents={x.cents} currency={currency} />}
             </span>
           ))}
+          {tx.settles && <SettlesBadge tx={tx} currency={currency} />}
         </span>
-      )}
-      {tx.settles && (
-        <>
-          <span className="tx-settles-ref">Paga “{tx.settles.description}”, que era de {formatMoney(tx.settles.owedCents, currency)} </span>
-          <SettlesBadge tx={tx} currency={currency} />
-        </>
       )}
     </p>
   );
