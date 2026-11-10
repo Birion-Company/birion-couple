@@ -8,7 +8,7 @@ import { requireAuth } from "@/lib/auth";
 import { addMonthsKey, longMonth, monthsBetween, shortDate } from "@/lib/cards";
 import { defaultPanelMonth, getInvoicesDue } from "@/lib/card-queries";
 import { filtersToQuery, monthRange, MONTHS_AHEAD, parseFilters, thisMonthKey } from "@/lib/filters";
-import { countUnidentified, getDashboard, getDebtLedger, getLookupsFor, getOutlook } from "@/lib/queries";
+import { countUnidentified, getDashboard, getDebtLedger, getMonthDebts, getLookupsFor, getOutlook } from "@/lib/queries";
 import { MoneySummary } from "@/components/money-summary";
 import { MonthNav } from "@/components/month-nav";
 import { MonthOutlook } from "@/components/month-outlook";
@@ -33,6 +33,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
     // Para o resumo: o total que te devem e que você deve (todas as dívidas em aberto, não só do mês).
     getDebtLedger(auth, lookups),
   ]);
+  // Mês à frente: estimativa só com o que é daquele mês (o de antes, imagina-se, já foi pago).
+  const ahead = month > current;
+  const debts = ahead ? await getMonthDebts(auth, month) : ledger.people.map((p) => ({ id: p.personId, net: p.net }));
   const diff = monthsBetween(current, month);
   const invoicesTotal = invoices.reduce((a, v) => a + v.totalCents, 0);
   const balance = data.income - data.spent;
@@ -122,8 +125,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
       {mode === "me" ? (
         <>
           <MoneySummary
-            owedToMe={ledger.people.filter((p) => p.net > 0).map((p) => ({ id: p.personId, cents: p.net }))}
-            iOwe={ledger.people.filter((p) => p.net < 0).map((p) => ({ id: p.personId, cents: -p.net }))}
+            owedToMe={debts.filter((p) => p.net > 0).map((p) => ({ id: p.id, cents: p.net }))}
+            iOwe={debts.filter((p) => p.net < 0).map((p) => ({ id: p.id, cents: -p.net }))}
+            estimate={ahead}
             invoices={invoices}
             hasCard={lookups.cards.some((c) => !c.archived && c.ownerId === me)}
             monthName={monthName}

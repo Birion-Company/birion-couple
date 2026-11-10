@@ -34,6 +34,7 @@ export function MoneySummary({
   monthName,
   name,
   currency,
+  estimate = false,
 }: {
   owedToMe: Person[];
   iOwe: Person[];
@@ -43,6 +44,8 @@ export function MoneySummary({
   monthName: string;
   name: (id: string) => string;
   currency: string;
+  /** Mês à frente: só o que é daquele mês, contando que o resto já foi pago (estimativa). */
+  estimate?: boolean;
 }) {
   const owedTotal = owedToMe.reduce((a, p) => a + p.cents, 0);
   const oweTotal = iOwe.reduce((a, p) => a + p.cents, 0);
@@ -57,8 +60,8 @@ export function MoneySummary({
           {owedTotal > 0 ? <ArrowDownLeft size={18} strokeWidth={2} /> : <Check size={18} strokeWidth={2} />}
         </span>
         <span className="summary-text">
-          <span className="summary-say">{owedTotal > 0 ? "As pessoas te devem" : "Ninguém te deve nada"}</span>
-          <span className="summary-detail">{owedTotal > 0 ? <Who list={owedToMe} name={name} currency={currency} /> : "Quando alguém te dever, aparece aqui"}</span>
+          <span className="summary-say">{owedTotal > 0 ? (estimate ? `Em ${monthName}, as pessoas vão te dever` : "As pessoas te devem") : estimate ? `Em ${monthName}, ninguém vai te dever` : "Ninguém te deve nada"}</span>
+          <span className="summary-detail">{owedTotal > 0 ? <Who list={owedToMe} name={name} currency={currency} /> : estimate ? `Nada dividido em ${monthName} até agora` : "Quando alguém te dever, aparece aqui"}</span>
         </span>
         {owedTotal > 0 && <Money cents={owedTotal} currency={currency} className="summary-value pos" />}
         <ChevronRight size={16} className="summary-go" aria-hidden />
@@ -116,12 +119,17 @@ export function MoneySummary({
           {oweTotal > 0 ? <ArrowUpRight size={18} strokeWidth={2} /> : <Check size={18} strokeWidth={2} />}
         </span>
         <span className="summary-text">
-          <span className="summary-say">{oweTotal > 0 ? "Você deve a outras pessoas" : "Você não deve nada a ninguém"}</span>
-          <span className="summary-detail">{oweTotal > 0 ? <Who list={iOwe} name={name} currency={currency} /> : "Tudo em dia"}</span>
+          <span className="summary-say">{oweTotal > 0 ? (estimate ? `Em ${monthName}, você vai dever` : "Você deve a outras pessoas") : estimate ? `Em ${monthName}, você não vai dever nada` : "Você não deve nada a ninguém"}</span>
+          <span className="summary-detail">{oweTotal > 0 ? <Who list={iOwe} name={name} currency={currency} /> : estimate ? `Nada seu em ${monthName} até agora` : "Tudo em dia"}</span>
         </span>
         {oweTotal > 0 && <Money cents={oweTotal} currency={currency} className="summary-value neg" />}
         <ChevronRight size={16} className="summary-go" aria-hidden />
       </Link>
+      {estimate && (
+        <p className="summary-note faint">
+          Estimativa: só o que é de {monthName}, contando que até lá todos pagaram o que devem dos meses anteriores.
+        </p>
+      )}
     </section>
   );
 }

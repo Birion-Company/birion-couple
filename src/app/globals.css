@@ -5400,7 +5400,11 @@ body.modal-open {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
       "in out"
-      "card card";
+      "card card"
+      "note note";
+  }
+  .summary-note {
+    grid-area: note;
   }
   .summary-row.area-in {
     grid-area: in;
@@ -5879,4 +5883,10 @@ s.was {
 .who-badge s.was {
   color: inherit;
   opacity: 0.6;
+}
+
+/* Painel num mês à frente: aviso de que os valores são estimativa. */
+.summary-note {
+  margin: -4px 2px 0;
+  font-size: 0.8rem;
 }

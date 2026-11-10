@@ -6,7 +6,7 @@ import { cardsFor, isAdmin, txScope, type Viewer } from "./access";
 import { approvalContext, approvalKey, approvalStates, type ApprovalInput, type ApprovalState } from "./approvals";
 import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type TransactionKind } from "./balances";
 import { stateFromParam } from "./tx-state";
-import type { Filters } from "./filters";
+import { monthRange, parseFilters, type Filters } from "./filters";
 import { addDaysIso, addMonthsKey, competenceMonth, todayIn } from "./cards";
 import { merchantKey, recurringMerchants } from "./import/patterns";
 import { dueOccurrences, endOfMonth } from "./recurring";
@@ -674,6 +674,30 @@ export type LedgerPerson = {
   upcomingEntries: LedgerEntry[];
   paid: LedgerPaid[];
 };
+
+/**
+ * Painel num mês à frente: o que cada pessoa vai te dever (ou você a ela) só pelo que é DAQUELE mês,
+ * imaginando que até lá todo mundo pagou o que devia dos meses anteriores. É uma estimativa.
+ * Conta lançamentos do mês (no cartão, pela fatura que vence nele) e as contas fixas ainda não criadas.
+ */
+export async function getMonthDebts(viewer: Viewer, month: string) {
+  const me = viewer.participantId;
+  if (!me) return [] as { id: string; net: number }[];
+  const cards = await closingDays(viewer.householdId);
+  const { from, to } = monthRange(month);
+  // Compras no cartão de até 2 meses antes podem cair na fatura que vence neste mês.
+  const since = `${addMonthsKey(month, -2)}-01`;
+  const saved = await attachSplits(
+    (await getDb().select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), gte(t.date, since), lte(t.date, to)))) as BaseRow[],
+  );
+  const projected = await projectedRecurring(viewer, parseFilters({}), from, to);
+  const net = new Map<string, number>();
+  for (const r of [...saved, ...projected]) {
+    if (monthOf(r, cards) !== month) continue;
+    for (const [other, v] of pairEffects(me, r)) net.set(other, (net.get(other) ?? 0) + v);
+  }
+  return [...net].filter(([, v]) => v !== 0).map(([id, v]) => ({ id, net: v }));
+}
 
 /**
  * Página Dívidas: o extrato entre quem está vendo e cada pessoa (o que cada lançamento
