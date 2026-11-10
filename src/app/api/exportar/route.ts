@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
-import { getMonthReport } from "@/lib/report";
+import { asciiName, getMonthReport, reportFileName } from "@/lib/report";
 
 export const dynamic = "force-dynamic";
 
@@ -268,11 +268,13 @@ export async function GET(req: Request) {
     r.debts.map((d) => [d.name, d.direction, money(d.cents)]),
   );
 
+  const fileName = reportFileName(r.title);
   const buf = await wb.xlsx.writeBuffer();
   return new NextResponse(buf as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="birion-${month}.xlsx"`,
+      // "Birion - Relatório da fatura de novembro de 2026.xlsx" (com acento; versão sem acento para navegadores antigos).
+      "Content-Disposition": `attachment; filename="${asciiName(fileName)}.xlsx"; filename*=UTF-8''${encodeURIComponent(fileName)}.xlsx`,
       "Cache-Control": "no-store",
     },
   });

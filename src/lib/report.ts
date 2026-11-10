@@ -83,3 +83,12 @@ export async function getMonthReport(auth: AuthContext, month: string) {
     rows,
   };
 }
+
+/** Nome dos arquivos exportados: "Birion - Relatório da fatura de novembro de 2026". */
+export function reportFileName(title: string) {
+  return `Birion - Relatório da fatura ${title.replace(/^Extrato /, "")}`;
+}
+/** Mesmo nome sem acentos (para o cabeçalho de download em navegadores antigos). */
+export function asciiName(s: string) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w .-]/g, "");
+}

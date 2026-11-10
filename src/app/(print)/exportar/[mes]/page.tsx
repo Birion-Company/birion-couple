@@ -3,9 +3,15 @@ import { notFound } from "next/navigation";
 import { PrintToolbar } from "@/components/print-toolbar";
 import { requireAuth } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
-import { getMonthReport } from "@/lib/report";
+import { getMonthReport, reportFileName } from "@/lib/report";
+import { longMonth } from "@/lib/cards";
 
-export const metadata: Metadata = { title: "Extrato" };
+/** O "Salvar como PDF" usa o título da página como nome do arquivo. */
+export async function generateMetadata({ params }: { params: Promise<{ mes: string }> }): Promise<Metadata> {
+  const { mes } = await params;
+  const ok = /^\d{4}-(0[1-9]|1[0-2])$/.test(mes);
+  return { title: { absolute: ok ? reportFileName(`Extrato de ${longMonth(mes).toLowerCase()}`) : "Birion - Relatório" } };
+}
 
 /**
  * Extrato do mês para imprimir ou salvar em PDF (Ajustes → Exportação): folha A4 branca, com resumo,

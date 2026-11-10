@@ -9,6 +9,7 @@ import { requireAuth } from "@/lib/auth";
 import { MonthNav } from "@/components/month-nav";
 
 import { defaultPanelMonth } from "@/lib/card-queries";
+import { longMonth } from "@/lib/cards";
 import { filtersToQuery, parseFilters } from "@/lib/filters";
 import { getDebtLedger, getLookupsFor, getRecurringFor, listTransactions, navigableMonths } from "@/lib/queries";
 import { DebtsPanel } from "@/components/debts-panel";
@@ -70,8 +71,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
       {/* Duas visões: o mês (com o seletor na barra de cima) e as dívidas em aberto de todos os meses. */}
       <nav className="tx-tabs" aria-label="O que mostrar" data-tour="debts-tab">
-        <Link href="/transacoes" className={debtsTab ? "" : "on"} aria-current={debtsTab ? undefined : "page"}>
-          Do mês
+        <Link href={`/transacoes${month !== current ? `?mes=${month}` : ""}`} className={debtsTab ? "" : "on"} aria-current={debtsTab ? undefined : "page"}>
+          {lookups.cards.some((c) => !c.archived) ? `Fatura de ${longMonth(month).replace(/ de \d{4}$/, "").toLowerCase()}` : longMonth(month).replace(/ de \d{4}$/, "")}
         </Link>
         <Link href="/transacoes?dividas=1" className={debtsTab ? "on" : ""} aria-current={debtsTab ? "page" : undefined}>
           Dívidas
@@ -121,7 +122,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         <TxList rows={rows} lookups={lookups} currency={auth.currency} viewer={{ userId: auth.userId, admin: auth.role === "owner", participantId: auth.participantId }} />
       </div>
 
-      {(futureCount > 0 || filters.future) && filters.period === "tudo" && (
+      {!debtsTab && (futureCount > 0 || filters.future) && filters.period === "tudo" && (
         <div style={{ textAlign: "center", marginTop: 12 }}>
           <Link className="btn ghost small future-toggle" href={`/transacoes${filtersToQuery({ ...filters, future: !filters.future })}`} scroll={false}>
             {filters.future
