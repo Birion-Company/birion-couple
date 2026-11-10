@@ -7579,3 +7579,47 @@ s.was {
 .awaiting-row .sub {
   white-space: normal;
 }
+
+/* Lançamentos: fim da lista (carrega mais sozinho ao rolar). */
+.tx-more {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 4px;
+  text-align: center;
+}
+.tx-more .faint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* A receber: aviso de que aqui é só o urgente, e onde está o resto. */
+.awaiting-scope {
+  margin: 0 0 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #e0a526 12%, transparent);
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.awaiting-scope strong {
+  color: #b9850f;
+}
+:root[data-theme="dark"] .awaiting-scope strong {
+  color: #f0bf4c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .awaiting-scope strong {
+    color: #f0bf4c;
+  }
+}
+.awaiting-where {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-3);
+}
+.awaiting-where a {
+  color: var(--brand-strong);
+  font-weight: 600;
+}

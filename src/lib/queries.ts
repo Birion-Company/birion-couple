@@ -349,20 +349,24 @@ const txColumns = {
   createdAt: t.createdAt,
 };
 
-export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, offset = 0) {
-  await ensureRecurring(viewer.householdId);
+export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, offset = 0, opts: { rowsOnly?: boolean } = {}) {
+  if (!opts.rowsOnly) await ensureRecurring(viewer.householdId);
   const db = getDb();
   const where = whereFor(viewer, f);
+
   // Com pessoa escolhida, o total é a parte dela (no Mercado dividido, só a metade).
   const expenseValue = f.person
     ? sql`coalesce((select s."amountCents" from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person}), 0)`
     : sql`${t.amountCents}`;
   // Quantos ficaram escondidos por serem futuros (para o botão "Mostrar futuros").
   const futureWhere = f.period === "tudo" && !f.future ? and(whereFor(viewer, f, { includeFuture: true }), gt(t.date, endOfThisMonth())) : null;
+  // Rolagem (mais itens): só as linhas; não conta tudo de novo.
   const [rows, [{ count, total }], future] = await Promise.all([
-    db.select(txColumns).from(t).where(where).orderBy(desc(t.date), desc(t.createdAt)).limit(limit).offset(offset),
-    db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${expenseValue} else 0 end), 0)::int` }).from(t).where(where),
-    futureWhere ? db.select({ n: sql<number>`count(*)::int` }).from(t).where(futureWhere) : Promise.resolve([{ n: 0 }]),
+    db.select(txColumns).from(t).where(where).orderBy(desc(t.date), desc(t.createdAt), desc(t.id)).limit(limit).offset(offset),
+    opts.rowsOnly
+      ? Promise.resolve([{ count: 0, total: 0 }])
+      : db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${expenseValue} else 0 end), 0)::int` }).from(t).where(where),
+    futureWhere && !opts.rowsOnly ? db.select({ n: sql<number>`count(*)::int` }).from(t).where(futureWhere) : Promise.resolve([{ n: 0 }]),
   ]);
   // Estabelecimentos que se repetem em meses diferentes (últimos 18 meses).
   const history = await db

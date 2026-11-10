@@ -131,7 +131,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         </div>
       )}
 
-      <AwaitingIncome items={awaiting} debts={debtsDue} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} today={todayIn()} currency={cur} />
+      <AwaitingIncome month={month} items={awaiting} debts={debtsDue} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} today={todayIn()} currency={cur} />
 
       {mode === "me" ? (
         <>

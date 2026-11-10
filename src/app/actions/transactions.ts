@@ -14,7 +14,8 @@ import { approvalContext } from "@/lib/approvals";
 import { ruleCategory } from "@/lib/rules-server";
 import { reviveContacts } from "@/lib/contacts";
 import { PREDICTED } from "@/lib/patterns-server";
-import { getMembers, getRecurringState, getSeriesItems, getTransaction } from "@/lib/queries";
+import { getMembers, getRecurringState, getSeriesItems, getTransaction, listTransactions, type TxRow } from "@/lib/queries";
+import { parseFilters } from "@/lib/filters";
 import { firstDateOf, isReal, planSeries, scaleSplits } from "@/lib/series-plan";
 import { formatMoney, splitEqually } from "@/lib/money";
 import type { ActionResult } from "./settings";
@@ -1070,4 +1071,17 @@ export async function setReceived(transactionId: string, received: boolean): Pro
   await getDb().update(t).set({ awaitingReceipt: !received, updatedAt: new Date() }).where(eq(t.id, transactionId));
   revalidatePath("/", "layout");
   return { ok: true, message: received ? `Recebido: ${formatMoney(row.amountCents, auth.currency)} de “${row.description}” já conta nas entradas.` : "Voltou para “a receber”." };
+}
+
+/**
+ * Lançamentos: os próximos itens da lista, enquanto a pessoa rola (a página abre só com os primeiros,
+ * para não pesar). `query` são os mesmos filtros da página; `offset`, quantos já aparecem.
+ */
+export async function loadMoreTransactions(query: string, offset: number, limit = 40): Promise<TxRow[]> {
+  const auth = await requireAuth();
+  const sp = Object.fromEntries(new URLSearchParams(query.replace(/^\?/, "")));
+  const filters = parseFilters(sp, "tudo");
+  const safeOffset = Math.max(0, Math.floor(offset) || 0);
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(limit) || 40));
+  return (await listTransactions(auth, filters, safeLimit, safeOffset, { rowsOnly: true })).rows;
 }
