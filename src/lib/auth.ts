@@ -22,7 +22,7 @@ export type AuthContext = {
 /** Lê a sessão e confere no banco se a pessoa ainda é membro da família. */
 export const getAuth = cache(async (): Promise<AuthContext | null> => {
   const session = await readSession();
-  if (!session) return null;
+  if (!session || session.hid === AUDIT_HID) return null;
   const db = getDb();
   const [row] = await db
     .select({
@@ -46,6 +46,29 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
   const { avatarUpdatedAt, ...rest } = row;
   return { ...rest, role: row.role === "owner" ? "owner" : "member", avatarVersion: avatarUpdatedAt ? avatarUpdatedAt.getTime() : null };
 });
+
+/** Sessão da conta de auditoria não tem família: usa este marcador no lugar do id. */
+export const AUDIT_HID = "auditoria";
+
+export type Auditor = { userId: string; name: string; email: string };
+
+/** A conta de auditoria logada (só leitura), ou nulo. Confere no banco que ela continua auditora. */
+export const getAuditor = cache(async (): Promise<Auditor | null> => {
+  const session = await readSession();
+  if (!session || session.hid !== AUDIT_HID) return null;
+  const [u] = await getDb()
+    .select({ userId: schema.users.id, name: schema.users.name, email: schema.users.email, isAuditor: schema.users.isAuditor })
+    .from(schema.users)
+    .where(eq(schema.users.id, session.uid))
+    .limit(1);
+  return u?.isAuditor ? { userId: u.userId, name: u.name, email: u.email } : null;
+});
+
+export async function requireAuditor(): Promise<Auditor> {
+  const a = await getAuditor();
+  if (!a) redirect("/entrar");
+  return a;
+}
 
 export async function requireAuth(): Promise<AuthContext> {
   const auth = await getAuth();

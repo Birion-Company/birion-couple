@@ -41,6 +41,8 @@ export const users = pgTable("users", {
   /** Quais notificações push a pessoa quer receber ({ divida: false, … }); sem a chave = ligada. */
   pushPrefs: jsonb().notNull().default({}),
   avatarUpdatedAt: timestamp({ withTimezone: true }),
+  /** Conta de auditoria do BIRION: só lê, vê todas as famílias e não pertence a nenhuma. */
+  isAuditor: boolean().notNull().default(false),
   createdAt: createdAt(),
 });
 

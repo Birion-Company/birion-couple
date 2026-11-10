@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CalendarX, ChevronDown, ChevronLeft, ChevronRight, Loader2, Sparkles, Undo2 } from "lucide-react";
+import { CalendarDays, CalendarX, ChevronDown, ChevronLeft, ChevronRight, Layers, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { addMonthsKey, longMonth, monthsBetween } from "@/lib/cards";
 import { filtersToQuery, type Filters } from "@/lib/filters";
 
@@ -19,6 +19,7 @@ export function MonthNav({
   max,
   hasCards = false,
   detail = null,
+  total = null,
 }: {
   filters: Filters;
   month: string;
@@ -30,6 +31,11 @@ export function MonthNav({
   hasCards?: boolean;
   /** Linha embaixo do título: o vencimento de cada fatura do mês ("Cartão A vence 10/11 · paga"). */
   detail?: string | null;
+  /**
+   * Opção "Ver total" (Dívidas): junta todos os meses, com as parcelas a vencer. `summary` é o valor
+   * mostrado antes de abrir ("Te devem R$ 1.336,77"); `active` quando a página já está no total.
+   */
+  total?: { active: boolean; summary: string } | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,6 +45,19 @@ export function MonthNav({
   const shown = pending && target ? target : month;
   const [picking, setPicking] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
+  // Altura do seletor numa variável CSS: a barra de filtros de Lançamentos gruda logo abaixo dele.
+  const nav = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = nav.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty("--month-nav-h", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--month-nav-h");
+    };
+  }, []);
 
   const go = (key: string) => {
     if (key > max) return;
@@ -48,14 +67,20 @@ export function MonthNav({
     setTarget(key);
     start(() => router.push(pathname + filtersToQuery({ ...filters, month: key === current ? null : key, period: "mes" }, "mes"), { scroll: false }));
   };
+  const goTotal = () => {
+    setPicking(false);
+    start(() => router.push(`${pathname}?mes=total`, { scroll: false }));
+  };
+  const isTotal = !!total?.active && !pending;
   const diff = monthsBetween(current, shown);
   const monthName = (key: string) => {
     const s = longMonth(key);
     return key.slice(0, 4) === new Date().getFullYear().toString() ? s.replace(/ de \d{4}$/, "") : s;
   };
-  const title = hasCards ? `Fatura de ${monthName(shown).toLowerCase()}` : longMonth(shown);
-  const badge =
-    diff === 0
+  const title = isTotal ? "Todos os meses" : hasCards ? `Fatura de ${monthName(shown).toLowerCase()}` : longMonth(shown);
+  const badge = isTotal
+    ? { cls: "total", text: "Total · com parcelas a vencer" }
+    : diff === 0
       ? { cls: "now", text: hasCards ? "A pagar agora" : "Este mês" }
       : diff > 0
         ? { cls: "future", text: diff === 1 ? "Próxima · previsão" : `Daqui a ${diff} meses · previsão` }
@@ -63,6 +88,7 @@ export function MonthNav({
 
   return (
     <section
+      ref={nav}
       className={`month-nav ${badge.cls} ${pending ? "loading" : ""}`}
       aria-label="Mês que o painel mostra"
       data-tour="dash-month"
@@ -81,7 +107,7 @@ export function MonthNav({
       </button>
       <div className="month-center" aria-live="polite">
         <span className={`month-badge ${badge.cls}`}>
-          {badge.cls === "future" ? <Sparkles size={12} strokeWidth={2.2} aria-hidden /> : <CalendarDays size={12} strokeWidth={2.2} aria-hidden />} {badge.text}
+          {badge.cls === "total" ? <Layers size={12} strokeWidth={2.2} aria-hidden /> : badge.cls === "future" ? <Sparkles size={12} strokeWidth={2.2} aria-hidden /> : <CalendarDays size={12} strokeWidth={2.2} aria-hidden />} {badge.text}
         </span>
         <h2 className="month-title">
           {/* Tocar no título abre o seletor de mês e ano. */}
@@ -91,9 +117,23 @@ export function MonthNav({
           </button>
         </h2>
         {blocked && <BlockedMonth month={blocked} min={min} onClose={() => setBlocked(null)} />}
-        {picking && <MonthPicker value={shown} current={current} min={min} max={max} onPick={go} onClose={() => setPicking(false)} />}
-        {detail && !pending && <p className="month-detail">{detail}</p>}
-        {diff !== 0 && (
+        {picking && (
+          <MonthPicker
+            value={isTotal ? "" : shown}
+            current={current}
+            min={min}
+            max={max}
+            onPick={go}
+            onClose={() => setPicking(false)}
+            total={total && !total.active ? { summary: total.summary, onPick: goTotal } : null}
+          />
+        )}
+        {detail && !pending && !isTotal && <p className="month-detail">{detail}</p>}
+        {isTotal ? (
+          <button type="button" className="month-today" onClick={() => go(current)}>
+            <Undo2 size={14} strokeWidth={2} aria-hidden /> Voltar para {monthName(current).toLowerCase()}
+          </button>
+        ) : diff !== 0 && (
           <button type="button" className="month-today" onClick={() => go(current)}>
             <Undo2 size={14} strokeWidth={2} aria-hidden /> Voltar para {hasCards ? "a fatura em aberto" : monthName(current).toLowerCase()}
           </button>
@@ -116,8 +156,24 @@ export function MonthNav({
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 /** Seletor de mês e ano: um ano por vez, com os meses fora do período bloqueados. */
-function MonthPicker({ value, current, min, max, onPick, onClose }: { value: string; current: string; min: string; max: string; onPick: (key: string) => void; onClose: () => void }) {
-  const [year, setYear] = useState(Number(value.slice(0, 4)));
+function MonthPicker({
+  value,
+  current,
+  min,
+  max,
+  onPick,
+  onClose,
+  total,
+}: {
+  value: string;
+  current: string;
+  min: string;
+  max: string;
+  onPick: (key: string) => void;
+  onClose: () => void;
+  total: { summary: string; onPick: () => void } | null;
+}) {
+  const [year, setYear] = useState(Number((value || current).slice(0, 4)));
   const box = useRef<HTMLDivElement>(null);
   const minYear = Number(min.slice(0, 4));
   const maxYear = Number(max.slice(0, 4));
@@ -167,6 +223,17 @@ function MonthPicker({ value, current, min, max, onPick, onClose }: { value: str
         })}
       </div>
       <p className="faint mp-note">Do mês em que você começou a usar o app até 12 meses à frente.</p>
+      {/* Todos os meses de uma vez, com o valor à vista antes de abrir. */}
+      {total && (
+        <button type="button" className="mp-total" onClick={total.onPick}>
+          <Layers size={18} strokeWidth={2} aria-hidden />
+          <span className="grow">
+            <strong>Ver total</strong>
+            <span className="mp-total-sub">Todos os meses, com as parcelas a vencer</span>
+          </span>
+          <span className="mp-total-value">{total.summary}</span>
+        </button>
+      )}
     </div>
   );
 }

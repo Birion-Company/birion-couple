@@ -178,13 +178,20 @@ const KIND_NAME: Record<string, string> = { expense: "despesa", income: "receita
  * Atividades de outras pessoas que envolvem esta pessoa, já em frases.
  * Por padrão só as não vistas; com `all`, as dos últimos 60 dias (vistas ou não) para o sino.
  */
-export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency: string, opts: { all?: boolean } = {}): Promise<FeedItem[]> {
+export async function getActivityFeed(
+  viewer: Viewer,
+  lookups: Lookups,
+  currency: string,
+  opts: { all?: boolean; /** Auditoria: tudo da família, de todo mundo, sem "já visto". */ audit?: boolean; limit?: number } = {},
+): Promise<FeedItem[]> {
   const db = getDb();
   if (!isAdmin(viewer) && !viewer.participantId) return [];
-  const [m] = await db
-    .select({ seen: schema.memberships.activitySeenAt })
-    .from(schema.memberships)
-    .where(and(eq(schema.memberships.householdId, viewer.householdId), eq(schema.memberships.userId, viewer.userId)));
+  const [m] = opts.audit
+    ? [{ seen: new Date(0) }]
+    : await db
+        .select({ seen: schema.memberships.activitySeenAt })
+        .from(schema.memberships)
+        .where(and(eq(schema.memberships.householdId, viewer.householdId), eq(schema.memberships.userId, viewer.userId)));
   if (!m) return [];
   const a = schema.activities;
   const rows = await db
@@ -194,13 +201,13 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
     .where(
       and(
         eq(a.householdId, viewer.householdId),
-        or(isNull(a.actorUserId), ne(a.actorUserId, viewer.userId)),
-        gt(a.createdAt, opts.all ? new Date(Date.now() - 60 * 86400000) : m.seen),
+        opts.audit ? undefined : or(isNull(a.actorUserId), ne(a.actorUserId, viewer.userId)),
+        gt(a.createdAt, opts.audit ? new Date(0) : opts.all ? new Date(Date.now() - 60 * 86400000) : m.seen),
         isAdmin(viewer) ? undefined : sql`${a.audience} @> ${JSON.stringify([viewer.participantId])}::jsonb`,
       ),
     )
     .orderBy(desc(a.createdAt))
-    .limit(30);
+    .limit(opts.limit ?? 30);
 
   const me = viewer.participantId;
   const person = (id: unknown) => (typeof id === "string" ? (id === me ? "você" : lookups.participants.find((p) => p.id === id)?.name ?? "alguém") : "ninguém");
@@ -332,7 +339,9 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
         if (items.length === 0) continue;
         const what = r.action !== "status" ? "" : d.settled !== undefined ? `como "${d.settled ? "pago" : "não pago"}"` : `como "${nameIn(lookups.statuses, d.statusId, "sem status")}"`;
         text =
-          r.action === "status"
+          r.action === "status" && d.paidCents !== undefined
+            ? `${actor} registrou ${d.restCents ? "um pagamento parcial" : "o pagamento"} de "${items[0].d}"`
+            : r.action === "status"
             ? `${actor} marcou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`} ${what}`
             : `${actor} mudou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`}`;
         if (r.action === "bulk" && d.fields?.length) {

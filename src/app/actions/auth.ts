@@ -7,6 +7,7 @@ import * as z from "zod";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getDb, schema } from "@/db";
 import { createHouseholdForUser, hasRoomForMember } from "@/lib/household";
+import { AUDIT_HID } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
@@ -69,6 +70,11 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   }
   const ok = user && (await bcrypt.compare(parsed.data.password, user.passwordHash));
   if (!user || !ok) return { error: "E-mail ou senha incorretos.", fields };
+  // Conta de auditoria: não tem família; vai para a área de auditoria (só leitura).
+  if (user.isAuditor) {
+    await createSession({ uid: user.id, hid: AUDIT_HID });
+    redirect("/auditoria");
+  }
   const [membership] = await db
     .select({ hid: schema.memberships.householdId })
     .from(schema.memberships)

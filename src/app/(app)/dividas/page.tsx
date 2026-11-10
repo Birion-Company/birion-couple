@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CheckCircle2, ChevronDown, HandCoins } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronDown, HandCoins } from "lucide-react";
 import { PayButton, ProfitBadge, UndoButton } from "@/components/debt-payments";
 import { Avatar, Money, formatDate } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { addMonthsKey, competenceMonth, longMonth, seriesLabel } from "@/lib/cards";
 import { closingDays, getDebtLedger, getLookupsFor, householdStartMonth } from "@/lib/queries";
-import { DebtLines } from "@/components/debt-lines";
 import { MonthNav } from "@/components/month-nav";
 import { MONTHS_AHEAD, parseFilters, thisMonthKey } from "@/lib/filters";
+import { formatMoney } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Dívidas" };
 
@@ -32,11 +32,23 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
   const firstMonth = started < current ? started : current;
   const lastMonth = addMonthsKey(current, MONTHS_AHEAD);
   const raw = typeof sp.mes === "string" ? sp.mes : null;
+  // "Ver total": todos os meses juntos, por pessoa, com as parcelas que ainda vão vencer.
+  const isTotal = raw === "total";
   const month = raw && raw >= firstMonth && raw <= lastMonth ? raw : current;
+  const totalPeople = full.people
+    .map((p) => ({ ...p, entries: [...p.entries, ...p.upcomingEntries], net: p.net + p.upcoming, upcoming: 0, upcomingCount: 0, upcomingEntries: [] }))
+    .filter((p) => p.entries.length > 0 || p.paid.length > 0);
+  const totalIn = totalPeople.filter((p) => p.net > 0).reduce((a, p) => a + p.net, 0);
+  const totalOut = totalPeople.filter((p) => p.net < 0).reduce((a, p) => a - p.net, 0);
+  // Valor que aparece na opção "Ver total", antes de abrir.
+  const totalSummary =
+    [totalIn > 0 ? `Te devem ${formatMoney(totalIn, cur)}` : "", totalOut > 0 ? `Você deve ${formatMoney(totalOut, cur)}` : ""].filter(Boolean).join(" · ") ||
+    "Tudo em dia";
   // Este mês: tudo o que está em aberto até agora (e as parcelas a vencer embaixo).
   // Outro mês: só o que é daquele mês.
-  const ledger =
-    month === current
+  const ledger = isTotal
+    ? { ...full, people: totalPeople }
+    : month === current
       ? full
       : {
           ...full,
@@ -49,16 +61,8 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
         };
   const owedToMe = ledger.people.filter((p) => p.net > 0).reduce((a, p) => a + p.net, 0);
   const iOwe = ledger.people.filter((p) => p.net < 0).reduce((a, p) => a - p.net, 0);
-  const monthWord = month !== current ? ` em ${longMonth(month).replace(/ de \d{4}$/, "").toLowerCase()}` : "";
-
-  // "Quem deve para quem" (o total, sem filtro de mês): as dívidas que envolvem você primeiro.
-  // Só dívidas reais entre cada par de pessoas (sem "simplificar" passando por quem não tem nada a ver).
-  const debtLines = [
-    ...full.people
-      .filter((p) => p.net !== 0 && me)
-      .map((p) => (p.net > 0 ? { fromId: p.personId, toId: me!, amountCents: p.net } : { fromId: me!, toId: p.personId, amountCents: -p.net })),
-    ...full.others,
-  ];
+  const monthWord = isTotal ? " no total" : month !== current ? ` em ${longMonth(month).replace(/ de \d{4}$/, "").toLowerCase()}` : "";
+  const self = me ? people.get(me) : undefined;
 
   return (
     <div className="debts-page">
@@ -72,26 +76,14 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
         </Link>
       </div>
 
-      <section className="card debts" aria-labelledby="quem-deve" data-tour="dash-debts">
-        <div className="card-head">
-          <h2 id="quem-deve">Quem deve para quem</h2>
-          <span className="faint">no total</span>
-        </div>
-        {debtLines.length === 0 ? (
-          <p className="debts-empty">
-            <CheckCircle2 size={18} strokeWidth={1.7} aria-hidden /> Ninguém deve nada a ninguém.
-          </p>
-        ) : (
-          <DebtLines
-            lines={debtLines}
-            me={me}
-            people={Object.fromEntries(lookups.participants.map((p) => [p.id, { name: p.name, color: p.color, avatarUrl: p.avatarUrl ?? null }]))}
-            currency={cur}
-          />
-        )}
-      </section>
-
-      <MonthNav filters={parseFilters(sp, "mes")} month={month} current={current} min={firstMonth} max={lastMonth} />
+      <MonthNav
+        filters={parseFilters(sp, "mes")}
+        month={month}
+        current={current}
+        min={firstMonth}
+        max={lastMonth}
+        total={me ? { active: isTotal, summary: totalSummary } : null}
+      />
 
       {auth.participantId && (
         <div className="stats debts-stats" data-tour="debts">
@@ -130,10 +122,33 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
         return (
           <details key={p.personId} className="card section ledger" open={ledger.people.length === 1}>
             <summary className="ledger-head">
-              <Avatar name={person?.name ?? "?"} color={person?.color ?? "#94A3B8"} size={40} src={person?.avatarUrl} />
+              {/* Quem deve → para quem, como nas setas do antigo "Quem deve para quem". */}
+              {(() => {
+                const them = <Avatar name={person?.name ?? "?"} color={person?.color ?? "#94A3B8"} size={36} src={person?.avatarUrl} />;
+                const you = <Avatar name={self?.name ?? "Você"} color={self?.color ?? "#94A3B8"} size={36} src={self?.avatarUrl} />;
+                return p.net === 0 || !self ? (
+                  them
+                ) : (
+                  <span className="debt-people ledger-people" aria-hidden>
+                    {theyOwe ? them : you}
+                    <ArrowRight size={14} strokeWidth={1.8} className="debt-arrow" />
+                    {theyOwe ? you : them}
+                  </span>
+                );
+              })()}
               <div className="grow" style={{ minWidth: 0 }}>
                 <h2 id={`dv-${p.personId}`}>
-                  {person?.name ?? "Alguém"}
+                  {p.net === 0 ? (
+                    <strong>{person?.name ?? "Alguém"}</strong>
+                  ) : theyOwe ? (
+                    <>
+                      <strong>{person?.name ?? "Alguém"}</strong> te deve
+                    </>
+                  ) : (
+                    <>
+                      Você deve para <strong>{person?.name ?? "Alguém"}</strong>
+                    </>
+                  )}
                 </h2>
                 <p className="faint ledger-count">
                   {p.entries.length} {p.entries.length === 1 ? "lançamento em aberto" : "lançamentos em aberto"}
@@ -141,7 +156,7 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                 </p>
               </div>
               <p className={`ledger-net ${p.net > 0 ? "pos" : p.net < 0 ? "neg" : ""}`}>
-                {p.net === 0 ? "Quites" : theyOwe ? <>Te deve <Money cents={p.net} currency={cur} /></> : <>Você deve <Money cents={-p.net} currency={cur} /></>}
+                {p.net === 0 ? "Quites" : <Money cents={Math.abs(p.net)} currency={cur} />}
               </p>
               <ChevronDown size={18} strokeWidth={1.8} className="impact-chevron" aria-hidden />
             </summary>

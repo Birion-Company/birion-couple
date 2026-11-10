@@ -175,7 +175,7 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
           {rest.length > 0 && (
             <span className="who-badge more" title={rest.map((x) => name(x.participantId)).join(", ")}>
               +{rest.length} {rest.length === 1 ? "pessoa" : "pessoas"}
-              {restOwing.length > 0 && ` · ${restOwing.length} ${restOwing.length === 1 ? "deve" : "devem"} ${money(restOwing.reduce((a, x) => a + x.cents - (x.partCents ?? 0), 0))}`}
+              {restOwing.length > 0 && ` `}
             </span>
           )}
           {tx.settles && <SettlesBadge tx={tx} currency={currency} />}
