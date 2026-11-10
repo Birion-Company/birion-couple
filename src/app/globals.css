@@ -4002,8 +4002,20 @@ details.ledger > .rows + .ledger-upcoming {
 :root[data-theme="light"] .tx-profit {
   color: #9a6b00;
 }
+/* Lançamento com lucro: faixa amarela à esquerda, com folga para não grudar na seleção nem no status. */
 .row.has-profit {
-  box-shadow: inset 3px 0 0 #f5c84c;
+  position: relative;
+  padding-left: 14px;
+}
+.row.has-profit::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: #f5c84c;
 }
 .tx-settles {
   margin-top: 8px;
@@ -7274,4 +7286,43 @@ s.was {
   .month-nav.compact .month-today {
     display: none;
   }
+}
+/* Repetição de um lançamento que já é série: mostra como está (botões só informativos). */
+.series-repeat .segmented button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.series-repeat .segmented button:disabled:not([aria-pressed="true"]) {
+  opacity: 0.45;
+}
+.series-repeat .series-hint {
+  margin: 8px 0 6px;
+  padding: 0;
+}
+/* Lucro embaixo do status: separado dele, como uma faixa própria. */
+.amount .tx-profit {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #f5c84c 14%, transparent);
+  border: 1px solid color-mix(in srgb, #f5c84c 40%, transparent);
+  line-height: 1.5;
+}
+.amount:has(.tx-profit) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+/* Selos: o texto principal não quebra no meio; o que não couber desce inteiro para a linha de baixo. */
+.who-badge {
+  white-space: nowrap;
+  flex-wrap: wrap;
+}
+.who-pays .tx-paid {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.who-part {
+  white-space: nowrap;
 }

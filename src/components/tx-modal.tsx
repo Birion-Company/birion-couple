@@ -93,6 +93,7 @@ export function TxModalHost({ lookups, currency, me }: { lookups: Lookups; curre
               lookups={lookups}
               currency={currency}
               initial={data.tx}
+              recurring={data.recurring}
               me={me}
               readOnly={!data.canEdit}
               createdByName={data.createdByName}

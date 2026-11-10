@@ -14,7 +14,7 @@ import { approvalContext } from "@/lib/approvals";
 import { ruleCategory } from "@/lib/rules-server";
 import { reviveContacts } from "@/lib/contacts";
 import { PREDICTED } from "@/lib/patterns-server";
-import { getMembers, getSeriesItems, getTransaction } from "@/lib/queries";
+import { getMembers, getRecurringState, getSeriesItems, getTransaction } from "@/lib/queries";
 import { firstDateOf, isReal, planSeries, scaleSplits } from "@/lib/series-plan";
 import { formatMoney, splitEqually } from "@/lib/money";
 import type { ActionResult } from "./settings";
@@ -969,5 +969,6 @@ export async function loadTxForEdit(id: string) {
     canEdit,
     createdByName: members.find((m) => m.userId === tx.createdBy)?.name ?? null,
     series: series ? { items: series, total: tx.seriesTotal!, monthly: tx.seriesKind === "monthly" } : null,
+    recurring: tx.seriesKind === "monthly" && !tx.seriesTotal ? await getRecurringState(auth.householdId, tx.seriesId) : null,
   };
 }

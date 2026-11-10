@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { ArrowRight, CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
-import { deleteSeries, deleteTransactions, saveTransaction } from "@/app/actions/transactions";
+import { deleteSeries, deleteTransactions, saveTransaction, stopRecurring } from "@/app/actions/transactions";
 import { addMonthsIso, buildSeries, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
@@ -37,6 +37,86 @@ export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" |
 function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Repetição de um lançamento que já é série: "Todo mês" (com Parar de repetir) ou "Parcela 3 de 10"
+ * (com Mudar parcelas, que abre o quadro de parcelamento). Antes essa seção sumia nesses casos.
+ */
+function SeriesRepeat({
+  tx,
+  recurring,
+  readOnly,
+  currency,
+  onDone,
+}: {
+  tx: TxRow;
+  recurring: { active: boolean; startDate: string } | null;
+  readOnly: boolean;
+  currency: string;
+  onDone: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const monthly = tx.seriesKind === "monthly";
+  const endless = monthly && !tx.seriesTotal;
+  const active = endless ? recurring?.active !== false : true;
+  const openEditor = () => {
+    const d = document.getElementById("series-editor") as HTMLDetailsElement | null;
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  return (
+    <div className="field series-repeat" data-tour="tx-repeat">
+      <span className="label-text">Repetição</span>
+      <div className="segmented" role="group" aria-label="Repetição (já definida)">
+        <button type="button" aria-pressed={false} disabled>
+          Uma vez
+        </button>
+        <button type="button" aria-pressed={!monthly} disabled>
+          Parcelado
+        </button>
+        <button type="button" aria-pressed={monthly} disabled>
+          Todo mês
+        </button>
+      </div>
+      <p className="series-hint">
+        {endless
+          ? active
+            ? `Repete todo mês desde ${monthLabel((recurring?.startDate ?? tx.date).slice(0, 7))}, sem data para acabar. Os próximos meses aparecem quando chegam.`
+            : "Parou de repetir. Os meses que já passaram continuam."
+          : monthly
+            ? `Mês ${tx.seriesIndex} de ${tx.seriesTotal} · ${formatMoney(tx.amountCents, currency)} por mês.`
+            : `Parcela ${tx.seriesIndex} de ${tx.seriesTotal} · ${formatMoney(tx.amountCents, currency)} nesta parcela.`}
+      </p>
+      {!readOnly && (
+        <div className="actions">
+          {endless && active && (
+            <button
+              type="button"
+              className="btn small ghost danger"
+              disabled={pending}
+              onClick={() => {
+                if (!window.confirm("Parar de repetir? Os meses que já passaram continuam; os futuros saem.")) return;
+                start(async () => {
+                  const r = await stopRecurring(tx.seriesId!);
+                  toastResult(r);
+                  if (r.ok) onDone();
+                });
+              }}
+            >
+              Parar de repetir
+            </button>
+          )}
+          {!endless && (
+            <button type="button" className="btn small" onClick={openEditor}>
+              Mudar {monthly ? "meses" : "parcelas"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** "Para confirmar" dentro do lançamento: aceitar/recusar, ou quem ainda falta aceitar. */
@@ -103,6 +183,7 @@ export function TxForm({
   prefill,
   me,
   canInvite = false,
+  recurring = null,
   readOnly = false,
   createdByName,
   returnTo,
@@ -115,6 +196,8 @@ export function TxForm({
   me: string | null;
   /** Pode convidar gente para o app (quem administra a família). */
   canInvite?: boolean;
+  /** Lançamento de um "todo mês" sem fim: se a repetição ainda está ativa e desde quando. */
+  recurring?: { active: boolean; startDate: string } | null;
   /** Lançamento de outra pessoa: só para ver. */
   readOnly?: boolean;
   createdByName?: string | null;
@@ -500,6 +583,17 @@ export function TxForm({
 
           <ImpactBox impact={impact} />
 
+          {/* Lançamento que já faz parte de uma série: a Repetição continua aqui, mostrando como está e o que dá para fazer. */}
+          {!canRepeat && initial?.seriesId && kind !== "transfer" && (
+            <SeriesRepeat tx={initial} recurring={recurring} readOnly={readOnly} currency={currency} onDone={() => leave(returnTo ?? "/transacoes")} />
+          )}
+          {/* Avulso em que alguém já pagou a parte: não vira repetição, mas diz por quê (em vez de sumir). */}
+          {initial && !initial.seriesId && !initial.settlesId && kind !== "transfer" && initial.splits.some((x) => x.paidById) && (
+            <div className="field series-repeat">
+              <span className="label-text">Repetição</span>
+              <p className="series-hint">Uma vez. Para virar parcelado ou todo mês, desfaça antes o pagamento de quem já pagou a parte (em Dívidas ou logo abaixo).</p>
+            </div>
+          )}
           {canRepeat && (
             <div className="field" data-tour="tx-repeat">
               <span className="label-text">{kind === "loan" ? "Como vai te pagar" : "Repetição"}</span>

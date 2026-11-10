@@ -464,6 +464,16 @@ export const navigableMonths = cache(async (householdId: string, current: string
   return { first: started < current ? started : current, last: candidates.sort().at(-1)! };
 });
 
+/** Repetição "todo mês" sem fim: se ainda está ativa e desde quando (para o formulário mostrar e deixar parar). */
+export async function getRecurringState(householdId: string, seriesId: string | null) {
+  if (!seriesId) return null;
+  const [r] = await getDb()
+    .select({ active: schema.recurringSeries.active, startDate: schema.recurringSeries.startDate })
+    .from(schema.recurringSeries)
+    .where(and(eq(schema.recurringSeries.id, seriesId), eq(schema.recurringSeries.householdId, householdId)));
+  return r ?? null;
+}
+
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();

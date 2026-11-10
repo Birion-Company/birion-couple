@@ -30,7 +30,7 @@ export function SeriesEditor({ txId, items, total: savedTotal, currency, monthly
   const realCount = items.filter((x) => isReal(x.source)).length;
 
   return (
-    <details className="card section series-editor">
+    <details className="card section series-editor" id="series-editor">
       <summary>
         <Layers size={16} strokeWidth={1.8} aria-hidden />
         <span className="grow">
