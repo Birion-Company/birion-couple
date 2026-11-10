@@ -5882,9 +5882,25 @@ body.modal-open {
 :root[data-theme="dark"] .who-badge.paid {
   color: #062a1d;
 }
+/* Quem deve: na cor da pessoa (fundo tingido e borda), maior e em negrito, para achar de cara. */
 .who-badge.open {
+  --pc: var(--brand);
+  padding: 3px 11px 3px 3px;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--text);
-  border-color: var(--field-edge);
+  border: 1.5px solid var(--pc);
+  background: color-mix(in srgb, var(--pc) 22%, var(--surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc) 12%, transparent);
+}
+.who-badge.open .avatar {
+  width: 20px !important;
+  height: 20px !important;
+}
+.who-badge.more {
+  padding: 2px 10px;
+  color: var(--text-2);
+  border: 1px dashed var(--field-edge);
   background: var(--surface-2);
 }
 .who-badge.pending {

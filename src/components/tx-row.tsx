@@ -135,15 +135,25 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
   };
   // Valor que ainda falta (já descontado o que pagou em parte); o riscado fica no valor da linha.
   const owedNow = (x: (typeof who)[number]) => (x.state === "open" ? <> {money(x.cents - (x.partCents ?? 0))}</> : null);
+  // Quem ainda deve vem primeiro (é o que a pessoa precisa ver logo), depois quem está confirmando,
+  // quem já pagou e, por fim, a parte de quem pagou. Com muita gente, só os 3 primeiros + um resumo.
+  const ORDER = { open: 0, pending: 1, paid: 2, own: 3 } as const;
+  const sorted = [...who].sort((a, b) => ORDER[a.state] - ORDER[b.state] || b.cents - a.cents);
+  const MAX = 3;
+  const visible = sorted.length > MAX + 1 ? sorted.slice(0, MAX) : sorted;
+  const rest = sorted.slice(visible.length);
+  const restOwing = rest.filter((x) => x.state === "open");
+  const colorOf = (id: string) => lookups.participants.find((p) => p.id === id)?.color ?? "#94A3B8";
   return (
     <p className="sub tx-explain">
       {/* Acerto ligado a uma dívida: a frase diz o que ele paga; o "falta" vai junto dos selos. */}
       {tx.settles ? `${head.replace(/^Acerto para /, "Para ")} · paga “${tx.settles.description}”, de ${formatMoney(tx.settles.owedCents, currency)}` : head}
       {who.length > 0 && (
         <span className="who-pays">
-          {who.map((x) => (
+          {visible.map((x) => (
             <span key={x.participantId} className="tx-paid">
-              <span className={`who-badge ${x.state}`}>
+              {/* Quem deve aparece na cor cadastrada da pessoa, em destaque. */}
+              <span className={`who-badge ${x.state}`} style={x.state === "open" ? ({ "--pc": colorOf(x.participantId) } as React.CSSProperties) : undefined}>
                 <WhoFace id={x.participantId} lookups={lookups} />
                 {say(x)}
                 {owedNow(x)}
@@ -152,6 +162,12 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
               {x.state === "paid" && x.paidCents != null && <ProfitBadge paidCents={x.paidCents} owedCents={x.cents} currency={currency} />}
             </span>
           ))}
+          {rest.length > 0 && (
+            <span className="who-badge more" title={rest.map((x) => name(x.participantId)).join(", ")}>
+              +{rest.length} {rest.length === 1 ? "pessoa" : "pessoas"}
+              {restOwing.length > 0 && ` · ${restOwing.length} ${restOwing.length === 1 ? "deve" : "devem"} ${money(restOwing.reduce((a, x) => a + x.cents - (x.partCents ?? 0), 0))}`}
+            </span>
+          )}
           {tx.settles && <SettlesBadge tx={tx} currency={currency} />}
         </span>
       )}
