@@ -6411,3 +6411,313 @@ s.was {
   display: block;
   font-size: 0.82rem;
 }
+.status-explainer {
+  margin-top: 14px;
+}
+
+/* ---------- Extrato do mês para PDF (sempre claro, folha A4) ---------- */
+.rep {
+  min-height: 100vh;
+  padding: 16px 12px 40px;
+  background: #e8eef3;
+  color: #0f1d38;
+}
+.rep-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 210mm;
+  margin: 0 auto 12px;
+}
+.rep-hint {
+  flex: 1;
+  font-size: 0.82rem;
+  color: #475569;
+}
+.rep-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #0f1d38;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rep-btn.ghost {
+  background: transparent;
+  color: #0f1d38;
+  border: 1px solid #c8d3dd;
+}
+.rep-page {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 14mm 14mm 10mm;
+  background: #fff;
+  color: #0f1d38;
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(15, 29, 56, 0.12);
+  font-size: 10.5pt;
+  line-height: 1.4;
+}
+.rep-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 3px solid #1ac4db;
+}
+.rep-brand {
+  font-size: 8.5pt;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #0c8fa3;
+}
+.rep-head h1 {
+  margin: 2px 0;
+  font-size: 20pt;
+  font-weight: 800;
+  color: #0f1d38;
+}
+.rep-sub,
+.rep-gen {
+  font-size: 9pt;
+  color: #64748b;
+}
+.rep-gen {
+  text-align: right;
+}
+.rep-note {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fff7e0;
+  font-size: 9pt;
+}
+.rep-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+.rep-card {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid #dbe4eb;
+  border-radius: 8px;
+  background: #f6fafc;
+}
+.rep-card span {
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+.rep-card strong {
+  font-size: 12pt;
+}
+.rep-card em {
+  font-style: normal;
+  font-size: 8pt;
+  color: #64748b;
+}
+.rep .pos {
+  color: #13795b;
+}
+.rep .neg {
+  color: #b42343;
+}
+.rep h2 {
+  margin: 16px 0 6px;
+  font-size: 11.5pt;
+  font-weight: 800;
+  color: #0f1d38;
+}
+.rep-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.rep-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+.rep-table th {
+  padding: 5px 6px;
+  text-align: left;
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: #0f1d38;
+}
+.rep-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #e3eaf0;
+  vertical-align: top;
+}
+.rep-table tbody tr:nth-child(even) td {
+  background: #f6fafc;
+}
+.rep-table .n {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rep-table tfoot td {
+  font-weight: 800;
+  border-top: 2px solid #0f1d38;
+  border-bottom: 0;
+}
+.rep-meta {
+  display: block;
+  font-size: 8pt;
+  color: #64748b;
+}
+.rep-tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: #0c8fa3;
+  background: #e6fbfd;
+}
+.rep-empty {
+  font-size: 9pt;
+  color: #64748b;
+}
+.rep-bars {
+  display: grid;
+  gap: 4px;
+}
+.rep-bar {
+  display: grid;
+  grid-template-columns: 130px 1fr 90px 36px;
+  align-items: center;
+  gap: 8px;
+  font-size: 9.5pt;
+}
+.rep-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: #e3eaf0;
+  overflow: hidden;
+}
+.rep-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #0c8fa3;
+}
+.rep-bar .n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rep-pct {
+  text-align: right;
+  font-size: 8.5pt;
+  color: #64748b;
+}
+.rep-foot {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 1px solid #e3eaf0;
+  font-size: 8pt;
+  color: #94a3b8;
+  text-align: center;
+}
+@media (max-width: 640px) {
+  .rep-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rep-two {
+    grid-template-columns: 1fr;
+  }
+  .rep-page {
+    padding: 16px 12px;
+  }
+  .rep-bar {
+    grid-template-columns: 90px 1fr 80px 30px;
+  }
+}
+@page {
+  size: A4;
+  /* Sem margem da folha (ela herdaria o fundo do tema); o espaço fica dentro do extrato, que é branco. */
+  margin: 0;
+}
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color-scheme: light;
+  }
+  .rep {
+    padding: 0;
+    background: #fff;
+  }
+  .rep-toolbar,
+  #bf-toaster,
+  .toaster {
+    display: none !important;
+  }
+  .rep-page {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 10mm 12mm;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .rep-table tr,
+  .rep-card,
+  .rep-bar {
+    break-inside: avoid;
+  }
+  .rep-table thead {
+    display: table-header-group;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Ajustes → Exportação */
+.export-panel .field {
+  margin-bottom: 8px;
+}
+.export-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.export-option {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.export-option:hover {
+  border-color: var(--brand);
+}
+.export-option svg {
+  flex: none;
+  color: var(--brand-strong);
+}
+.export-option > span {
+  display: grid;
+  gap: 2px;
+}
+.export-option .faint {
+  font-size: 0.82rem;
+}

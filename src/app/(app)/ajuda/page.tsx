@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { StatusExplainer } from "@/components/status-explainer";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { CONTACTS_ACTIVE_MAX, MEMBERS_MAX } from "@/lib/defaults";
@@ -159,6 +160,7 @@ export default async function HelpPage() {
               </div>
             ))}
           </dl>
+          {s.id === "status" && <StatusExplainer />}
         </section>
       ))}
     </div>

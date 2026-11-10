@@ -1,0 +1,180 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { PrintToolbar } from "@/components/print-toolbar";
+import { requireAuth } from "@/lib/auth";
+import { formatMoney } from "@/lib/money";
+import { getMonthReport } from "@/lib/report";
+
+export const metadata: Metadata = { title: "Extrato" };
+
+/**
+ * Extrato do mês para imprimir ou salvar em PDF (Ajustes → Exportação): folha A4 branca, com resumo,
+ * faturas, gastos por categoria, dívidas e todos os lançamentos — no estilo de extrato de banco.
+ */
+export default async function ReportPage({ params, searchParams }: { params: Promise<{ mes: string }>; searchParams: Promise<{ imprimir?: string }> }) {
+  const auth = await requireAuth();
+  const { mes } = await params;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) notFound();
+  const r = await getMonthReport(auth, mes);
+  const sp = await searchParams;
+  const m = (c: number) => formatMoney(c, r.currency);
+  const d = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const s = r.summary;
+  return (
+    <div className="rep">
+      <PrintToolbar auto={sp.imprimir === "1"} />
+      <article className="rep-page">
+        <header className="rep-head">
+          <div>
+            <p className="rep-brand">BIRION FINANCE</p>
+            <h1>{r.title.replace(/^./, (c) => c.toUpperCase())}</h1>
+            <p className="rep-sub">
+              {r.family} · {r.person}
+            </p>
+          </div>
+          <p className="rep-gen">
+            Gerado em
+            <br />
+            {r.generatedAt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+          </p>
+        </header>
+        {r.estimate && <p className="rep-note">Mês à frente: os valores são uma previsão com o que já está lançado (parcelas e contas fixas).</p>}
+
+        <section className="rep-cards">
+          <div className="rep-card">
+            <span>Seus gastos</span>
+            <strong>{m(s.spentCents)}</strong>
+          </div>
+          <div className="rep-card">
+            <span>Entradas</span>
+            <strong className="pos">{m(s.incomeCents)}</strong>
+          </div>
+          <div className="rep-card">
+            <span>Faturas a pagar</span>
+            <strong>{m(s.invoicesCents)}</strong>
+            {s.invoicesMineCents !== s.invoicesCents && <em>sua parte {m(s.invoicesMineCents)}</em>}
+          </div>
+          <div className="rep-card">
+            <span>Te devem</span>
+            <strong className="pos">{m(s.owedToMeCents)}</strong>
+          </div>
+          <div className="rep-card">
+            <span>Você deve</span>
+            <strong className="neg">{m(s.iOweCents)}</strong>
+          </div>
+        </section>
+
+        <div className="rep-two">
+          <section>
+            <h2>Faturas do cartão</h2>
+            {r.invoices.length === 0 ? (
+              <p className="rep-empty">Nenhuma fatura vence neste mês.</p>
+            ) : (
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>Cartão</th>
+                    <th>Vence</th>
+                    <th className="n">Total</th>
+                    <th className="n">Sua parte</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.invoices.map((v) => (
+                    <tr key={v.card + v.due}>
+                      <td>
+                        {v.card} {v.paid && <span className="rep-tag">paga</span>}
+                      </td>
+                      <td>{d(v.due)}</td>
+                      <td className="n">{m(v.totalCents)}</td>
+                      <td className="n">{m(v.mineCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+          <section>
+            <h2>Dívidas{r.estimate ? " do mês" : " em aberto"}</h2>
+            {r.debts.length === 0 ? (
+              <p className="rep-empty">Ninguém deve nada.</p>
+            ) : (
+              <table className="rep-table">
+                <tbody>
+                  {r.debts.map((x) => (
+                    <tr key={x.name + x.direction}>
+                      <td>{x.direction === "te deve" ? `${x.name} te deve` : `Você deve a ${x.name}`}</td>
+                      <td className={`n ${x.direction === "te deve" ? "pos" : "neg"}`}>{m(x.cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+        </div>
+
+        <section>
+          <h2>Gastos por categoria</h2>
+          {r.byCategory.length === 0 ? (
+            <p className="rep-empty">Sem gastos neste mês.</p>
+          ) : (
+            <div className="rep-bars">
+              {r.byCategory.map((c) => (
+                <div key={c.name} className="rep-bar">
+                  <span className="rep-bar-name">{c.name}</span>
+                  <span className="rep-bar-track">
+                    <span style={{ width: `${Math.max(2, c.pct * 100)}%` }} />
+                  </span>
+                  <span className="n">{m(c.cents)}</span>
+                  <span className="rep-pct">{Math.round(c.pct * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h2>Lançamentos ({r.rows.length})</h2>
+          <table className="rep-table rep-tx">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Quem pagou</th>
+                <th className="n">Valor</th>
+                <th className="n">Sua parte</th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.rows.map((x, i) => (
+                <tr key={i}>
+                  <td>{d(x.date)}</td>
+                  <td>
+                    {x.description}
+                    {x.series && <span className="rep-tag">{x.series}</span>}
+                    <span className="rep-meta">
+                      {[x.kind !== "Despesa" ? x.kind : "", x.card ? `cartão ${x.card}` : "", x.owing ? `deve: ${x.owing}` : ""].filter(Boolean).join(" · ")}
+                    </span>
+                  </td>
+                  <td>{x.category}</td>
+                  <td>{x.payer}</td>
+                  <td className="n">{m(x.totalCents)}</td>
+                  <td className="n">{m(x.myShareCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4}>Total das despesas</td>
+                <td className="n">{m(r.rows.filter((x) => x.kind === "Despesa").reduce((a, x) => a + x.totalCents, 0))}</td>
+                <td className="n">{m(r.rows.filter((x) => x.kind === "Despesa").reduce((a, x) => a + x.myShareCents, 0))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+        <footer className="rep-foot">BIRION FINANCE · {r.family} · {r.title}</footer>
+      </article>
+    </div>
+  );
+}
