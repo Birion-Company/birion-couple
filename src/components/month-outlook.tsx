@@ -25,8 +25,11 @@ function niceMax(cents: number) {
  */
 export function MonthOutlook({ months, selected, current, filters, currency }: { months: Month[]; selected: string; current: string; filters: Filters; currency: string }) {
   const money = (c: number) => formatMoney(c, currency);
+  // Abaixo de R$ 100 mostra os centavos (R$ 5,80 não vira "R$ 6"); acima, o valor curto (R$ 1,2 mil).
   const compact = (c: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency, notation: "compact", maximumFractionDigits: c >= 100_000 ? 1 : 0 }).format(c / 100);
+    c < 100_00
+      ? money(c)
+      : new Intl.NumberFormat("pt-BR", { style: "currency", currency, notation: "compact", maximumFractionDigits: c >= 100_000 ? 1 : 0 }).format(c / 100);
   const top = niceMax(Math.max(0, ...months.map((m) => m.cents)));
   const pct = (c: number) => (c / top) * 100;
   const withValue = months.filter((m) => m.cents > 0);
@@ -113,7 +116,7 @@ export function MonthOutlook({ months, selected, current, filters, currency }: {
                 {/* Empilhado: contas fixas embaixo, parcelas e outros em cima, com um vão entre os dois. */}
                 {other > 0 && <span className="outlook-seg other" style={{ height: `${pct(other)}%` }} />}
                 {m.recurringCents > 0 && <span className="outlook-seg fixed" style={{ height: `${pct(m.recurringCents)}%` }} />}
-                {m.cents === 0 && <span className="outlook-seg empty" />}
+                {m.cents === 0 && <span className="outlook-seg zero" />}
               </span>
               <span className="outlook-month" aria-hidden>
                 {shortMonth(m.key)}

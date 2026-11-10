@@ -4376,16 +4376,22 @@ button.user-menu-item {
 .outlook-seg.fixed {
   background: var(--ol-fixed);
 }
-.outlook-seg.empty {
-  height: 3px;
+/* Mês sem nada: só um tracinho no chão (nunca maior que uma barra de verdade). */
+.outlook-seg.zero {
+  flex: none;
+  height: 2px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   border-radius: 2px;
   background: var(--line);
 }
 /* Meses fora da seleção ficam um pouco mais apagados: o escolhido salta aos olhos. */
-.outlook-col:not(.selected) .outlook-seg:not(.empty) {
+.outlook-col:not(.selected) .outlook-seg:not(.zero) {
   opacity: 0.62;
 }
-.outlook-col:hover .outlook-seg:not(.empty) {
+.outlook-col:hover .outlook-seg:not(.zero) {
   opacity: 0.85;
 }
 .outlook-col.selected {
