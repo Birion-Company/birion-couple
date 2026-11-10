@@ -2150,6 +2150,13 @@ button.user-menu-item {
   font-size: 0.78rem;
   color: var(--text-3);
 }
+/* "Próxima fatura a pagar" e "Fatura aberta" em destaque: é o nome de cada bloco. */
+.card-stat .label strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
 .card-stat .value {
   font-size: 1.35rem;
   font-weight: 600;
