@@ -7639,3 +7639,12 @@ s.was {
 .card-shares.compact .who-badge.more {
   padding-left: 8px;
 }
+
+/* Cartões: ações da fatura dentro dos blocos de cima (ver compras, marcar como paga). */
+.card-stat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}

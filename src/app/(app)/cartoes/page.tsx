@@ -76,6 +76,19 @@ function SharesLine({ shares, me, faces, currency, strong = false }: { shares: S
   );
 }
 
+/** Nos blocos de cima: ver as compras da fatura e marcar como paga (o que antes só a lista tinha). */
+function StatActions({ inv, cardId, canPay }: { inv: Invoice | undefined; cardId: string; canPay: boolean }) {
+  if (!inv) return null;
+  return (
+    <div className="card-stat-actions">
+      <Link className="btn small ghost" href={`/transacoes${filtersToQuery({ period: "custom", from: inv.from, to: inv.to, card: cardId })}`}>
+        Ver compras <ChevronRight size={14} strokeWidth={1.8} aria-hidden />
+      </Link>
+      {canPay && inv.totalCents > 0 && inv.state !== "future" && <InvoicePayButton cardId={cardId} invoice={inv.key} paid={inv.paid} label={`que vence ${shortDate(inv.due)}`} />}
+    </div>
+  );
+}
+
 function InvoiceRows({ invoices, cardId, currency, me, faces, canPay }: { invoices: Invoice[]; cardId: string; currency: string; me: string | null; faces: Faces; canPay: boolean }) {
   return (
     <div className="rows">
@@ -196,21 +209,24 @@ export default async function CardsPage() {
                 {s.dueInvoice !== s.open ? " · já fechou" : ""}
                 {invoices.find((i) => i.key === s.dueInvoice)?.paid && <strong className="pos"> · paga</strong>}
               </p>
+              <StatActions inv={invoices.find((i) => i.key === s.dueInvoice)} cardId={card.id} canPay={admin || card.ownerId === me} />
             </div>
             <div className="card-stat">
               <p className="label">Fatura aberta · vence {shortDate(invoiceDates(s.open, card).due)}</p>
               <p className="value"><Money cents={openTotal} currency={cur} /></p>
               <SharesLine shares={openShares} me={me} faces={faces} currency={cur} strong />
               <p className="hint">fecha {shortDate(s.closingDate)}, {inDays(s.daysToClosing)}</p>
+              {s.dueInvoice !== s.open && <StatActions inv={invoices.find((i) => i.key === s.open)} cardId={card.id} canPay={admin || card.ownerId === me} />}
             </div>
           </div>
 
-          <h3 className="card-subhead">Faturas</h3>
-          <InvoiceRows invoices={invoices.slice(0, 4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
-          {invoices.length > 4 && (
+          {/* As duas faturas dos blocos acima não se repetem aqui: só as outras (as próximas, com parcelas). */}
+          {invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).length > 0 && <h3 className="card-subhead">Próximas faturas</h3>}
+          <InvoiceRows invoices={invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).slice(0, 4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
+          {invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).length > 4 && (
             <details className="more-invoices">
-              <summary>Mais {invoices.length - 4} {invoices.length - 4 === 1 ? "fatura" : "faturas"} com parcelas lançadas</summary>
-              <InvoiceRows invoices={invoices.slice(4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
+              <summary>Mais {invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).length - 4} {invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).length - 4 === 1 ? "fatura" : "faturas"} com parcelas lançadas</summary>
+              <InvoiceRows invoices={invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).slice(4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
             </details>
           )}
           {series.length > 0 && (
