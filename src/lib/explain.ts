@@ -10,6 +10,8 @@ export type ExplainInput = {
   amountCents: number;
   payerId: string | null;
   splits: { participantId: string; amountCents: number; paidById?: string | null; paidCents?: number | null; partCents?: number; pendingPayId?: string | null }[];
+  /** Receita que ainda não caiu na conta. */
+  awaitingReceipt?: boolean;
   cardName: string | null;
   /** Marcado como acertado no modelo antigo. */
   settled: boolean;
@@ -79,7 +81,7 @@ export function explainParts(i: ExplainInput): { head: string; who: WhoPays[] } 
   who.sort((a, b) => (a.state === "own" ? -1 : b.state === "own" ? 1 : 0));
   let head: string;
   if (i.kind === "loan") head = `Emprestado por ${w(i.payerId)}`;
-  else if (i.kind === "income") head = i.payerId ? `Recebido por ${w(i.payerId)}` : "Falta dizer quem recebeu";
+  else if (i.kind === "income") head = !i.payerId ? "Falta dizer quem recebeu" : i.awaitingReceipt ? `${cap(w(i.payerId))} ainda vai receber` : `Recebido por ${w(i.payerId)}`;
   else if (!i.payerId) head = "Falta dizer quem pagou";
   else head = i.cardName ? `${cap(w(i.payerId))} comprou no cartão ${i.cardName}` : `Pago por ${w(i.payerId)}`;
   return { head, who: i.payerId ? who : who.map((x) => ({ ...x, state: "open" as const })) };

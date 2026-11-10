@@ -11,6 +11,8 @@ export type BalanceInput = {
   settlesId?: string | null;
   /** Esperando um membro aceitar (ou recusado): ainda não vale nas dívidas. */
   blocked?: boolean;
+  /** Receita ainda não recebida: o repasse para os outros só existe depois de receber. */
+  awaitingReceipt?: boolean;
   /** paidById: parte já paga com um acerto, fica fora das dívidas. */
   splits: { participantId: string; amountCents: number; paidById?: string | null; partCents?: number }[];
 };
@@ -19,13 +21,13 @@ export type BalanceInput = {
 const owedOf = (s: BalanceInput["splits"][number]) => s.amountCents - (s.partCents ?? 0);
 
 /** Lançamentos que não mexem em dívida nenhuma. */
-const outOfDebts = (t: BalanceInput) => t.settled || !t.payerId || !!t.settlesId || !!t.blocked;
+const outOfDebts = (t: BalanceInput) => t.settled || !t.payerId || !!t.settlesId || !!t.blocked || (t.kind === "income" && !!t.awaitingReceipt);
 
 /**
  * Saldo de cada pessoa: positivo = tem a receber, negativo = deve.
  *
  * Entra tudo que tem quem pagou. Partes já pagas com um acerto ligado ficam de fora, e o próprio acerto
- * ligado também (se Fulano pagou R$ 30,00 por uma dívida de R$ 20,00, os R$ 10,00 a mais são lucro, não dívida).
+ * ligado também (se Fulano pagou R$ 30,00 por uma dívida de R$ 20,00, os R$ 10,00 a mais ficam com quem recebeu, não são dívida).
  * - Despesa, empréstimo ou acerto: quem pagou adianta o valor; cada participante deve a sua parte.
  * - Receita: quem recebeu ficou com dinheiro que é de todos; deve a parte de cada um.
  */

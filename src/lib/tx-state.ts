@@ -5,11 +5,12 @@
  * - to-pay     Falta dizer quem pagou (só acontece em extrato importado sem isso). Vai para "A identificar".
  * - to-settle  Fora do cartão: alguém pagou e outra pessoa ainda deve a parte dela. Entra em Dívidas.
  * - paid       Pago: era só de quem pagou, todas as dívidas foram pagas (com acerto) ou a fatura foi paga.
+ * - to-receive Receita que ainda não caiu na conta: só conta (entradas e dívidas) depois do "Recebi".
  *
  * Compra no cartão segue a fatura: quem tem parte nela continua devendo em Dívidas até pagar.
  * Gastos, entradas, categorias e faturas contam todo lançamento, qualquer que seja o status.
  */
-export type TxState = "to-pay" | "on-card" | "to-settle" | "paid";
+export type TxState = "to-pay" | "on-card" | "to-settle" | "paid" | "to-receive";
 
 export type TxStateInput = {
   kind: string;
@@ -18,6 +19,8 @@ export type TxStateInput = {
   invoicePaid?: boolean;
   /** Marcado como acertado no modelo antigo (antes dos acertos com valor): conta como pago. */
   settled: boolean;
+  /** Receita que ainda não foi recebida. */
+  awaitingReceipt?: boolean;
   splits: { participantId: string; amountCents: number; paidById?: string | null }[];
 };
 
@@ -28,6 +31,7 @@ export function owing<S extends { participantId: string; amountCents: number; pa
 
 export function txState(t: TxStateInput): TxState {
   if (t.kind === "transfer") return "paid";
+  if (t.kind === "income" && t.awaitingReceipt) return "to-receive";
   if (t.cardId && t.kind !== "loan") return t.invoicePaid ? "paid" : "on-card";
   if (!t.payerId) return "to-pay";
   if (t.settled) return "paid";
@@ -40,6 +44,7 @@ export const STATE_PARAM: Record<TxState, string> = {
   "on-card": "na-fatura",
   "to-settle": "a-acertar",
   paid: "pago",
+  "to-receive": "a-receber",
 };
 
 export const STATE_INFO: Record<TxState, { label: string; color: string; help: string }> = {
@@ -47,6 +52,7 @@ export const STATE_INFO: Record<TxState, { label: string; color: string; help: s
   "on-card": { label: "Na fatura", color: "#8B7CF6", help: "Cartão com a fatura em aberto." },
   "to-settle": { label: "A acertar", color: "#1AC4DB", help: "Alguém ainda deve a parte dele." },
   paid: { label: "Pago", color: "#3BAA7F", help: "Ninguém deve mais nada." },
+  "to-receive": { label: "A receber", color: "#E0A526", help: "Ainda não caiu na conta. Toque em Recebi quando receber." },
 };
 
 /** Nome do status, ajustado ao tipo (receita "a receber", acerto entre pessoas…). */
@@ -61,7 +67,7 @@ export function stateLabel(state: TxState, kind: string): string {
 }
 
 /** No filtro só entram os status do dia a dia ("falta quem pagou" fica em A identificar). */
-export const STATE_FILTER_OPTIONS = (["on-card", "to-settle", "paid"] as TxState[]).map((s) => ({
+export const STATE_FILTER_OPTIONS = (["on-card", "to-settle", "to-receive", "paid"] as TxState[]).map((s) => ({
   id: STATE_PARAM[s],
   name: STATE_INFO[s].label,
   color: STATE_INFO[s].color,
@@ -74,7 +80,7 @@ export function stateFromParam(v: string | null | undefined): TxState | null {
 
 /**
  * Lucro (positivo) ou desconto (negativo) de um acerto que pagou uma dívida:
- * Fulano devia R$ 20,00 e pagou R$ 30,00 → +R$ 10,00 de lucro.
+ * Fulano devia R$ 20,00 e pagou R$ 30,00 → +R$ 10,00 a mais.
  */
 export function settleDiff(paidCents: number, owedCents: number) {
   return paidCents - owedCents;

@@ -43,6 +43,8 @@ const TxSchema = z.object({
     .optional(),
   /** Ao editar uma parcela: levar descrição, categoria, projeto, cartão, quem pagou e observações para as outras (status, valor e data não). */
   applyToSeries: z.boolean().optional(),
+  /** Receita: já caiu na conta? Não = "A receber" (só conta depois do "Recebi"). */
+  received: z.boolean().optional(),
   splitMode: z.enum(["equal", "custom"]),
   splits: z.array(z.object({ participantId: uuid, amountCents: z.number().int().min(0) })),
 });
@@ -208,6 +210,8 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     projectId: data.projectId,
     cardId: data.cardId,
     invoicePaid,
+    // Receita: "a receber" até confirmar. Sem a escolha (edição antiga), mantém como estava.
+    awaitingReceipt: data.kind === "income" ? (data.received === undefined ? existing?.awaitingReceipt ?? false : !data.received) : false,
     notes: data.notes || null,
     updatedAt: new Date(),
   };
@@ -241,6 +245,8 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
       .from(schema.transactions)
       .where(and(eq(schema.transactions.seriesId, rec.id), eq(schema.transactions.householdId, auth.householdId)))
       .limit(1);
+    // Receita todo mês: o 1º mês segue a escolha do formulário ("Já recebi"); os próximos começam a receber.
+    if (first && data.kind === "income" && data.received) await db.update(schema.transactions).set({ awaitingReceipt: false }).where(eq(schema.transactions.id, first.id));
     revalidatePath("/", "layout");
     return {
       ok: true,
@@ -271,6 +277,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
             createdBy: auth.userId,
             source: "manual",
             invoicePaid: false,
+            awaitingReceipt: data.kind === "income" ? (p.index === parts[0].index ? values.awaitingReceipt : true) : false,
             seriesId,
             seriesKind: series.kind,
             seriesIndex: p.index,
@@ -425,7 +432,7 @@ async function convertToSeries(auth: AuthContext, id: string, series: { kind: "i
     if (next.length) {
       const rows = await q
         .insert(t)
-        .values(next.map((p) => ({ ...base, date: p.date, amountCents: p.amountCents, invoicePaid: false, seriesId, seriesKind: series.kind, seriesIndex: p.index, seriesTotal: count })))
+        .values(next.map((p) => ({ ...base, date: p.date, amountCents: p.amountCents, invoicePaid: false, awaitingReceipt: tx.kind === "income", seriesId, seriesKind: series.kind, seriesIndex: p.index, seriesTotal: count })))
         .returning({ id: t.id, seriesIndex: t.seriesIndex });
       const idOf = new Map(rows.map((r) => [r.seriesIndex, r.id]));
       await q.insert(schema.transactionSplits).values(next.flatMap((p) => p.splits.map((x) => ({ ...x, transactionId: idOf.get(p.index)! }))));
@@ -444,7 +451,7 @@ async function loadExisting(householdId: string, id: string) {
   const db = getDb();
   const t = schema.transactions;
   const [row] = await db
-    .select({ payerId: t.payerId, cardId: t.cardId, date: t.date, invoicePaid: t.invoicePaid, settled: t.settled, settlesId: t.settlesId })
+    .select({ payerId: t.payerId, cardId: t.cardId, date: t.date, invoicePaid: t.invoicePaid, settled: t.settled, settlesId: t.settlesId, awaitingReceipt: t.awaitingReceipt })
     .from(t)
     .where(and(eq(t.id, id), eq(t.householdId, householdId)));
   if (!row) return null;
@@ -563,6 +570,8 @@ export async function deleteTransactions(ids: string[]): Promise<ActionResult> {
     ),
   ];
   await db.transaction(async (tx) => {
+    // Desfazer um pagamento apaga junto o adiantamento que saiu da sobra dele.
+    await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.externalId, list.data.map(creditKey))));
     await tx
       .delete(schema.transactions)
       .where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, list.data)));
@@ -594,7 +603,7 @@ type DebtTx = { id: string; description: string; kind: string; payerId: string |
 
 /**
  * Cria o acerto que paga a parte de uma pessoa num lançamento: a dívida dela some e o acerto
- * fica ligado ao lançamento. Se o valor pago for maior que o devido, a diferença é lucro.
+ * fica ligado ao lançamento. Se o valor pago for maior que o devido, a diferença fica como valor a mais.
  * Despesa e empréstimo: a pessoa paga para quem pagou. Receita: quem recebeu repassa para a pessoa.
  */
 async function createPayment(tx: Conn, auth: AuthContext, orig: DebtTx, participantId: string, amountCents: number, date: string, closes = true) {
@@ -656,11 +665,20 @@ const PaySchema = z.object({
   participantId: uuid,
   amountCents: z.number().int().positive({ error: "O valor pago precisa ser maior que zero." }).max(1_000_000_000),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /**
+   * Pagou a mais: "credit" = a sobra fica com você e abate a parte dela numa próxima conta;
+   * "keep" = pode ficar com você (presente). Sem escolha: "credit".
+   */
+  extra: z.enum(["credit", "keep"]).optional(),
 });
+
+/** externalId do adiantamento criado com a sobra de um pagamento (para desfazer junto). */
+const creditKey = (payId: string) => `credit:${payId}`;
 
 /**
  * Marca como paga a parte de uma pessoa num lançamento, com o valor que ela pagou de verdade.
- * Pagou a mais: a diferença é lucro. Pagou a menos: é um pagamento parcial, e o mesmo lançamento
+ * Pagou a mais: pergunta para que é a sobra — abater a parte da pessoa numa próxima conta (vira um
+ * adiantamento) ou ficar com quem recebeu. Pagou a menos: é um pagamento parcial, e o mesmo lançamento
  * continua em aberto com o que falta (não vira lançamento novo nem desconto).
  */
 export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionResult> {
@@ -683,13 +701,38 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
   const left = split.amountCents - before;
   const closes = d.amountCents >= left;
   const restCents = closes ? 0 : left - d.amountCents;
+  // Pagou a mais e a sobra é adiantamento: o pagamento quita só o que devia; a sobra vira um acerto
+  // à parte (dela para você), que abate a parte dela na próxima conta.
+  const extraCents = closes ? d.amountCents - left : 0;
+  const asCredit = extraCents > 0 && d.extra !== "keep";
   await db.transaction(async (tx) => {
-    const payId = await createPayment(tx, auth, orig, d.participantId, d.amountCents, date, closes);
+    const payId = await createPayment(tx, auth, orig, d.participantId, asCredit ? left : d.amountCents, date, closes);
+    if (asCredit) {
+      const income = orig.kind === "income";
+      const from = income ? orig.payerId! : d.participantId;
+      const to = income ? d.participantId : orig.payerId!;
+      const [cr] = await tx
+        .insert(schema.transactions)
+        .values({
+          householdId: auth.householdId,
+          date,
+          description: `Adiantamento (sobra de ${orig.description})`.slice(0, 200),
+          amountCents: extraCents,
+          kind: "transfer",
+          payerId: from,
+          notes: `Pagou ${formatMoney(d.amountCents, auth.currency)} por uma parte de ${formatMoney(left, auth.currency)}. A sobra abate a próxima conta.`,
+          source: "manual",
+          externalId: creditKey(payId),
+          createdBy: auth.userId,
+        })
+        .returning({ id: schema.transactions.id });
+      await tx.insert(schema.transactionSplits).values({ transactionId: cr.id, participantId: to, amountCents: extraCents });
+    }
     const audience = [orig.payerId!, d.participantId];
     await logActivity(tx, auth, {
       action: "status",
       transactionId: orig.id,
-      data: { settled: closes, paidCents: d.amountCents, owedCents: closes ? left : d.amountCents, restCents, items: [{ d: orig.description, a: audience }], changes: [] },
+      data: { settled: closes, paidCents: d.amountCents, owedCents: closes ? (asCredit ? d.amountCents : left) : d.amountCents, restCents, items: [{ d: orig.description, a: audience }], changes: [] },
       audience,
     });
     return payId;
@@ -703,7 +746,14 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
   const wait = other !== auth.participantId && ctx.members.has(other) ? " Falta a outra pessoa confirmar em “Para confirmar”." : "";
   const result: ActionResult = {
     ok: true,
-    message: restCents > 0 ? `Pagou ${money(d.amountCents)}. Ainda falta ${money(restCents)}.` : diff > 0 ? `Pago, com ${money(diff)} de lucro.` : "Pago. Dívida quitada.",
+    message:
+      restCents > 0
+        ? `Pagou ${money(d.amountCents)}. Ainda falta ${money(restCents)}.`
+        : asCredit
+          ? `Pago. Os ${money(extraCents)} a mais ficam com você e abatem a parte da pessoa na próxima conta.`
+          : diff > 0
+            ? `Pago, com ${money(diff)} a mais.`
+            : "Pago. Dívida quitada.",
   };
   if (wait) result.message += wait;
   return result;
@@ -736,7 +786,10 @@ export async function setTransactionsSettled(ids: string[], settled: boolean): P
       } else {
         // Desfaz todos os pagamentos ligados (os que quitaram e os parciais).
         const payIds = (await tx.select({ id: schema.transactions.id }).from(schema.transactions).where(eq(schema.transactions.settlesId, r.id))).map((x) => x.id);
-        if (payIds.length) await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, payIds)));
+        if (payIds.length) {
+          await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.externalId, payIds.map(creditKey))));
+          await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, payIds)));
+        }
         // Modelo antigo: "Já acertado" sem acerto.
         await tx.update(schema.transactions).set({ settled: false }).where(eq(schema.transactions.id, r.id));
         if (payIds.length) {
@@ -971,4 +1024,21 @@ export async function loadTxForEdit(id: string) {
     series: series ? { items: series, total: tx.seriesTotal!, monthly: tx.seriesKind === "monthly" } : null,
     recurring: tx.seriesKind === "monthly" && !tx.seriesTotal ? await getRecurringState(auth.householdId, tx.seriesId) : null,
   };
+}
+
+/**
+ * Receita "a receber": confirma que o dinheiro caiu na conta (passa a contar nas entradas e nas
+ * dívidas) ou volta para "a receber" (se marcou por engano).
+ */
+export async function setReceived(transactionId: string, received: boolean): Promise<ActionResult> {
+  const auth = await requireAuth();
+  if (!uuid.safeParse(transactionId).success || typeof received !== "boolean") return { ok: false, error: "Lançamento inválido." };
+  const t = schema.transactions;
+  const [row] = await getDb().select({ kind: t.kind, createdBy: t.createdBy, payerId: t.payerId, description: t.description, amountCents: t.amountCents }).from(t).where(and(eq(t.id, transactionId), eq(t.householdId, auth.householdId)));
+  if (!row || row.kind !== "income") return { ok: false, error: "Só receitas ficam “a receber”." };
+  // Quem lançou, quem administra ou quem recebeu o dinheiro pode confirmar.
+  if (!canEditTx(auth, row.createdBy) && row.payerId !== auth.participantId) return { ok: false, error: NOT_YOURS };
+  await getDb().update(t).set({ awaitingReceipt: !received, updatedAt: new Date() }).where(eq(t.id, transactionId));
+  revalidatePath("/", "layout");
+  return { ok: true, message: received ? `Recebido: ${formatMoney(row.amountCents, auth.currency)} de “${row.description}” já conta nas entradas.` : "Voltou para “a receber”." };
 }

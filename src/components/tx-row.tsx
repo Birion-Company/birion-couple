@@ -63,15 +63,15 @@ export function txProfit(tx: TxRow): number {
 export function ProfitAmount({ tx, currency }: { tx: TxRow; currency: string }) {
   const p = txProfit(tx);
   if (p <= 0) return null;
-  return <span className="tx-profit">+{formatMoney(p, currency)} lucro</span>;
+  return <span className="tx-profit">+{formatMoney(p, currency)} a mais</span>;
 }
 
 /**
  * Frase explicativa do lançamento, com selos:
  * - um selo por pessoa que tinha que pagar ("Fulano pagou R$ 30,00", "Fulano deve R$ 60,00");
- * - no acerto que pagou uma dívida, o lucro ou o que ainda falta.
+ * - no acerto que pagou uma dívida, o valor a mais ou o que ainda falta.
  */
-/** Num acerto ligado: parcial ("falta R$ 60,00") ou o lucro/desconto de quem quitou. */
+/** Num acerto ligado: parcial ("falta R$ 60,00") ou o valor a mais de quem quitou. */
 export function SettlesBadge({ tx, currency }: { tx: TxRow; currency: string }) {
   const s = tx.settles;
   if (!s) return null;
@@ -112,6 +112,7 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
     splits: tx.splits,
     cardName: tx.cardId ? lookups.cards.find((c) => c.id === tx.cardId)?.name ?? "de outra pessoa" : null,
     settled: tx.settled && tx.kind !== "transfer",
+    awaitingReceipt: tx.awaitingReceipt,
     me,
     names: Object.fromEntries(lookups.participants.map((p) => [p.id, p.name])),
     currency,

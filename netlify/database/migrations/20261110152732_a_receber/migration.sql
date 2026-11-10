@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "awaitingReceipt" boolean DEFAULT false NOT NULL;

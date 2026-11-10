@@ -5,11 +5,12 @@ import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
 import { CategoryIcon, Money, formatDate } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
-import { longMonth, monthsBetween, shortDate } from "@/lib/cards";
+import { longMonth, monthsBetween, shortDate, todayIn } from "@/lib/cards";
 import { defaultPanelMonth, getInvoicesDue } from "@/lib/card-queries";
 import { filtersToQuery, monthRange, parseFilters } from "@/lib/filters";
-import { countUnidentified, getDashboard, getDebtLedger, getMonthDebts, navigableMonths, getLookupsFor, getOutlook } from "@/lib/queries";
+import { countUnidentified, getDashboard, getAwaitingIncome, getDebtLedger, getMonthDebts, navigableMonths, getLookupsFor, getOutlook } from "@/lib/queries";
 import { MoneySummary } from "@/components/money-summary";
+import { AwaitingIncome } from "@/components/awaiting-income";
 import { MonthNav } from "@/components/month-nav";
 import { MonthOutlook } from "@/components/month-outlook";
 
@@ -28,13 +29,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   // Fora do período (antes de usar o app ou depois do último mês com algo lançado): volta para o mês atual.
   const month = parsed.month && parsed.month >= firstMonth && parsed.month <= lastMonth ? parsed.month : current;
   const filters = { ...parsed, period: "mes" as const, month: month === current ? null : month, competence: month, ...monthRange(month) };
-  const [data, toIdentify, outlook, invoices, ledger] = await Promise.all([
+  const [data, toIdentify, outlook, invoices, ledger, awaiting] = await Promise.all([
     getDashboard(auth, filters),
     countUnidentified(auth),
     getOutlook(auth, filters),
     getInvoicesDue(auth, month, filters.person, filters.everyone),
     // Para o resumo: o total que te devem e que você deve (todas as dívidas em aberto, não só do mês).
     getDebtLedger(auth, lookups),
+    // Receitas que ainda não caíram (até o fim do mês visto; as atrasadas também).
+    getAwaitingIncome(auth, monthRange(month).to),
   ]);
   // Mês à frente: estimativa só com o que é daquele mês (o de antes, imagina-se, já foi pago).
   const ahead = month > current;
@@ -125,6 +128,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           <strong>Previsão:</strong> só parcelas e contas fixas já lançadas para {monthName}.
         </div>
       )}
+
+      <AwaitingIncome items={awaiting} today={todayIn()} currency={cur} />
 
       {mode === "me" ? (
         <>

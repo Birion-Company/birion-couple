@@ -7326,3 +7326,61 @@ s.was {
 .who-part {
   white-space: nowrap;
 }
+
+/* Painel: receitas "a receber" (só contam depois do "Recebi"). */
+.awaiting {
+  border-color: color-mix(in srgb, #e0a526 45%, var(--line));
+}
+.awaiting h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.awaiting h2 svg {
+  color: #e0a526;
+}
+.awaiting-help {
+  margin: -4px 0 6px;
+  font-size: 0.84rem;
+}
+.awaiting-row {
+  align-items: center;
+}
+.awaiting-row.late .sub {
+  color: var(--neg);
+  font-weight: 600;
+}
+.awaiting-value {
+  white-space: nowrap;
+}
+/* Pagou a mais: escolher para que é a sobra. */
+.pay-extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  font-size: 0.8rem;
+  flex-basis: 100%;
+}
+.pay-extra-say {
+  font-weight: 600;
+  color: var(--text);
+}
+.pay-extra .chip {
+  cursor: pointer;
+  height: auto;
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  white-space: normal;
+}
+.pay-extra .chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pay-extra .chip:has(input:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}

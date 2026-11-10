@@ -28,7 +28,7 @@ type Step = {
 const STEPS: Step[] = [
   { title: "Bem-vindo ao BIRION", text: "Contas divididas entre pessoas, sem planilha. Em 2 minutos você vê o principal.", demo: "people" },
   { targets: ["new-fab", "tx-new"], title: "Novo lançamento", text: "Tudo começa no botão **+**. Toque nele sempre que gastar, receber ou emprestar." },
-  { route: "/transacoes/nova", targets: ["tx-kind"], title: "Tipo", text: "**Despesa**: algo pago. **Receita**: dinheiro que entrou para você. **Dívida**: alguém fica devendo. **Acerto**: alguém pagou alguém." },
+  { route: "/transacoes/nova", targets: ["tx-kind"], title: "Tipo", text: "**Despesa**: algo pago. **Receita**: dinheiro para você — diga se **já recebeu** ou se **ainda vai receber**. **Dívida**: alguém fica devendo. **Acerto**: alguém pagou alguém." },
   { route: "/transacoes/nova", targets: ["tx-card", "tx-payer"], title: "Como foi pago", text: "Escolha o cartão. Logo embaixo aparece em qual **fatura** a compra entra — cada cartão fecha e vence num dia diferente." },
   { route: "/transacoes/nova", targets: ["tx-split"], title: "Quem deveria pagar", text: "Toque e pesquise o nome. Marcou mais gente? Divide. A **seta** mostra para onde o dinheiro vai ter que ir." },
   { route: "/transacoes/nova", targets: ["tx-people"], title: "Pessoas", text: "Alguém novo? Cadastre um contato ou convide para o app aqui, sem sair do lançamento." },
@@ -45,7 +45,7 @@ const STEPS: Step[] = [
     emptyText: "Ainda vazio. Assim aparece um lançamento:",
     emptyDemo: "split",
   },
-  { route: "/dividas", targets: ["debts"], title: "Dívidas", text: "Te pagaram? Toque em **Recebi**. Pagou só uma parte? O resto continua e o valor antigo fica **riscado**.", demo: "debts" },
+  { route: "/dividas", targets: ["debts"], title: "Dívidas", text: "Te pagaram? Toque em **Recebi**. Pagou só uma parte? O resto continua, com o valor antigo **riscado**. Pagou a mais? O app pergunta se a sobra **abate a próxima conta** da pessoa ou fica com você.", demo: "debts" },
   { route: "/cartoes", targets: ["cards-stats", "cards-intro", "cards"], title: "Cartões", text: "Cada cartão tem o seu dia de **fechar** e de **vencer**. A compra conta no mês em que a fatura dela vence. Pagou? **Marcar como paga**.", demo: "card" },
   { targets: ["nav-confirm"], title: "Para confirmar", text: "Se alguém te colocar numa conta, você **aceita** ou **recusa** (pode dizer o motivo). Só vale nas dívidas depois de aceito.", demo: "confirm" },
   { targets: ["nav-projects"], title: "Projetos", text: "Junte os gastos de um assunto, como uma viagem: crie o projeto e coloque os lançamentos nele. No celular, fica no menu da sua foto." },

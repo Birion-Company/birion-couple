@@ -131,7 +131,7 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
       const diff = entry.data.paidCents - (entry.data.owedCents ?? entry.data.paidCents);
       msg = {
         title: "Pagamento registrado",
-        body: `${who} registrou o pagamento de ${money(entry.data.paidCents)} em “${items[0]?.d ?? "um lançamento"}”${entry.data.restCents ? ` (falta ${money(entry.data.restCents)})` : diff > 0 ? ` (${money(diff)} de lucro)` : ""}.`,
+        body: `${who} registrou o pagamento de ${money(entry.data.paidCents)} em “${items[0]?.d ?? "um lançamento"}”${entry.data.restCents ? ` (falta ${money(entry.data.restCents)})` : diff > 0 ? ` (${money(diff)} a mais)` : ""}.`,
       };
     } else if (entry.action === "status") {
       kind = "pagamento";

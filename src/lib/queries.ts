@@ -73,18 +73,25 @@ function stateWhere(state: NonNullable<ReturnType<typeof stateFromParam>>): SQL 
   const notTransfer = sql`"transactions"."kind" <> 'transfer'`;
   const onCard = and(isNotNull(t.cardId), sql`"transactions"."kind" <> 'loan'`)!;
   const offCard = or(isNull(t.cardId), eq(t.kind, "loan"))!;
+  // Receita "a receber" só tem esse status (não conta como paga nem a acertar).
+  const notAwaiting = or(sql`"transactions"."kind" <> 'income'`, eq(t.awaitingReceipt, false))!;
   switch (state) {
     case "on-card":
       return and(notTransfer, onCard, eq(t.invoicePaid, false))!;
     case "to-pay":
       return and(notTransfer, offCard, isNull(t.payerId))!;
+    case "to-receive":
+      return and(eq(t.kind, "income"), eq(t.awaitingReceipt, true))!;
     case "to-settle":
-      return and(notTransfer, offCard, isNotNull(t.payerId), eq(t.settled, false), owes)!;
+      return and(notTransfer, offCard, isNotNull(t.payerId), eq(t.settled, false), owes, notAwaiting)!;
     case "paid":
-      return or(
-        eq(t.kind, "transfer"),
-        and(onCard, eq(t.invoicePaid, true)),
-        and(offCard, isNotNull(t.payerId), or(eq(t.settled, true), sql`not ${owes}`)),
+      return and(
+        or(
+          eq(t.kind, "transfer"),
+          and(onCard, eq(t.invoicePaid, true)),
+          and(offCard, isNotNull(t.payerId), or(eq(t.settled, true), sql`not ${owes}`)),
+        ),
+        notAwaiting,
       )!;
   }
 }
@@ -156,9 +163,11 @@ export type TxRow = {
   statusId: string | null;
   settled: boolean;
   invoicePaid: boolean;
+  /** Receita "a receber": ainda não confirmada como recebida. */
+  awaitingReceipt: boolean;
   /** Acerto que paga a dívida de outro lançamento. */
   settlesId: string | null;
-  /** Para acertos ligados: o lançamento pago e quanto era devido (o resto é lucro ou desconto). */
+  /** Para acertos ligados: o lançamento pago e quanto era devido (o resto é o valor a mais). */
   /** owedCents: a parte toda; otherPaidCents: o que já tinha sido pago antes; closes: este pagamento quitou a parte. */
   settles: { txId: string; description: string; owedCents: number; otherPaidCents: number; closes: boolean } | null;
   notes: string | null;
@@ -316,6 +325,7 @@ const txColumns = {
   statusId: t.statusId,
   settled: t.settled,
   invoicePaid: t.invoicePaid,
+  awaitingReceipt: t.awaitingReceipt,
   settlesId: t.settlesId,
   notes: t.notes,
   source: t.source,
@@ -474,6 +484,16 @@ export async function getRecurringState(householdId: string, seriesId: string | 
   return r ?? null;
 }
 
+/** Receitas "a receber" até uma data (as atrasadas primeiro): o painel pergunta "Você recebeu?". */
+export async function getAwaitingIncome(viewer: Viewer, until: string) {
+  return getDb()
+    .select({ id: t.id, date: t.date, description: t.description, amountCents: t.amountCents, seriesIndex: t.seriesIndex, seriesTotal: t.seriesTotal, seriesKind: t.seriesKind })
+    .from(t)
+    .where(txScope(viewer, eq(t.kind, "income"), eq(t.awaitingReceipt, true), lte(t.date, until)))
+    .orderBy(asc(t.date))
+    .limit(30);
+}
+
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();
@@ -529,6 +549,7 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         statusId: null,
         settled: false,
         invoicePaid: false,
+        awaitingReceipt: s.kind === "income",
         settlesId: null,
         settles: null,
         notes: s.notes,
@@ -635,7 +656,8 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
   }
   const paidForOthers = [...owedBy.values()].reduce((a, v) => a + v, 0);
   const owedToMe = [...owedBy].map(([id, cents]) => ({ id, cents })).sort((a, b) => b.cents - a.cents);
-  const income = rows.filter((r) => r.kind === "income").reduce((a, r) => a + share(r), 0);
+  // Entradas: só o que já foi recebido ("a receber" fica de fora até o "Recebi").
+  const income = rows.filter((r) => r.kind === "income" && !r.awaitingReceipt).reduce((a, r) => a + share(r), 0);
   const byCategory = new Map<string, number>();
   for (const r of expenses) {
     const key = r.categoryId ?? "sem";
@@ -700,7 +722,7 @@ export type LedgerPaid = {
   how: "recebi" | "acerto" | "coberta";
   /** Lançamento a apagar para desfazer (o acerto); nulo quando a dívida só foi coberta por um acerto. */
   undoId: string | null;
-  /** Recebi/Paguei: quanto era devido (para mostrar lucro ou desconto). */
+  /** Recebi/Paguei: quanto era devido (para mostrar o valor a mais). */
   owedCents?: number;
   /** Pagamento parcial: quanto ainda falta depois dele. */
   leftCents?: number;

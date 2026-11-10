@@ -240,6 +240,8 @@ export function TxForm({
   );
   const [description, setDescription] = useState(initial?.description ?? prefill?.description ?? "");
   const [date, setDate] = useState(initial?.date ?? today());
+  // Receita: já caiu na conta? Sem escolher, segue a data (futura = ainda vou receber); editando, mantém como estava.
+  const [receivedChoice, setReceivedChoice] = useState<boolean | null>(initial ? !initial.awaitingReceipt : null);
   const [payerId, setPayerId] = useState(initial?.payerId ?? (prefill?.kind === "income" ? me : null) ?? prefill?.payerId ?? firstPerson);
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
@@ -275,6 +277,7 @@ export function TxForm({
   const canRepeat = (!initial || (!initial.seriesId && !initial.settlesId && !initial.splits.some((x) => x.paidById))) && kind !== "transfer";
   const isSeries = canRepeat && repeat !== "once" && !(kind === "loan" && repeat === "monthly");
   const isForever = isSeries && repeat === "monthly" && forever;
+  const received = receivedChoice ?? date <= today();
   // Quantas parcelas já venceram (a fatura delas já passou ou são de meses anteriores).
   const pastCount =
     isSeries && repeat === "installment" && n >= 2 && /^\d{4}-\d{2}-\d{2}$/.test(date)
@@ -325,6 +328,7 @@ export function TxForm({
         notes,
         series: isSeries ? { kind: repeat as "installment" | "monthly", count: isForever ? null : n } : null,
         applyToSeries: initial?.seriesId ? applyToSeries : undefined,
+        received: kind === "income" ? received : undefined,
         splitMode: mode === "custom" && !between ? "custom" : "equal",
         splits: splitIds.map((participantId) => ({
           participantId,
@@ -580,6 +584,27 @@ export function TxForm({
             <span>{isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
             <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           </label>
+
+          {/* Receita: o app não supõe que o dinheiro caiu — você diz. "A receber" só conta depois do "Recebi". */}
+          {kind === "income" && (
+            <div className="field" data-tour="tx-received">
+              <span className="label-text">O dinheiro já caiu na conta?</span>
+              <div className="segmented" role="group" aria-label="Já recebeu?">
+                <button type="button" aria-pressed={received} onClick={() => setReceivedChoice(true)}>
+                  Já recebi
+                </button>
+                <button type="button" aria-pressed={!received} onClick={() => setReceivedChoice(false)}>
+                  Ainda vou receber
+                </button>
+              </div>
+              <span className="faint">
+                {received
+                  ? "Conta nas suas entradas agora."
+                  : "Fica como “A receber”: não conta nas entradas até você tocar em Recebi (o painel te lembra)."}
+                {isSeries && kind === "income" ? " Os próximos meses começam como “a receber”." : ""}
+              </span>
+            </div>
+          )}
 
           <ImpactBox impact={impact} />
 

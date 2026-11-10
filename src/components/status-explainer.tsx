@@ -51,7 +51,7 @@ export function StatusExplainer() {
         </p>
         <p className="muted" style={{ marginTop: 8 }}>
           <strong>Alguém te pagou?</strong> Clique em <strong>Recebi</strong> e diga o valor. Ex.: devia R$ 20, pagou R$ 30 →{" "}
-          <span className="profit-badge">+R$ 10 de lucro</span>.
+          <span className="profit-badge">+R$ 10 a mais</span>.
         </p>
       </div>
     </>

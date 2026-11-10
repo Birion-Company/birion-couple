@@ -52,7 +52,8 @@ const SECTIONS: Section[] = [
     intro: "A seta no formulário mostra de onde o dinheiro vai ter que sair e para onde vai.",
     items: [
       { term: "Despesa", text: "Algo que foi pago. Quem tem parte fica devendo para quem pagou. Ex.: mercado de R$ 100 dividido com Fulano → ele te deve R$ 50." },
-      { term: "Receita", text: "Dinheiro que entrou para você (salário, venda). Sempre sua: se alguém te pagou uma dívida, use Acerto." },
+      { term: "Receita", text: "Dinheiro para você (salário, venda). Ao lançar, diga se já caiu na conta ou se ainda vai receber. Se alguém te pagou uma dívida, use Acerto." },
+      { term: "A receber", text: "O app não supõe que o dinheiro caiu: a receita fica “A receber” e só conta nas entradas quando você toca em Recebi. O painel mostra as atrasadas. Salário todo mês começa “a receber” a cada mês." },
       { term: "Dívida", text: "Alguém fica te devendo (ou você a alguém). Ex.: emprestou R$ 500 → ele te deve R$ 500. Pode ser parcelada." },
       { term: "Acerto", text: "Dinheiro que passou de uma pessoa para outra para abater uma dívida." },
       { term: "Pessoas", text: "“Quem deveria pagar” abre uma lista com pesquisa. Para cadastrar alguém sem sair do lançamento, use o botão Pessoas no canto de baixo." },
@@ -87,7 +88,7 @@ const SECTIONS: Section[] = [
     items: [
       { term: "Recebi / Paguei", text: "Registra o pagamento de uma dívida e pergunta o valor. Não cria um lançamento novo: abate a própria dívida." },
       { term: "Pagou menos", text: "O que falta continua devido. O valor antigo aparece riscado e o novo embaixo. Ex.: devia R$ 560, pagou R$ 500 → falta R$ 60." },
-      { term: "Pagou mais", text: "A diferença aparece como lucro." },
+      { term: "Pagou mais", text: "O app pergunta para que é a sobra: abater a parte da pessoa numa próxima conta (ex.: sua mãe adiantou R$ 200 para a conta de luz da casa) ou ficar com você." },
       { term: "Desfazer", text: "Cada pagamento tem “Desfazer”: a dívida volta." },
       { term: "Registrar pagamento", text: "Um valor solto entre duas pessoas: abate as dívidas mais antigas primeiro." },
       { term: "Muita gente", text: "“Quem deve para quem” mostra as maiores primeiro, com “Ver mais” e pesquisa." },

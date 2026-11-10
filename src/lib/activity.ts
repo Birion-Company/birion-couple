@@ -41,7 +41,7 @@ export type ActivityData = {
   seriesCount?: number | null;
   statusId?: string;
   settled?: boolean;
-  /** Pagamento de uma dívida: quanto foi pago e quanto era devido (a diferença é lucro ou desconto). */
+  /** Pagamento de uma dívida: quanto foi pago e quanto era devido (a diferença é o valor a mais). */
   paidCents?: number;
   owedCents?: number;
   /** Pagou a menos e o resto continua como dívida. */
@@ -350,7 +350,7 @@ export async function getActivityFeed(
         }
         if (r.action === "status" && d.paidCents !== undefined && d.owedCents !== undefined) {
           const diff = d.paidCents - d.owedCents;
-          detail = `pagou ${formatMoney(d.paidCents, currency)}${d.restCents ? ` · falta ${formatMoney(d.restCents, currency)}` : diff > 0 ? ` · ${formatMoney(diff, currency)} de lucro` : ""}`;
+          detail = `pagou ${formatMoney(d.paidCents, currency)}${d.restCents ? ` · falta ${formatMoney(d.restCents, currency)}` : diff > 0 ? ` · ${formatMoney(diff, currency)} a mais` : ""}`;
           break;
         }
         detail = items.length > 1 ? items.slice(0, 4).map((i) => i.d).join(", ") + (items.length > 4 ? "…" : "") : (d.changes ?? []).map(describeChange).join(" · ") || null;

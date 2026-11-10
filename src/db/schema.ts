@@ -306,9 +306,11 @@ export const transactions = pgTable(
     settled: boolean().notNull().default(false),
     /** Compra no cartão: a fatura em que ela entrou já foi paga. */
     invoicePaid: boolean().notNull().default(false),
+    /** Receita que ainda não caiu na conta ("A receber"): só conta depois que a pessoa confirma "Recebi". */
+    awaitingReceipt: boolean().notNull().default(false),
     /**
      * Acerto que paga uma dívida de outro lançamento (ex.: Fulano pagando a parte dele).
-     * Se o valor for maior que o devido, a diferença é lucro de quem recebeu.
+     * Se o valor for maior que o devido, a sobra fica com quem recebeu (ou vira um adiantamento à parte).
      */
     settlesId: uuid().references((): AnyPgColumn => transactions.id, { onDelete: "cascade" }),
     /** Cartão de crédito usado; a fatura sai da data e do dia de fechamento do cartão. */

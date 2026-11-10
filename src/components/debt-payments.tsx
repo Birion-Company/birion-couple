@@ -32,7 +32,7 @@ export function OwedAmount({ cents, partCents = 0, currency }: { cents: number; 
 }
 
 /**
- * Selo de um pagamento de dívida: lucro (pagou a mais) ou o que falta (pagou a menos: o resto
+ * Selo de um pagamento de dívida: o valor a mais (pagou a mais e ficou com você) ou o que falta (pagou a menos: o resto
  * continua devido no mesmo lançamento).
  */
 export function ProfitBadge({ paidCents, owedCents, restCents = 0, currency }: { paidCents: number; owedCents: number; restCents?: number; currency: string }) {
@@ -48,7 +48,7 @@ export function ProfitBadge({ paidCents, owedCents, restCents = 0, currency }: {
   if (diff <= 0) return null;
   return (
     <span className="profit-badge" title={`Devia ${formatMoney(owedCents, currency)} e pagou ${formatMoney(paidCents, currency)}`}>
-      <TrendingUp size={12} strokeWidth={2.4} aria-hidden /> +{formatMoney(diff, currency)} de lucro
+      <TrendingUp size={12} strokeWidth={2.4} aria-hidden /> +{formatMoney(diff, currency)} a mais
     </span>
   );
 }
@@ -61,6 +61,8 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   const [value, setValue] = useState(centsToInput(owedCents));
   const cents = parseAmountToCents(value, ",") ?? 0;
   const diff = cents - owedCents;
+  // Pagou a mais: a sobra abate a parte dela numa próxima conta (padrão) ou fica com você.
+  const [extra, setExtra] = useState<"credit" | "keep">("credit");
   if (!open) {
     return (
       <button type="button" className="btn small ghost" data-tour="debts-settle" onClick={() => setOpen(true)}>
@@ -73,7 +75,7 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   const confirm = () => {
     if (cents <= 0) return toast("Digite quanto foi pago.", "error");
     start(async () => {
-      const r = await payDebt({ transactionId: txId, participantId, amountCents: cents });
+      const r = await payDebt({ transactionId: txId, participantId, amountCents: cents, extra });
       toastResult(r);
       if (r.ok) {
         setOpen(false);
@@ -102,9 +104,23 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
           aria-label="Quanto pagou"
         />
       </label>
-      <span className={`pay-diff ${diff > 0 ? "pos" : diff < 0 ? "neg" : "faint"}`}>
-        {diff > 0 ? `+${formatMoney(diff, currency)} de lucro` : diff < 0 && cents > 0 ? `Ainda vai faltar ${formatMoney(-diff, currency)}` : cents > 0 ? "quita a dívida" : ""}
-      </span>
+      {diff > 0 ? (
+        <span className="pay-extra" role="radiogroup" aria-label={`O que fazer com os ${formatMoney(diff, currency)} a mais`}>
+          <span className="pay-extra-say">{formatMoney(diff, currency)} a mais. Esse dinheiro é para:</span>
+          <label className={`chip ${extra === "credit" ? "on" : ""}`}>
+            <input type="radio" name={`extra-${txId}-${participantId}`} checked={extra === "credit"} onChange={() => setExtra("credit")} />
+            Abater a parte dela numa próxima conta
+          </label>
+          <label className={`chip ${extra === "keep" ? "on" : ""}`}>
+            <input type="radio" name={`extra-${txId}-${participantId}`} checked={extra === "keep"} onChange={() => setExtra("keep")} />
+            Pode ficar com você
+          </label>
+        </span>
+      ) : (
+        <span className={`pay-diff ${diff < 0 ? "neg" : "faint"}`}>
+          {diff < 0 && cents > 0 ? `Ainda vai faltar ${formatMoney(-diff, currency)}` : cents > 0 ? "quita a dívida" : ""}
+        </span>
+      )}
       <button type="button" className="btn small primary" disabled={pending} onClick={confirm}>Confirmar</button>
       <button type="button" className="btn small ghost" onClick={() => setOpen(false)}>Cancelar</button>
     </div>
@@ -163,7 +179,7 @@ export function UndoButton({ payId }: { payId: string }) {
 }
 
 /**
- * Quem deve neste lançamento e quem já pagou (com o valor pago e o lucro ou desconto).
+ * Quem deve neste lançamento e quem já pagou (com o valor pago e o valor a mais).
  * Só para lançamentos com quem pagou; acertos entre pessoas não têm dívida própria.
  */
 export function DebtPayments({

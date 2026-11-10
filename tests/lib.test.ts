@@ -508,3 +508,16 @@ describe("frase do que foi imposto", () => {
     expect(roleSentence({ kind: "transfer", amountCents: 40_00, payerId: "b", splits: [{ participantId: "a", amountCents: 40_00 }] }, "a", names, "BRL")).toMatch(/Bia te pagou/);
   });
 });
+
+describe("receita a receber", () => {
+  const salario = { kind: "income" as const, amountCents: 300_00, payerId: "a", settled: false, splits: [{ participantId: "a", amountCents: 150_00 }, { participantId: "b", amountCents: 150_00 }] };
+  test("não confirmada: status A receber e fora das dívidas", () => {
+    expect(txState({ ...salario, awaitingReceipt: true })).toBe("to-receive");
+    expect(stateLabel("to-receive", "income")).toBe("A receber");
+    expect(computeBalances([{ ...salario, awaitingReceipt: true }]).size).toBe(0);
+  });
+  test("depois do Recebi: volta a valer (quem recebeu repassa a parte)", () => {
+    expect(txState({ ...salario, awaitingReceipt: false })).toBe("to-settle");
+    expect(computeBalances([{ ...salario, awaitingReceipt: false }]).get("a")).toBe(-150_00);
+  });
+});
