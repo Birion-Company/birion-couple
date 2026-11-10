@@ -123,7 +123,7 @@ export function TxList({
                       <CategoryIcon icon={look.icon} color={look.color} title={look.name} />
                       <div className="grow" style={{ minWidth: 0 }}>
                         <p className="title tx-title">
-                          <span className="tx-desc" title={tx.description}>{tx.description}</span>
+                          <span className={`tx-desc ${tx.kind === "expense" ? "neg" : ""}`} title={tx.description}>{tx.description}</span>
                           {series && <span className="tx-series">{series}</span>}
                           <ApprovalBadge approval={tx.approval} me={viewer.participantId} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} />
                           {tx.source === "previsto" && (

@@ -237,11 +237,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                     <CategoryIcon icon={cats.get(t.categoryId ?? "")?.icon} color={cats.get(t.categoryId ?? "")?.color} size={30} />
                     <div className="grow" style={{ minWidth: 0 }}>
                       <p className="title">
-                        {t.description} <span className="tx-tag recurring">conta fixa</span>
+                        <span className={t.kind === "expense" ? "neg" : ""}>{t.description}</span> <span className="tx-tag recurring">conta fixa</span>
                       </p>
                       <p className="sub">{formatDate(t.date)} · conta fixa · entra sozinha</p>
                     </div>
-                    <div className="amount"><Money cents={t.amountCents} currency={cur} className={t.kind === "income" ? "pos" : ""} /></div>
+                    <div className="amount"><Money cents={t.amountCents} currency={cur} className={t.kind === "income" ? "pos" : t.kind === "expense" ? "neg" : ""} /></div>
                   </div>
                 ) : (
                   <TxRowLink key={t.id} tx={t} lookups={lookups} currency={cur} me={me} />

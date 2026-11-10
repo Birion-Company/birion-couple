@@ -194,7 +194,7 @@ export default async function CardsPage() {
                   <Link key={x.id} className="row series-row" href={`/transacoes/${x.nextId}`}>
                     <Repeat size={16} strokeWidth={1.7} className="faint" aria-hidden />
                     <div className="grow">
-                      <p className="title">{x.description}</p>
+                      <p className="title neg">{x.description}</p>
                       <p className="sub">
                         {x.total === null
                           ? "repete todo mês, sem data para acabar"
@@ -202,7 +202,7 @@ export default async function CardsPage() {
                       </p>
                     </div>
                     <span className="amount">
-                      <Money cents={x.amountCents} currency={cur} />
+                      <Money cents={x.amountCents} currency={cur} className="neg" />
                       <span className="sub" style={{ display: "block", textAlign: "right" }}>por mês</span>
                     </span>
                   </Link>

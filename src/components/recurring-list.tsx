@@ -38,13 +38,13 @@ export function RecurringList({ items, currency }: { items: RecurringItem[]; cur
           return (
             <div key={r.id} className="row fixed-bill">
               <div className="grow fixed-bill-text">
-                <p className="title">{r.description}</p>
+                <p className={`title ${r.kind === "expense" ? "neg" : ""}`}>{r.description}</p>
                 <p className="sub">
                   {KIND[r.kind] ?? "lançamento"} todo dia {Number(r.startDate.slice(8, 10))} · próximo em{" "}
                   {formatDate(next, { day: "2-digit", month: "short", year: "numeric" })}
                 </p>
               </div>
-              <span className={`amount ${r.kind === "income" ? "pos" : ""}`}>{formatMoney(r.amountCents, currency)}</span>
+              <span className={`amount ${r.kind === "income" ? "pos" : r.kind === "expense" ? "neg" : ""}`}>{formatMoney(r.amountCents, currency)}</span>
               <button
                 type="button"
                 className="btn small ghost danger"

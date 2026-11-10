@@ -54,7 +54,7 @@ export default async function ProjectPage({ params }: PageProps<"/projetos/[id]"
             {rows.map((r) => (
               <div key={r.id} className="row">
                 <Link href={`/transacoes/${r.id}`} className="grow" style={{ minWidth: 0 }}>
-                  <span className="title">
+                  <span className={`title ${r.kind === "expense" ? "neg" : ""}`}>
                     {r.description}
                     {series(r) && <span className="tx-series">{series(r)}</span>}
                   </span>
@@ -62,7 +62,7 @@ export default async function ProjectPage({ params }: PageProps<"/projetos/[id]"
                     {formatDate(r.date, { day: "2-digit", month: "short", year: "numeric" })} · {cat(r.categoryId)}
                   </span>
                 </Link>
-                <Money cents={r.amountCents} currency={auth.currency} />
+                <Money cents={r.amountCents} currency={auth.currency} className={r.kind === "expense" ? "neg" : ""} />
                 <RemoveFromProject txId={r.id} />
               </div>
             ))}
