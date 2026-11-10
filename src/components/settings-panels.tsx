@@ -66,6 +66,7 @@ export function HouseholdForm({ name, currency, isOwner }: { name: string; curre
   return (
     <form
       className="card form"
+      data-tour="family-form"
       onSubmit={(e) => {
         e.preventDefault();
         act(() => updateHousehold({ name: n, currency: c }));
@@ -125,7 +126,7 @@ export function RulesEditor({ rules, categories }: { rules: { id: string; patter
     })
     .filter((g) => g.shown.length > 0);
   return (
-    <div className="card rules-card">
+    <div className="card rules-card" data-tour="category-rules">
       <form
         className="actions rules-add"
         onSubmit={(e) => {
@@ -210,7 +211,7 @@ export function MembersPanel({
 
   return (
     <>
-      <section className="card">
+      <section className="card" data-tour="members-access">
         <h2 style={{ marginBottom: 8 }}>Quem tem acesso</h2>
         <div className="rows">
           {members.map((m) => (
@@ -253,7 +254,7 @@ export function MembersPanel({
       </section>
 
       {isOwner && (
-        <section className="card section">
+        <section className="card section" data-tour="members-invite">
           <h2 style={{ marginBottom: 4 }}>Convidar alguém</h2>
           <p className="faint" style={{ marginBottom: 12 }}>
             Gere um link e envie para a pessoa.

@@ -91,7 +91,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       />}
 
       {/* Busca e filtros ficam presos no topo ao rolar: dá para pesquisar sem voltar lá em cima. */}
-      <div className="list-toolbar">
+      <div className="list-toolbar" data-tour="tx-search">
       <form action="/transacoes" style={{ marginBottom: 10, position: "relative" }}>
         {Object.entries(sp)
           .filter(([k]) => !["q", "paginas"].includes(k))

@@ -39,7 +39,7 @@ export function AwaitingIncome({
   const day = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   const daysLate = (iso: string) => Math.round((Date.parse(today) - Date.parse(iso)) / 86400000);
   return (
-    <section className="card section awaiting" aria-labelledby="a-receber">
+    <section className="card section awaiting" aria-labelledby="a-receber" data-tour="dash-awaiting">
       <div className="card-head">
         <h2 id="a-receber">
           <Hourglass size={17} strokeWidth={1.9} aria-hidden /> A receber

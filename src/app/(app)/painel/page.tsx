@@ -263,7 +263,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         </div>
       ) : (
         <div className="grid dash-bottom section">
-          <section className="card" aria-labelledby="recent">
+          <section className="card" aria-labelledby="recent" data-tour="dash-recent">
             <div className="card-head">
               <h2 id="recent">Últimos lançamentos de {monthName}</h2>
               <Link href={`/transacoes${filtersToQuery({ ...filters, month: month })}`}>

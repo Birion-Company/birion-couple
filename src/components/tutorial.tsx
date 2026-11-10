@@ -12,7 +12,9 @@ import { ArrowDown, ArrowLeft, ArrowRight, Bell, Check, ChevronLeft, ChevronRigh
  */
 type Demo = "people" | "kinds" | "split" | "card" | "series" | "debts" | "panel" | "bell" | "confirm" | "settings";
 type Step = {
-  /** Página do passo; se for outra, o tour navega até lá. */
+  /** Tela ou assunto do passo (aparece em cima do título). */
+  chapter: string;
+  /** Página do passo (pode ter ?consulta); se for outra, o tour navega até lá. */
   route?: string;
   /** Áreas candidatas (a primeira visível é destacada). Sem área, o balão fica no centro. */
   targets?: string[];
@@ -26,33 +28,330 @@ type Step = {
 };
 
 const STEPS: Step[] = [
-  { title: "Bem-vindo ao BIRION", text: "Contas divididas entre pessoas, sem planilha. Em 2 minutos você vê o principal.", demo: "people" },
-  { targets: ["new-fab", "tx-new"], title: "Novo lançamento", text: "Tudo começa no botão **+**. Toque nele sempre que gastar, receber ou alguém ficar te devendo." },
-  { route: "/transacoes/nova", targets: ["tx-kind"], title: "Tipo", text: "**Despesa**: algo pago. **Receita**: dinheiro para você — diga se **já recebeu** ou se **ainda vai receber**. **Dívida**: alguém fica devendo. **Acerto**: alguém pagou alguém." },
-  { route: "/transacoes/nova", targets: ["tx-card", "tx-payer"], title: "Como foi pago", text: "Escolha o cartão. Logo embaixo aparece em qual **fatura** a compra entra — cada cartão fecha e vence num dia diferente." },
-  { route: "/transacoes/nova", targets: ["tx-split"], title: "Quem deveria pagar", text: "Toque e pesquise o nome. Marcou mais gente? Divide. A **seta** mostra para onde o dinheiro vai ter que ir." },
-  { route: "/transacoes/nova", targets: ["tx-people"], title: "Pessoas", text: "Alguém novo? Cadastre um contato ou convide para o app aqui, sem sair do lançamento." },
-  { route: "/transacoes/nova", targets: ["tx-repeat"], title: "Parcelado e todo mês", text: "Celular em 10x cria os 10 meses sozinho. Começou no passado? As parcelas que já venceram não entram.", demo: "series" },
-  { route: "/painel", targets: ["dash-month"], title: "Escolha o mês", text: "O mês fica na **barra de cima** e abre na fatura que você tem que pagar. Use as setas ou **toque no nome do mês** para escolher mês e ano.", demo: "panel" },
-  { route: "/painel", targets: ["dash-summary"], title: "Resumo", text: "Em três frases: quanto **te devem**, quanto você paga de **cartão** (só a sua parte) e quanto **você deve**." },
-  { route: "/painel", targets: ["dash-outlook"], title: "Próximos meses", text: "Quanto já está comprometido em cada mês: parcelas e contas fixas." },
-  { route: "/transacoes", targets: ["filters"], title: "Filtros", text: "Pessoa, categoria e status abrem **ao lado**, cada um com pesquisa." },
+  // ---------- Começo ----------
   {
+    chapter: "Começo",
+    title: "Bem-vindo ao BIRION",
+    text: "O BIRION organiza o dinheiro que você divide com outras pessoas: quem pagou, quem deve, quanto sai de cartão e o que ainda vai entrar. Este guia passa por **cada tela** e mostra para que serve cada campo. Dá para sair quando quiser e voltar pelo botão **Tutorial**.",
+    demo: "people",
+  },
+  // ---------- Painel ----------
+  {
+    chapter: "Painel",
+    route: "/painel",
+    targets: ["dash-month"],
+    title: "Escolha o mês",
+    text: "O mês que o app mostra fica no centro da **barra de cima**. Use as setas ou **toque no nome** para escolher mês e ano. Com cartão, cada mês é a **fatura que vence nele**. O botão ao lado fica cinza no mês atual e acende quando você sai dele: toque para voltar.",
+    demo: "panel",
+  },
+  {
+    chapter: "Painel",
+    route: "/painel",
+    targets: ["dash-awaiting"],
+    title: "A receber",
+    text: "Dinheiro que deveria entrar e que o app **não supõe que entrou**: receitas marcadas como “ainda vou receber” e dívidas a seu favor que já venceram. Caiu na conta? Toque em **Recebi**. O valor de cada pessoa já desconta o que ela pagou e o que você deve a ela.",
+    emptyText: "Quando houver dinheiro para entrar (um salário, uma venda, alguém que te deve), aparece aqui o quadro **A receber**, com o botão **Recebi**. O app só conta esse dinheiro depois que você confirma que recebeu.",
+  },
+  {
+    chapter: "Painel",
+    route: "/painel",
+    targets: ["dash-summary"],
+    title: "Resumo do mês",
+    text: "Três números: quanto **te devem**, quanto você paga de **cartão** neste mês (só a sua parte, não a dos outros) e quanto **você deve**. Toque em cada um para ver os detalhes.",
+  },
+  {
+    chapter: "Painel",
+    route: "/painel",
+    targets: ["dash-outlook"],
+    title: "Próximos 12 meses",
+    text: "Quanto já está comprometido em cada mês com **parcelas** e **contas fixas**. Serve para ver antes se um mês vai apertar. Toque num mês para abrir.",
+  },
+  {
+    chapter: "Painel",
+    route: "/painel",
+    targets: ["dash-recent"],
+    title: "Últimos lançamentos",
+    text: "O que entrou neste mês: despesas em **vermelho**, receitas em **verde**. Embaixo de cada um, os selos dizem quem já pagou e quem ainda deve, na **cor da pessoa**.",
+    emptyText: "Ainda não há lançamentos neste mês. Quando houver, os últimos aparecem aqui, com despesas em **vermelho** e receitas em **verde**.",
+  },
+  {
+    chapter: "Painel",
+    targets: ["new-fab", "tx-new"],
+    title: "Novo lançamento",
+    text: "O botão **+** abre um lançamento novo em qualquer tela. A seguir, cada campo dele.",
+  },
+  // ---------- Novo lançamento ----------
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-kind"],
+    title: "Tipo",
+    text: "**Despesa**: algo que foi pago (mercado, aluguel). **Receita**: dinheiro que entra, como salário ou bolsa. **Dívida**: alguém fica te devendo sem ser uma conta dividida (emprestou dinheiro, vendeu algo para pagar depois). **Acerto**: alguém pagou alguém para quitar o que devia.",
+    demo: "kinds",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-amount"],
+    title: "Valor",
+    text: "O valor total. Em **Parcelado**, é o valor da compra inteira (o app divide nas parcelas). Em **Todo mês**, é o valor de cada mês.",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-desc"],
+    title: "Descrição",
+    text: "Um nome curto: “Mercado”, “Conta de luz”, “Notebook”. Com uma regra em Ajustes → Categorias, uma descrição como “uber” já ganha a categoria sozinha.",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-date"],
+    title: "Data",
+    text: "Decide o **mês** do lançamento. **Pix, dinheiro ou débito** entram no mês da data. **No cartão**, entram no mês em que a fatura **vence** (num cartão que fecha dia 3, a compra do dia 5 vai para a fatura seguinte). Data no futuro vira previsão.",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-repeat"],
+    title: "Repetição",
+    text: "**Uma vez**; **Parcelado** (10x cria as 10 parcelas, uma em cada fatura); ou **Todo mês** (aluguel, assinatura, salário: repete sem data para acabar). Parcelas que já venceram não entram: o app olha de hoje para frente.",
+    demo: "series",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-payer"],
+    title: "Quem pagou",
+    text: "Quem tirou o dinheiro do bolso. Foi outra pessoa (seu amigo pagou o almoço)? Escolha ela: aí é **você** quem fica devendo a sua parte para ela.",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-card", "tx-card-hint"],
+    title: "Cartão",
+    text: "Foi no cartão? Escolha qual, e logo embaixo aparece em qual **fatura** a compra entra. Cada pessoa vê os próprios cartões; no cartão, quem pagou é sempre o dono dele. Sem cartão (Pix, dinheiro) conta no mês da data.",
+    demo: "card",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-split"],
+    title: "Quem deveria pagar",
+    text: "Quem tem parte na conta. Marcou você e mais alguém? A conta é dividida e cada um fica devendo a sua parte para quem pagou. A **seta** entre os campos mostra para onde o dinheiro tem que ir.",
+    demo: "split",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-split-mode"],
+    title: "Como dividir",
+    text: "**Partes iguais** divide por igual. **Valores diferentes** deixa você digitar quanto é de cada um (aluguel de R$ 700: R$ 500 da sua mãe e R$ 200 seus). A soma precisa dar o total.",
+    emptyText: "Com mais de uma pessoa na conta, aparece a escolha entre **Partes iguais** e **Valores diferentes** (para digitar quanto é de cada um, como R$ 500 e R$ 200 num aluguel de R$ 700).",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-category"],
+    title: "Categoria",
+    text: "Para onde foi o dinheiro: Mercado, Transporte, Casa… É o que monta os **gastos por categoria** do painel e da exportação. Só despesa tem categoria.",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-state"],
+    title: "Status",
+    text: "O app calcula sozinho: **Pago** (ninguém deve nada), **A acertar** (alguém ainda deve a parte), **Na fatura** (cartão ainda não pago) e **A receber** (dinheiro que não caiu). Você não escolhe.",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-impact"],
+    title: "O que este lançamento muda",
+    text: "Abra para ver, antes de salvar, o efeito do lançamento: quem passa a dever quanto, em qual mês e em qual fatura ele entra.",
+  },
+  {
+    chapter: "Novo lançamento",
+    route: "/transacoes/nova",
+    targets: ["tx-people"],
+    title: "Pessoas",
+    text: "Alguém novo na conta? Cadastre um **contato** (sem login) ou **convide** para o app, sem sair do lançamento. Depois é só escolher a pessoa nos campos.",
+  },
+  // ---------- Lançamentos ----------
+  {
+    chapter: "Lançamentos",
     route: "/transacoes",
-    targets: ["tx-list", "tx-list-empty"],
-    title: "Lançamentos",
-    text: "Tudo do mês. Quem ainda deve aparece na **cor da pessoa**. Toque num item para editar.",
-    emptyText: "Ainda vazio. Assim aparece um lançamento:",
+    targets: ["debts-tab"],
+    title: "Duas abas",
+    text: "A primeira tem o **nome do mês** (ou da fatura) e mostra tudo daquele mês. A aba **Dívidas** mostra quem deve para quem somando **todos os meses**, porque dívida não some quando o mês vira.",
+  },
+  {
+    chapter: "Lançamentos",
+    route: "/transacoes",
+    targets: ["tx-search"],
+    title: "Busca e filtros",
+    text: "Pesquise pela descrição. Em **Filtros**: **Pessoa** (“Gastos de Fulano” mostra só a parte dele; “Fulano tem a receber” mostra o que devem a ele), **Categoria** e **Status**. A barra fica presa no topo enquanto você rola.",
+  },
+  {
+    chapter: "Lançamentos",
+    route: "/transacoes",
+    targets: ["tx-first", "tx-list-empty"],
+    title: "Cada lançamento",
+    text: "Vermelho é despesa, verde é receita. Os selos mostram cada pessoa: **deve** (na cor dela), **pagou** ou **confirmando**. Dívida paga em parte fica com o valor antigo **riscado** e o que falta ao lado; pagou a mais, aparece o **lucro**. Toque para editar, ou marque as caixinhas para mudar vários de uma vez.",
+    emptyText: "Ainda não há lançamentos. Assim aparece um: o valor, quem pagou e um selo por pessoa (**deve**, na cor dela, ou **pagou**).",
     emptyDemo: "split",
   },
-  { route: "/transacoes", targets: ["debts-tab"], title: "Dívidas", text: "Na aba **Dívidas** fica quem deve para quem. Te pagaram? Toque em **Recebi**. Pagou só uma parte? O resto continua, com o valor antigo **riscado**. Pagou a mais? A diferença aparece como **lucro**.", demo: "debts" },
-  { route: "/cartoes", targets: ["cards-stats", "cards-intro", "cards"], title: "Cartões", text: "Cada cartão tem o seu dia de **fechar** e de **vencer**. A compra conta no mês em que a fatura dela vence. Pagou? **Marcar como paga**.", demo: "card" },
-  { targets: ["nav-confirm"], title: "Para confirmar", text: "Se alguém te colocar numa conta, você **aceita** ou **recusa** (pode dizer o motivo). Só vale nas dívidas depois de aceito.", demo: "confirm" },
-  { targets: ["nav-projects"], title: "Projetos", text: "Junte os gastos de um assunto, como uma viagem: crie o projeto e coloque os lançamentos nele. No celular, fica no menu da sua foto." },
-  { targets: ["nav-identify"], title: "A identificar", text: "O que chega sem categoria ou sem dono fica aqui para você completar." },
-  { targets: ["bell"], title: "Avisos", text: "Fatura fechando, alguém te pagou, alguém recusou: tudo aparece no **sino** e no celular." },
-  { route: "/ajustes", targets: ["settings-tabs"], title: "Ajustes", text: "**Família**: nome e moeda. **Pessoas**: quem divide com você. **Categorias** e regras automáticas. **Acesso**: convites. **Importação**: extrato do banco. **Exportação**: o mês em Excel ou PDF.", demo: "settings" },
-  { targets: ["help"], title: "Pronto!", text: "Dúvidas? **Como funciona**, no menu da sua foto, explica tudo com exemplos. O botão **Tutorial** abre este guia de novo." },
+  {
+    chapter: "Lançamentos",
+    route: "/transacoes",
+    targets: ["fixed-bills"],
+    title: "Contas fixas",
+    text: "Tudo que repete **todo mês**, com o valor e quando vem o próximo. É só para consulta: para mudar ou parar, abra o lançamento.",
+    emptyText: "Quando você cadastrar algo **Todo mês** (aluguel, assinatura, salário), aparece aqui o quadro **Contas fixas**, com cada uma e a data da próxima.",
+  },
+  {
+    chapter: "Lançamentos",
+    route: "/transacoes",
+    targets: ["tx-actions"],
+    title: "Lançar vários",
+    text: "Para registrar muitos de uma vez (as compras do fim de semana, por exemplo), numa tabela rápida.",
+  },
+  {
+    chapter: "Lançamentos",
+    route: "/transacoes",
+    title: "Mudar uma parcela",
+    text: "Ao editar uma parcela, ou um mês de algo que repete, aparece **Salvar a mudança em**: **Só esta parcela** (o padrão: ex., neste mês sua mãe pagou o aluguel inteiro) ou **Esta e as próximas** (valor e divisão mudam daqui para frente). Em **Todo mês** também tem **Parar de repetir**.",
+  },
+  {
+    chapter: "Dívidas",
+    route: "/transacoes?dividas=1",
+    targets: ["debts"],
+    title: "Quem deve para quem",
+    text: "O saldo de cada pessoa, já descontando o que ela pagou e o que você deve a ela. Escolha uma pessoa no filtro para ver o saldo com ela, **Registrar pagamento do total** e o histórico do que ela já pagou.",
+    demo: "debts",
+  },
+  {
+    chapter: "Dívidas",
+    route: "/transacoes?dividas=1",
+    title: "Recebi e Paguei",
+    text: "Abra um lançamento com dívida (ou use o **A receber** do painel): cada pessoa que deve tem **Recebi** (ou **Paguei**), que pergunta **quanto** foi pago de verdade. Menos que o devido? O resto continua em aberto no mesmo lançamento, com o valor antigo riscado. Mais? A diferença vira **lucro**. Se a outra pessoa tem login, ela confirma o pagamento.",
+  },
+  // ---------- Outras telas ----------
+  {
+    chapter: "A identificar",
+    route: "/identificar",
+    targets: ["identify-list"],
+    title: "A identificar",
+    text: "O que chegou sem categoria, sem quem pagou ou sem quem deveria pagar (do extrato do banco, por exemplo) fica aqui. Complete e o lançamento sai da lista. O número no menu diz quantos faltam.",
+  },
+  {
+    chapter: "Cartões",
+    route: "/cartoes",
+    targets: ["cards-stats", "cards-intro", "cards"],
+    title: "Cartões",
+    text: "Cadastre cada cartão com o dia em que a fatura **fecha** e o dia em que **vence**. O app calcula em qual fatura cada compra entra e mostra o total e a **sua parte** (o resto, os outros te devem). Pagou a fatura? **Marcar como paga**. Embaixo ficam os parcelados em andamento.",
+    demo: "card",
+  },
+  {
+    chapter: "Projetos",
+    route: "/projetos",
+    targets: ["projects-new"],
+    title: "Projetos",
+    text: "Junte os gastos de um assunto: uma viagem, uma reforma, uma festa. Crie o projeto e coloque os lançamentos nele (ou escolha o projeto na hora de lançar). Cada projeto mostra o total e a categoria de cada gasto.",
+  },
+  {
+    chapter: "Para confirmar",
+    route: "/confirmar",
+    targets: ["confirm-list"],
+    title: "Para confirmar",
+    text: "Quando alguém **com login** coloca você numa conta, numa dívida ou num pagamento, aparece aqui. Você **aceita** ou **recusa** (e pode dizer o motivo). Só vale nas dívidas depois de aceito. Contatos sem login não precisam confirmar nada.",
+    demo: "confirm",
+  },
+  {
+    chapter: "Avisos",
+    targets: ["bell"],
+    title: "Avisos",
+    text: "O **sino** mostra fatura fechando, pagamento recebido, alguém recusou algo seu. Em **Meu perfil** dá para receber os avisos também no celular.",
+    demo: "bell",
+  },
+  // ---------- Ajustes ----------
+  {
+    chapter: "Ajustes",
+    route: "/ajustes",
+    targets: ["family-form", "settings-tabs"],
+    title: "Família",
+    text: "O nome da família e a **moeda**. Família é o grupo que divide as contas. Quem **administra** pode mudar; os outros só veem. As abas acima levam a cada parte dos ajustes.",
+    demo: "settings",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/pessoas",
+    targets: ["people-login"],
+    title: "Pessoas com login",
+    text: "Quem **entra no app**: vê o que o envolve, recebe avisos e **confirma** o que você lança no nome dele. Conta no limite de pessoas do plano, junto com você.",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/pessoas",
+    targets: ["people-contacts"],
+    title: "Contatos sem login",
+    text: "Quem **entra nas contas, mas não usa o app**: sua mãe, o amigo do churrasco. Não confirma nada; o que você lança vale direto. Parado e sem dever nada, some das listas sozinho e volta ao aparecer num lançamento. O **aviãozinho** manda um convite para ele virar “com login”.",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/membros",
+    targets: ["members-invite", "members-access"],
+    title: "Acesso e convites",
+    text: "Quem tem login na família e o papel de cada um: **Administra** (vê e muda tudo) ou **Membro** (vê o que o envolve). Em **Convidar alguém**, gere um link e mande para a pessoa entrar.",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/categorias",
+    targets: ["list-categories"],
+    title: "Categorias",
+    text: "Crie, mude a cor ou esconda categorias. Esconder não apaga: os lançamentos antigos continuam com ela.",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/categorias",
+    targets: ["category-rules"],
+    title: "Categorização automática",
+    text: "Regras do tipo “a descrição tem **uber** → Transporte”. Valem para os lançamentos novos e para os importados do banco.",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/importacao",
+    targets: ["import-file"],
+    title: "Importação",
+    text: "Mande o extrato do banco ou da fatura (**OFX** ou **CSV**, de qualquer banco). O app cria os lançamentos sem duplicar, e o que ficar faltando vai para **A identificar**.",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/exportacao",
+    targets: ["export-who"],
+    title: "Exportar: de quem",
+    text: "O seu extrato ou o de **outra pessoa**: os gastos dela por categoria, os lançamentos dela e a dívida entre vocês, item por item. Bom para mandar a quem te deve e não tem login. Sai com o **nome e a foto** de cada um.",
+  },
+  {
+    chapter: "Ajustes",
+    route: "/ajustes/exportacao",
+    targets: ["export-files"],
+    title: "Planilha ou PDF",
+    text: "Escolha o mês no calendário. A **planilha** tem uma aba para cada parte; o **PDF** é um extrato pronto para mandar. Os dois têm o mesmo conteúdo, com **+** verde para o que entra, **−** vermelho para o que sai e as contas fixas separadas em **Recorrentes**.",
+  },
+  // ---------- Fim ----------
+  {
+    chapter: "Sua conta",
+    targets: ["user-menu"],
+    title: "Sua conta",
+    text: "Na sua foto: **Meu perfil** (foto, nome, cor, senha e avisos no celular), **Ajustes**, **Como funciona** (cada termo explicado com exemplos) e **Sair**.",
+  },
+  {
+    chapter: "Fim",
+    targets: ["help"],
+    title: "Pronto!",
+    text: "Agora você conhece todas as telas. Para rever, toque em **Tutorial**. Dúvida num termo? **Como funciona** explica cada um.",
+  },
 ];
 
 const MOBILE = 640;
@@ -328,6 +627,38 @@ function isPinned(el: HTMLElement) {
   return false;
 }
 
+/** Barras que ficam presas no topo ao rolar (barra de cima, busca e filtros de Lançamentos). */
+const STICKY = ".topbar, .list-toolbar";
+
+/** Barras presas que ficam por cima da área quando ela sobe (as que vêm antes dela na página). */
+function stickyAbove(el: HTMLElement) {
+  return [...document.querySelectorAll<HTMLElement>(STICKY)].filter(
+    (n) => !n.contains(el) && !el.contains(n) && n.getClientRects().length > 0 && !!(n.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING),
+  );
+}
+
+/** Até onde as barras presas cobrem a tela, quando estão grudadas no topo (para não esconder a área). */
+function stickyFloor(el: HTMLElement) {
+  let floor = 56;
+  for (const n of stickyAbove(el)) {
+    const top = parseFloat(getComputedStyle(n).top) || 0;
+    floor = Math.max(floor, top + n.getBoundingClientRect().height);
+  }
+  return floor;
+}
+
+/** Onde o recorte começa agora: embaixo das barras presas que estão grudadas no topo neste momento. */
+function stickyClip(el: HTMLElement) {
+  let clip = 0;
+  for (const n of stickyAbove(el)) {
+    const r = n.getBoundingClientRect();
+    const top = parseFloat(getComputedStyle(n).top) || 0;
+    // Grudada (no lugar de "top") ou é a barra de cima: cobre o que passa por baixo dela.
+    if (n.classList.contains("topbar") || r.top <= top + 1) clip = Math.max(clip, r.bottom);
+  }
+  return clip;
+}
+
 const sameBox = (a: Box | null, b: Box | null) =>
   a === b || (!!a && !!b && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.left - b.left) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5 && Math.abs(a.clip - b.clip) < 0.5);
 
@@ -400,11 +731,18 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
   useEffect(() => {
     if (!open) return;
     const st = STEPS[step];
-    if (st.route && pathname !== st.route) {
+    const [path, query] = (st.route ?? "").split("?");
+    // Mesma página, mas outra aba (ex.: Lançamentos ↔ Dívidas): troca só a consulta.
+    const otherTab = !!st.route && pathname === path && (query ? window.location.search !== `?${query}` : path === "/transacoes" && window.location.search.includes("dividas=1"));
+    if (st.route && pathname !== path) {
       // Página nova abre no topo; a rolagem até a área vem depois, sem animação.
       navigated.current = true;
       router.push(st.route);
       return; // roda de novo quando a página trocar
+    }
+    if (otherTab) {
+      navigated.current = true;
+      router.push(st.route!);
     }
     let alive = true;
     let el: HTMLElement | null = null;
@@ -414,8 +752,8 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
       if (el && !el.isConnected) el = findTarget(st.targets);
       if (el) {
         const r = el.getBoundingClientRect();
-        const bar = document.querySelector<HTMLElement>(".topbar");
-        const clip = bar && !bar.contains(el) ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+        // O destaque fica embaixo da barra de cima e da busca presa (não passa por cima delas).
+        const clip = Math.max(0, stickyClip(el));
         const next = { top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2, clip };
         setBox((prev) => (sameBox(prev, next) ? prev : next));
       }
@@ -435,12 +773,14 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
       const vh = window.innerHeight;
       let delta = 0;
       if (!isPinned(target)) {
-        // Celular: área logo abaixo da barra de cima, balão embaixo. PC: área + balão centralizados.
+        // Celular: área logo abaixo das barras presas, balão embaixo. PC: área + balão centralizados.
+        // Nunca por baixo da barra de cima nem da busca presa de Lançamentos.
+        const floor = stickyFloor(target) + 16;
         const block = r.height + 12 + cardH.current;
-        const want = window.innerWidth < MOBILE ? 72 : block <= vh - 32 ? (vh - block) / 2 : 72;
+        const want = window.innerWidth < MOBILE ? floor : Math.max(floor, block <= vh - 32 ? (vh - block) / 2 : floor);
         delta = r.top - want;
         // Já está numa boa posição: não mexe.
-        if (r.top >= 64 && r.bottom + 12 + (window.innerWidth < MOBILE ? 0 : cardH.current) <= vh - 16 && (window.innerWidth >= MOBILE || r.bottom <= vh * 0.5)) delta = 0;
+        if (r.top >= floor && r.bottom + 12 + (window.innerWidth < MOBILE ? 0 : cardH.current) <= vh - 16 && (window.innerWidth >= MOBILE || r.bottom <= vh * 0.5)) delta = 0;
         if (Math.abs(delta) > 2) window.scrollTo({ top: window.scrollY + delta, behavior: "instant" });
       }
       // Na mesma página, o destaque desliza rápido da área anterior até a nova (texto troca junto).
@@ -524,7 +864,14 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
     cardStyle = sheetTop
       ? // Embaixo da barra de cima, que fica por cima de tudo do tutorial.
         { position: "fixed", left: 12, right: 12, top: (box?.clip || 56) + 8, maxHeight: "50dvh" }
-      : { position: "fixed", left: 12, right: 12, bottom: "calc(12px + env(safe-area-inset-bottom))", maxHeight: "50dvh" };
+      : {
+          position: "fixed",
+          left: 12,
+          right: 12,
+          bottom: "calc(12px + env(safe-area-inset-bottom))",
+          // Encolhe (o texto rola dentro) para não cobrir a área; no mínimo um terço da tela.
+          maxHeight: box ? Math.max(vh * 0.34, Math.min(vh * 0.5, vh - (box.top + box.height) - 20)) : "50dvh",
+        };
   } else if (box) {
     const w = Math.min(380, vw - 32);
     const h = cardSize.h;
@@ -571,7 +918,7 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
       >
         <div className="tour-card-head">
           <span className="tour-count">
-            {shown + 1} de {STEPS.length}
+            <span className="tour-chapter">{s.chapter}</span> · {shown + 1} de {STEPS.length}
           </span>
           <button type="button" className="icon-btn tour-close" onClick={close} aria-label="Fechar tutorial">
             <X size={16} />

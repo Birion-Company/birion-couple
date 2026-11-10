@@ -48,7 +48,7 @@ export default async function ConfirmPage() {
       </div>
 
       {empty && (
-        <div className="card section">
+        <div className="card section" data-tour="confirm-list">
           <p className="debts-empty">
             <CheckCircle2 size={18} strokeWidth={1.7} aria-hidden /> Nada para confirmar.
           </p>
@@ -59,7 +59,7 @@ export default async function ConfirmPage() {
       )}
 
       {inbox.toMe.length > 0 && (
-        <section className="card section" aria-labelledby="esperando-voce">
+        <section className="card section" aria-labelledby="esperando-voce" data-tour="confirm-list">
           <div className="card-head">
             <h2 id="esperando-voce">Esperando você</h2>
             <span className="faint num">{inbox.toMe.length}</span>

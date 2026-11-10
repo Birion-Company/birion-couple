@@ -99,16 +99,16 @@ export function TxList({
         </div>
       )}
       <section className="card tx-months">
-        {groupByMonth(rows).map((g) => (
+        {groupByMonth(rows).map((g, gi) => (
           <div key={g.key} className="tx-month">
             <h2 className="tx-month-label">{g.label}</h2>
             <div className="rows">
-              {g.rows.map((tx) => {
+              {g.rows.map((tx, ti) => {
                 const { cat, status, project, series } = txMeta(tx, lookups);
                 const look = txLook(tx, cat);
                 const details = [formatDate(tx.date), look.name, project?.name].filter(Boolean).join(" · ");
                 return (
-                  <div key={tx.id} className={`row tx-line ${txProfit(tx) > 0 ? "has-profit" : ""}`}>
+                  <div key={tx.id} className={`row tx-line ${txProfit(tx) > 0 ? "has-profit" : ""}`} data-tour={gi === 0 && ti === 0 ? "tx-first" : undefined}>
                     <input
                       type="checkbox"
                       aria-label={canEdit(tx) ? `Selecionar ${tx.description}` : `${tx.description} (lançado por outra pessoa)`}

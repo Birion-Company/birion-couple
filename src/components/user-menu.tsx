@@ -90,6 +90,7 @@ export function UserMenu({
         ref={buttonRef}
         type="button"
         className={`user-btn ${compact ? "compact" : ""}`}
+        data-tour="user-menu"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}

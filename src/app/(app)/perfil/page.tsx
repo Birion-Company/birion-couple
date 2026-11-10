@@ -12,7 +12,7 @@ export default async function ProfilePage() {
   const me = auth.participantId ? (await getLookups(auth.householdId)).participants.find((p) => p.id === auth.participantId) : null;
   return (
     <div className="profile-page">
-      <section className="profile-hero" aria-label="Foto e identificação">
+      <section className="profile-hero" aria-label="Foto e identificação" data-tour="profile">
         <AvatarEditor name={auth.userName} avatarUrl={avatarUrl} />
         <div className="profile-id">
           <h1>{auth.userName}</h1>

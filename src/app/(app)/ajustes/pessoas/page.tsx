@@ -22,7 +22,7 @@ export default async function PeoplePage() {
   const owner = auth.role === "owner";
   return (
     <>
-      <section className="card section" aria-labelledby="familia">
+      <section className="card section" aria-labelledby="familia" data-tour="people-login">
         <div className="card-head">
           <h2 id="familia">Família (com login)</h2>
           <span className={`faint num ${members.length >= MEMBERS_MAX ? "neg" : ""}`}>
@@ -52,7 +52,7 @@ export default async function PeoplePage() {
         )}
       </section>
 
-      <section className="section" aria-labelledby="contatos">
+      <section className="section" aria-labelledby="contatos" data-tour="people-contacts">
         <h2 id="contatos" style={{ margin: "0 0 4px" }}>Contatos (sem login)</h2>
         <div className="contacts-help">
           <p>

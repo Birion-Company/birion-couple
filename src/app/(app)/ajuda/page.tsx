@@ -67,6 +67,7 @@ const SECTIONS: Section[] = [
       { term: "Todo mês", text: "Repete sem data para acabar (ex.: aluguel, Spotify). Para parar: abra o lançamento em Lançamentos e toque em “Parar de repetir”." },
       { term: "Começou no passado?", text: "O app olha de hoje para frente: parcelas que já venceram não entram. Ex.: celular em 24x desde abril começa na 7ª." },
       { term: "Virar repetição depois", text: "Abra um lançamento avulso e escolha Parcelado ou Todo mês: ele vira o primeiro." },
+      { term: "Mudar uma parcela", text: "Ao editar, escolha “Só esta parcela” (um mês diferente, ex.: sua mãe pagou o aluguel inteiro) ou “Esta e as próximas” (valor e divisão mudam daqui para frente)." },
     ],
   },
   {
@@ -134,7 +135,8 @@ const SECTIONS: Section[] = [
       { term: "Categorias", text: "Mercado, Moradia, Saúde… Arraste para ordenar. Embaixo, a categorização automática: “uber” → Transporte." },
       { term: "Acesso", text: "Links de convite e quem administra a família." },
       { term: "Importação", text: "Extrato do banco (OFX ou CSV), sem repetir o que já entrou." },
-      { term: "Exportação", text: "O mês em planilha do Excel ou em PDF, como um extrato de banco." },
+      { term: "Exportação", text: "O mês em planilha do Excel ou em PDF, como um extrato de banco: + verde para o que entra, − vermelho para o que sai e as contas fixas separadas em Recorrentes." },
+      { term: "Extrato de outra pessoa", text: "Em Exportação, escolha a pessoa em “De quem é o extrato”: sai com os gastos dela por categoria, os lançamentos dela e a dívida entre vocês item por item, com o nome e a foto de cada um. Para mandar a quem te deve e não tem login." },
     ],
   },
   {

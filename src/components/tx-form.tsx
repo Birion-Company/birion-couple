@@ -556,7 +556,7 @@ export function TxForm({
           </div>
           <p className="kind-help">{KIND_HELP[kind]}</p>
 
-          <label className="field">
+          <label className="field" data-tour="tx-amount">
             <span>{amountLabel}</span>
             <input
               className="input big num"
@@ -569,7 +569,7 @@ export function TxForm({
             />
           </label>
 
-          <label className="field">
+          <label className="field" data-tour="tx-desc">
             <span>Descrição</span>
             <input
               className="input"
@@ -581,7 +581,7 @@ export function TxForm({
             />
           </label>
 
-          <label className="field">
+          <label className="field" data-tour="tx-date">
             <span>{isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
             <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           </label>
@@ -709,13 +709,13 @@ export function TxForm({
             </p>
           )}
           {!between && kind === "expense" && visibleCards.length === 0 && !readOnly && (
-            <p className="faint card-cta">
+            <p data-tour="tx-card-hint" className="faint card-cta">
               <CreditCard size={15} strokeWidth={1.7} aria-hidden />
               Usa cartão? <Link href="/cartoes" className="pos">Cadastre o seu cartão</Link>.
             </p>
           )}
           {!between && splitIds.length > 0 && (
-            <div className="field split-amounts">
+            <div className="field split-amounts" data-tour="tx-split-mode">
               <div className="segmented" role="group" aria-label="Como dividir">
                 <button type="button" aria-pressed={mode === "equal"} onClick={() => setMode("equal")}>Partes iguais</button>
                 <button
@@ -774,7 +774,7 @@ export function TxForm({
 
           <div className="field-row">
             {kind === "expense" && (
-              <label className="field">
+              <label className="field" data-tour="tx-category">
                 <span>Categoria</span>
                 <Select
                   value={categoryId}

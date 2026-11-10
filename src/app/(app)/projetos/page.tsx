@@ -21,7 +21,7 @@ export default async function ProjectsPage() {
           <p className="muted">Junte num lugar só o que foi gasto num assunto: uma viagem, uma reforma, uma festa.</p>
         </div>
       </div>
-      <section className="card section">
+      <section className="card section" data-tour="projects-new">
         <NewProject count={projects.length} />
       </section>
       {active.length === 0 ? (

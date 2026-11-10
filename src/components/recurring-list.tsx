@@ -15,7 +15,7 @@ export function RecurringList({ items, currency }: { items: RecurringItem[]; cur
   if (items.length === 0) return null;
   const perMonth = items.filter((r) => r.kind === "expense").reduce((a, r) => a + r.amountCents, 0);
   return (
-    <details className="card fixed-bills">
+    <details className="card fixed-bills" data-tour="fixed-bills">
       <summary>
         <Repeat size={16} strokeWidth={1.8} aria-hidden />
         <span className="grow">

@@ -2656,6 +2656,11 @@ details.ledger > .rows + .ledger-upcoming {
   font-size: 0.75rem;
   color: var(--text-3);
 }
+/* Tela do passo (Painel, Novo lançamento, Ajustes…), para a pessoa saber onde está. */
+.tour-chapter {
+  font-weight: 700;
+  color: var(--brand-strong);
+}
 .tour-close {
   width: 30px;
   height: 30px;
@@ -2704,9 +2709,17 @@ details.ledger > .rows + .ledger-upcoming {
 }
 /* Celular: folha no rodapé (ou no topo, quando a área está embaixo). */
 .tour-card.sheet {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+}
+/* Só o texto rola: o título e os botões Voltar/Próximo ficam sempre à vista. */
+.tour-card.sheet .tour-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 18px;
 }
 .tour-card.sheet .tour-nav .btn {
   min-height: 42px;

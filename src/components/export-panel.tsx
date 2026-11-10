@@ -38,7 +38,7 @@ export function ExportPanel({
     <section className="card section export-panel">
       {/* Mesmo calendário do seletor de mês da barra de cima: um ano por vez, meses sem dados desligados. */}
       <div className="export-fields">
-        <div className="field export-who">
+        <div className="field export-who" data-tour="export-who">
           <span className="label-text">De quem é o extrato</span>
           <PeoplePicker
             people={people}
@@ -84,7 +84,7 @@ export function ExportPanel({
           ? `Extrato de ${other.name}: os gastos dela(e) por categoria, os lançamentos que envolvem ${other.name} e a dívida entre vocês, com o que forma cada valor. Sai com o nome e a foto de ${other.name} e os seus, para mandar ${other.hasLogin ? "" : "(ela(e) não tem login) "}por WhatsApp ou e-mail.`
           : "Com cartão, o mês é o da fatura que vence nele (igual ao painel). Vai tudo: resumo, faturas, gastos por categoria, dívidas e cada lançamento, com o seu nome e a sua foto."}
       </p>
-      <div className="export-options">
+      <div className="export-options" data-tour="export-files">
         <a
           className="export-option"
           href={`/api/exportar?mes=${month}${q}`}
