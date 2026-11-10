@@ -249,7 +249,7 @@ const STEPS: Step[] = [
     route: "/cartoes",
     targets: ["cards-stats", "cards-intro", "cards"],
     title: "Cartões",
-    text: "Cadastre cada cartão com o dia em que a fatura **fecha** e o dia em que **vence**. Dois blocos mostram a **próxima fatura a pagar** e a **fatura aberta**, com o total e quem deve o quê. Neles: **Ver compras** e **Marcar como paga**. Embaixo, as próximas faturas e os **parcelados em andamento** (o que repete todo mês fica em Contas fixas, em Lançamentos).",
+    text: "Cadastre cada cartão com o dia em que a fatura **fecha** e o dia em que **vence**. Dois blocos mostram a **próxima fatura a pagar** e a **fatura aberta**, com o total e quem deve o quê. Neles: **Ver compras** e **Marcar como paga**. Toque no nome da fatura para abrir **Lançamentos** já no mês dela. Embaixo, as próximas faturas.",
     demo: "card",
   },
   {

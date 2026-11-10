@@ -7655,3 +7655,12 @@ s.was {
   gap: 6px;
   margin-top: 8px;
 }
+
+/* Cartões: o nome do bloco leva para Lançamentos no mês dessa fatura. */
+.card-stat-link {
+  color: inherit;
+}
+.card-stat-link:hover strong {
+  color: var(--brand-strong);
+  text-decoration: underline;
+}

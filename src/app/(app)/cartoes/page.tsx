@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, Check, ChevronRight, CircleDashed, CreditCard, Repeat } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, CircleDashed, CreditCard } from "lucide-react";
 import { ArchivedCard, CardPanel, NewCard } from "@/components/card-forms";
 import { InvoicePayButton } from "@/components/invoice-pay";
 import { Avatar, Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { getCardOverview } from "@/lib/card-queries";
-import { invoiceDates, longMonth, monthLabel, shortDate } from "@/lib/cards";
+import { invoiceDates, longMonth, shortDate } from "@/lib/cards";
 import { filtersToQuery } from "@/lib/filters";
 import { CARDS_PER_PERSON_MAX } from "@/lib/defaults";
 import { getLookupsFor } from "@/lib/queries";
@@ -81,7 +81,7 @@ function StatActions({ inv, cardId, canPay }: { inv: Invoice | undefined; cardId
   if (!inv) return null;
   return (
     <div className="card-stat-actions">
-      <Link className="btn small ghost" href={`/transacoes${filtersToQuery({ period: "custom", from: inv.from, to: inv.to, card: cardId })}`}>
+      <Link className="btn small ghost" href={`/transacoes${filtersToQuery({ month: inv.due.slice(0, 7), card: cardId })}`}>
         Ver compras <ChevronRight size={14} strokeWidth={1.8} aria-hidden />
       </Link>
       {canPay && inv.totalCents > 0 && inv.state !== "future" && <InvoicePayButton cardId={cardId} invoice={inv.key} paid={inv.paid} label={`que vence ${shortDate(inv.due)}`} />}
@@ -94,7 +94,7 @@ function InvoiceRows({ invoices, cardId, currency, me, faces, canPay }: { invoic
     <div className="rows">
       {invoices.map((inv) => (
         <div key={inv.key} className={`row invoice-row ${inv.paid ? "invoice-paid" : ""}`}>
-          <Link className="grow invoice-link" href={`/transacoes${filtersToQuery({ period: "custom", from: inv.from, to: inv.to, card: cardId })}`}>
+          <Link className="grow invoice-link" href={`/transacoes${filtersToQuery({ month: inv.due.slice(0, 7), card: cardId })}`}>
             <div className="grow">
               {/* Fatura com o nome do mês em que vence (como os bancos chamam): "Fatura de novembro". */}
               <p className="title">
@@ -178,7 +178,7 @@ export default async function CardsPage() {
               <span className="faint"> · {g.cards.length} de {CARDS_PER_PERSON_MAX}</span>
             </h2>
           )}
-          {g.cards.map(({ card, schedule: s, openTotal, dueTotal, openShares, dueShares, invoices, series }) => (
+          {g.cards.map(({ card, schedule: s, openTotal, dueTotal, openShares, dueShares, invoices }) => (
         <CardPanel
           key={card.id}
           card={card}
@@ -202,7 +202,9 @@ export default async function CardsPage() {
             {/* A pagar à esquerda (a anterior), a aberta à direita (a que vem). */}
             <div className={`card-stat ${s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "warn" : ""}`}>
               <p className="label">
-                <strong>{s.dueInvoice === s.open ? "Vencimento desta fatura" : "Próxima fatura a pagar"}</strong>
+                <Link className="card-stat-link" href={`/transacoes${filtersToQuery({ month: s.dueDate.slice(0, 7), card: card.id })}`}>
+                  <strong>{s.dueInvoice === s.open ? "Vencimento desta fatura" : "Próxima fatura a pagar"}</strong>
+                </Link>
               </p>
               <p className="value"><Money cents={dueTotal} currency={cur} /></p>
               <SharesLine shares={dueShares} me={me} faces={faces} currency={cur} strong />
@@ -215,7 +217,10 @@ export default async function CardsPage() {
             </div>
             <div className="card-stat">
               <p className="label">
-                <strong>Fatura aberta</strong> · vence {shortDate(invoiceDates(s.open, card).due)}
+                <Link className="card-stat-link" href={`/transacoes${filtersToQuery({ month: invoiceDates(s.open, card).due.slice(0, 7), card: card.id })}`}>
+                  <strong>Fatura aberta</strong>
+                </Link>{" "}
+                · vence {shortDate(invoiceDates(s.open, card).due)}
               </p>
               <p className="value"><Money cents={openTotal} currency={cur} /></p>
               <SharesLine shares={openShares} me={me} faces={faces} currency={cur} strong />
@@ -232,31 +237,6 @@ export default async function CardsPage() {
               <summary>Mais {invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).length - 4} {invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).length - 4 === 1 ? "fatura" : "faturas"} com parcelas lançadas</summary>
               <InvoiceRows invoices={invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).slice(4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
             </details>
-          )}
-          {/* "Todo mês" sem fim já está em Contas fixas (Lançamentos): aqui só o que tem fim (parcelados). */}
-          {series.some((x) => x.total !== null) && (
-            <>
-              <h3 className="card-subhead">Parcelados em andamento</h3>
-              <div className="rows">
-                {series.filter((x) => x.total !== null).map((x) => (
-                  <Link key={x.id} className="row series-row" href={`/transacoes/${x.nextId}`}>
-                    <Repeat size={16} strokeWidth={1.7} className="faint" aria-hidden />
-                    <div className="grow">
-                      <p className="title neg">{x.description}</p>
-                      <p className="sub">
-                        {x.total === null
-                          ? "repete todo mês, sem data para acabar"
-                          : `${x.kind === "installment" ? `parcela ${x.next} de ${x.total}` : `mês ${x.next} de ${x.total}`} · ${x.remaining === 1 ? "última" : `faltam ${x.remaining}`} · até ${monthLabel(x.lastDate.slice(0, 7))}`}
-                      </p>
-                    </div>
-                    <span className="amount">
-                      <Money cents={x.amountCents} currency={cur} className="neg" />
-                      <span className="sub" style={{ display: "block", textAlign: "right" }}>por mês</span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </>
           )}
         </CardPanel>
       ))}
