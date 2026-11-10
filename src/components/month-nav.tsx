@@ -2,7 +2,8 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Loader2, Sparkles, Undo2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { CalendarDays, CalendarX, ChevronDown, ChevronLeft, ChevronRight, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { addMonthsKey, longMonth, monthsBetween } from "@/lib/cards";
 import { filtersToQuery, type Filters } from "@/lib/filters";
 
@@ -37,10 +38,13 @@ export function MonthNav({
   const [target, setTarget] = useState<string | null>(null);
   const shown = pending && target ? target : month;
   const [picking, setPicking] = useState(false);
+  const [blocked, setBlocked] = useState<string | null>(null);
 
   const go = (key: string) => {
-    if (key > max || key < min) return;
+    if (key > max) return;
     setPicking(false);
+    // Antes de começar a usar o app não há dados: avisa em vez de abrir um mês vazio.
+    if (key < min) return setBlocked(key);
     setTarget(key);
     start(() => router.push(pathname + filtersToQuery({ ...filters, month: key === current ? null : key, period: "mes" }, "mes"), { scroll: false }));
   };
@@ -71,9 +75,7 @@ export function MonthNav({
         type="button"
         className="month-arrow"
         onClick={() => go(addMonthsKey(shown, -1))}
-        disabled={shown <= min}
-        aria-label={shown <= min ? "Antes disso você ainda não usava o app" : `Ver ${longMonth(addMonthsKey(shown, -1))}`}
-        title={shown <= min ? "Antes disso você ainda não usava o app" : undefined}
+        aria-label={`Ver ${longMonth(addMonthsKey(shown, -1))}`}
       >
         <ChevronLeft size={22} strokeWidth={2} />
       </button>
@@ -88,6 +90,7 @@ export function MonthNav({
             {pending ? <Loader2 size={18} className="spin" aria-label="Carregando" /> : <ChevronDown size={18} strokeWidth={2.2} className="month-pick-chevron" aria-hidden />}
           </button>
         </h2>
+        {blocked && <BlockedMonth month={blocked} min={min} onClose={() => setBlocked(null)} />}
         {picking && <MonthPicker value={shown} current={current} min={min} max={max} onPick={go} onClose={() => setPicking(false)} />}
         {detail && !pending && <p className="month-detail">{detail}</p>}
         {diff !== 0 && (
@@ -135,7 +138,7 @@ function MonthPicker({ value, current, min, max, onPick, onClose }: { value: str
   return (
     <div ref={box} className="month-picker" role="dialog" aria-label="Escolher mês">
       <div className="mp-head">
-        <button type="button" className="icon-btn" disabled={year <= minYear} onClick={() => setYear((y) => y - 1)} aria-label="Ano anterior">
+        <button type="button" className="icon-btn" onClick={() => (year <= minYear ? onPick(`${year - 1}-12`) : setYear((y) => y - 1))} aria-label="Ano anterior">
           <ChevronLeft size={18} />
         </button>
         <strong className="num">{year}</strong>
@@ -146,12 +149,13 @@ function MonthPicker({ value, current, min, max, onPick, onClose }: { value: str
       <div className="mp-grid">
         {MONTHS.map((m, i) => {
           const key = `${year}-${String(i + 1).padStart(2, "0")}`;
-          const off = key < min || key > max;
+          const off = key > max;
+          const before = key < min;
           return (
             <button
               key={key}
               type="button"
-              className={`mp-month ${key === value ? "on" : ""} ${key === current ? "now" : ""}`}
+              className={`mp-month ${key === value ? "on" : ""} ${key === current ? "now" : ""} ${before ? "before" : ""}`}
               disabled={off}
               aria-current={key === value ? "true" : undefined}
               title={key < min ? "Antes disso você ainda não usava o app" : key > max ? "Dá para ver até 12 meses à frente" : undefined}
@@ -164,5 +168,35 @@ function MonthPicker({ value, current, min, max, onPick, onClose }: { value: str
       </div>
       <p className="faint mp-note">Do mês em que você começou a usar o app até 12 meses à frente.</p>
     </div>
+  );
+}
+
+/** Aviso ao tentar abrir um mês de antes de a família começar a usar o app. */
+function BlockedMonth({ month, min, onClose }: { month: string; min: string; onClose: () => void }) {
+  const ok = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    ok.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const name = (k: string) => longMonth(k).toLowerCase();
+  return createPortal(
+    <div className="alert-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="alert-box" role="alertdialog" aria-modal="true" aria-labelledby="blocked-title" aria-describedby="blocked-text">
+        <span className="alert-icon" aria-hidden>
+          <CalendarX size={22} strokeWidth={1.9} />
+        </span>
+        <h2 id="blocked-title">Esse mês não tem dados</h2>
+        <p id="blocked-text">
+          Não dá para voltar para {name(month)}: você ainda não usava o app, então esse mês não foi alimentado. O primeiro mês que dá para ver é{" "}
+          <strong>{name(min)}</strong>.
+        </p>
+        <button ref={ok} type="button" className="btn primary" onClick={onClose}>
+          Entendi
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }
