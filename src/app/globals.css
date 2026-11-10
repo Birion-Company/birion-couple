@@ -7594,25 +7594,18 @@ s.was {
   align-items: center;
   gap: 6px;
 }
-/* A receber: aviso de que aqui é só o urgente, e onde está o resto. */
-.awaiting-scope {
-  margin: 0 0 6px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: color-mix(in srgb, #e0a526 12%, transparent);
-  font-size: 0.82rem;
+/* A receber: explicação do quadro (só o urgente) e total no canto. */
+.awaiting .awaiting-help {
+  margin: -2px 0 8px;
+  font-size: 0.86rem;
   color: var(--text-2);
 }
-.awaiting-scope strong {
-  color: #b9850f;
+.awaiting .awaiting-help strong {
+  color: var(--text);
 }
-:root[data-theme="dark"] .awaiting-scope strong {
-  color: #f0bf4c;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .awaiting-scope strong {
-    color: #f0bf4c;
-  }
+.awaiting-sum {
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 .awaiting-where {
   margin: 8px 0 0;

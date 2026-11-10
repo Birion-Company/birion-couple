@@ -103,24 +103,25 @@ export function AwaitingIncome({
         <h2 id="a-receber">
           <Hourglass size={17} strokeWidth={1.9} aria-hidden /> A receber
         </h2>
-        <span className="faint">
-          {late ? `${late} atrasad${late === 1 ? "o" : "os"}` : "você recebeu?"}
+        {/* Total à vista no canto, com quantos estão atrasados. */}
+        <span className="awaiting-sum">
+          <strong className="num">{formatMoney(total, currency)}</strong>
+          {late ? (
+            <span className="neg">
+              {" "}
+              · {late} atrasad{late === 1 ? "o" : "os"}
+            </span>
+          ) : null}
         </span>
       </div>
-      <p className="faint awaiting-help">
-        <strong className="num awaiting-total">
-          {formatMoney(total, currency)}
-        </strong>{" "}
-        em {list.length} {list.length === 1 ? "item" : "itens"}. Só conta depois
-        que você confirmar que recebeu.
-      </p>
-      {/* Deixa claro que aqui é só o urgente, e onde está o resto. */}
-      <p className="awaiting-scope">
-        <strong>Só o mais importante:</strong> o que já venceu ou vence neste
-        mês, do mais atrasado para o mais novo
+      {/* O que este quadro mostra (só o urgente) e quando conta como recebido. */}
+      <p className="awaiting-help">
+        Aqui aparece <strong>só o mais importante</strong>: o que já venceu ou
+        vence neste mês, do mais atrasado para o mais novo
         {list.length > SHOWN
-          ? ` (aparecem ${SHOWN}; toque em “Ver mais” para os outros)`
+          ? ` (os ${SHOWN} primeiros de ${list.length}; “Ver mais” abre o resto)`
           : ""}
+        . Só conta como recebido depois que você toca em <strong>Recebi</strong>
         .
       </p>
       <div className="rows">
