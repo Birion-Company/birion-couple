@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "pushPrefs" jsonb DEFAULT '{}' NOT NULL;

@@ -21,7 +21,7 @@ export function DeleteImportButton({ id, fileName, remaining }: { id: string; fi
         const what =
           remaining === 0
             ? `Apagar o registro da importação "${fileName}"? Os lançamentos dela já foram excluídos.`
-            : `Apagar a importação "${fileName}"? ${remaining === 1 ? "O lançamento que veio" : `Os ${remaining} lançamentos que vieram`} deste arquivo ${remaining === 1 ? "será excluído" : "serão excluídos"}, mesmo que tenham sido editados. Isso não pode ser desfeito.`;
+            : `Apagar a importação "${fileName}"? ${remaining === 1 ? "O lançamento que veio" : `Os ${remaining} lançamentos que vieram`} deste arquivo ${remaining === 1 ? "será excluído" : "serão excluídos"}. Não dá para desfazer.`;
         if (!window.confirm(what)) return;
         start(async () => {
           const r = await deleteImport(id);

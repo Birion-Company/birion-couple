@@ -93,7 +93,8 @@ export function Select({
     if (o.value !== value) onChange(o.value);
   };
 
-  // Fecha ao clicar fora, ao rolar a página (fora da lista) e ao redimensionar.
+  // Fecha ao tocar fora. Rolar a página ou mudar o tamanho da tela só reposiciona a lista:
+  // no iPhone a barra do Safari aparece e some ao rolar, e isso fechava o menu logo depois do toque.
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: PointerEvent) => {
@@ -102,9 +103,12 @@ export function Select({
     };
     const onScroll = (e: Event) => {
       if (listRef.current?.contains(e.target as Node)) return;
-      close(false);
+      const b = buttonRef.current?.getBoundingClientRect();
+      // Se o campo saiu da tela, não faz sentido a lista ficar flutuando.
+      if (!b || b.bottom < 0 || b.top > window.innerHeight) close(false);
+      else place();
     };
-    const onResize = () => close(false);
+    const onResize = () => place();
     document.addEventListener("pointerdown", onPointer);
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onResize);
@@ -113,7 +117,7 @@ export function Select({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [open]);
+  }, [open, place]);
 
   // Mantém a opção ativa visível ao navegar pelo teclado.
   useLayoutEffect(() => {

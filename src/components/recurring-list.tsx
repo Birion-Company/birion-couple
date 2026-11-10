@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Repeat } from "lucide-react";
+import { ChevronDown, Repeat } from "lucide-react";
 import { stopRecurring } from "@/app/actions/transactions";
 import { addMonthsIso } from "@/lib/cards";
 import { formatMoney } from "@/lib/money";
@@ -13,22 +13,31 @@ export type RecurringItem = { id: string; description: string; amountCents: numb
 
 const KIND: Record<string, string> = { expense: "despesa", income: "receita" };
 
-/** Lista dos lançamentos que se repetem todo mês, com o botão para parar. */
+/** Contas fixas (cadastradas como "Todo mês"): bloco recolhível com o botão para parar cada uma. */
 export function RecurringList({ items, currency }: { items: RecurringItem[]; currency: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   if (items.length === 0) return null;
+  const perMonth = items.filter((r) => r.kind === "expense").reduce((a, r) => a + r.amountCents, 0);
   return (
-    <section className="card section recurring" aria-labelledby="repetem">
-      <h2 id="repetem">
-        <Repeat size={16} strokeWidth={1.8} aria-hidden /> Repetem todo mês
-      </h2>
+    <details className="card fixed-bills">
+      <summary>
+        <Repeat size={16} strokeWidth={1.8} aria-hidden />
+        <span className="grow">
+          <strong>Contas fixas</strong>
+          <span className="faint">
+            {" "}· {items.length} {items.length === 1 ? "cadastrada" : "cadastradas"}
+            {perMonth > 0 ? ` · ${formatMoney(perMonth, currency)} por mês` : ""}
+          </span>
+        </span>
+        <ChevronDown size={16} strokeWidth={1.8} className="impact-chevron" aria-hidden />
+      </summary>
       <div className="rows">
         {items.map((r) => {
           const next = addMonthsIso(r.startDate, r.nextIndex - 1);
           return (
-            <div key={r.id} className="row">
-              <div className="grow">
+            <div key={r.id} className="row fixed-bill">
+              <div className="grow fixed-bill-text">
                 <p className="title">{r.description}</p>
                 <p className="sub">
                   {KIND[r.kind] ?? "lançamento"} todo dia {Number(r.startDate.slice(8, 10))} · próximo em{" "}
@@ -55,6 +64,6 @@ export function RecurringList({ items, currency }: { items: RecurringItem[]; cur
           );
         })}
       </div>
-    </section>
+    </details>
   );
 }

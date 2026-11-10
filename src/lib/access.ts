@@ -38,7 +38,7 @@ export function canEditTx(v: Viewer, createdBy: string | null) {
   return isAdmin(v) || (createdBy !== null && createdBy === v.userId);
 }
 
-export const NOT_YOURS = "Você só pode alterar lançamentos que você criou. Peça para quem criou (ou para quem administra a família).";
+export const NOT_YOURS = "Só quem criou pode alterar este lançamento.";
 
 /**
  * Confere se todos os ids são da família e podem ser alterados por esta pessoa.

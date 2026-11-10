@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, ChevronRight, CreditCard, Repeat } from "lucide-react";
 import { ArchivedCard, CardPanel, NewCard } from "@/components/card-forms";
+import { InvoicePayButton } from "@/components/invoice-pay";
 import { Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { getCardOverview } from "@/lib/card-queries";
-import { monthLabel, shortDate } from "@/lib/cards";
+import { invoiceDates, longMonth, monthLabel, shortDate } from "@/lib/cards";
 import { filtersToQuery } from "@/lib/filters";
 import { CARDS_PER_PERSON_MAX } from "@/lib/defaults";
 import { getLookupsFor } from "@/lib/queries";
@@ -22,11 +23,11 @@ function inDays(n: number) {
 const STATE = { closed: "Fechada", open: "Aberta", future: "Próxima" } as const;
 
 type Share = { participantId: string; cents: number };
-type Invoice = { key: string; from: string; to: string; due: string; totalCents: number; state: keyof typeof STATE; shares: Share[] };
+type Invoice = { key: string; from: string; to: string; due: string; totalCents: number; state: keyof typeof STATE; shares: Share[]; paid: boolean };
 type Names = Map<string, string>;
 
 /**
- * "Sua parte R$ X · Clara R$ Y": quanto da fatura é de cada pessoa.
+ * "Sua parte R$ X · Fulano R$ Y": quanto da fatura é de cada pessoa.
  * Só aparece quando a fatura tem compras divididas com mais alguém.
  */
 function SharesLine({ shares, me, names, currency, strong = false }: { shares: Share[]; me: string | null; names: Names; currency: string; strong?: boolean }) {
@@ -50,26 +51,32 @@ function SharesLine({ shares, me, names, currency, strong = false }: { shares: S
   );
 }
 
-function InvoiceRows({ invoices, cardId, currency, me, names }: { invoices: Invoice[]; cardId: string; currency: string; me: string | null; names: Names }) {
+function InvoiceRows({ invoices, cardId, currency, me, names, canPay }: { invoices: Invoice[]; cardId: string; currency: string; me: string | null; names: Names; canPay: boolean }) {
   return (
     <div className="rows">
       {invoices.map((inv) => (
-        <Link key={inv.key} className="row invoice-row" href={`/transacoes${filtersToQuery({ period: "custom", from: inv.from, to: inv.to, card: cardId })}`}>
-          <div className="grow">
-            <p className="title">{monthLabel(inv.key)}</p>
-            <p className="sub">
-              compras de {shortDate(inv.from)} a {shortDate(inv.to)} · vence {shortDate(inv.due)}
-            </p>
-            <p className="sub">
-              <SharesLine shares={inv.shares} me={me} names={names} currency={currency} />
-            </p>
-          </div>
-          <span className={`badge invoice-${inv.state}`}>{STATE[inv.state]}</span>
-          <span className="amount">
-            <Money cents={inv.totalCents} currency={currency} />
-          </span>
-          <ChevronRight size={16} strokeWidth={1.6} className="faint" aria-hidden />
-        </Link>
+        <div key={inv.key} className={`row invoice-row ${inv.paid ? "invoice-paid" : ""}`}>
+          <Link className="grow invoice-link" href={`/transacoes${filtersToQuery({ period: "custom", from: inv.from, to: inv.to, card: cardId })}`}>
+            <div className="grow">
+              {/* Fatura com o nome do mês em que vence (como os bancos chamam): "Fatura de novembro". */}
+              <p className="title">
+                Fatura de {longMonth(inv.due.slice(0, 7)).replace(` de ${new Date().getFullYear()}`, "").toLowerCase()} · vence {shortDate(inv.due)}
+              </p>
+              <p className="sub">compras de {shortDate(inv.from)} a {shortDate(inv.to)}</p>
+              <p className="sub">
+                <SharesLine shares={inv.shares} me={me} names={names} currency={currency} />
+              </p>
+            </div>
+            <span className={`badge ${inv.paid ? "invoice-paid-badge" : `invoice-${inv.state}`}`}>{inv.paid ? "Paga" : STATE[inv.state]}</span>
+            <span className="amount">
+              <Money cents={inv.totalCents} currency={currency} />
+            </span>
+            <ChevronRight size={16} strokeWidth={1.6} className="faint" aria-hidden />
+          </Link>
+          {canPay && inv.totalCents > 0 && inv.state !== "future" && (
+            <InvoicePayButton cardId={cardId} invoice={inv.key} paid={inv.paid} label={`que vence ${shortDate(inv.due)}`} />
+          )}
+        </div>
       ))}
     </div>
   );
@@ -107,7 +114,7 @@ export default async function CardsPage() {
       <div className="page-head">
         <div>
           <h1>Cartões</h1>
-          <p className="muted">Faturas, fechamento e vencimento de cada cartão de crédito.</p>
+          <p className="muted">Faturas e vencimentos.</p>
         </div>
         {active.length > 0 && <NewCard startOpen={false} owners={owners} defaultOwner={me} blocked={blocked} />}
       </div>
@@ -117,8 +124,7 @@ export default async function CardsPage() {
         <>
           <div className="notice" style={{ marginBottom: 16 }} data-tour="cards-intro">
             <CreditCard size={16} strokeWidth={1.7} style={{ verticalAlign: -3, marginRight: 6 }} aria-hidden />
-            Cada pessoa tem os próprios cartões (até {CARDS_PER_PERSON_MAX}). Cadastre o seu com o dia em que a fatura fecha: o vencimento é
-            sugerido na hora, e o app te avisa quando o fechamento ou o vencimento estiver chegando.
+            Cadastre seu cartão com o dia de fechamento (até {CARDS_PER_PERSON_MAX} por pessoa). O app avisa antes de fechar e vencer.
           </div>
           <NewCard startOpen owners={owners} defaultOwner={me} blocked={blocked} />
         </>
@@ -154,28 +160,29 @@ export default async function CardsPage() {
         >
           <div className="card-stats" data-tour="cards-stats">
             <div className="card-stat">
-              <p className="label">Fatura aberta · {monthLabel(s.open)}</p>
+              <p className="label">Fatura aberta · vence {shortDate(invoiceDates(s.open, card).due)}</p>
               <p className="value"><Money cents={openTotal} currency={cur} /></p>
               <SharesLine shares={openShares} me={me} names={names} currency={cur} strong />
               <p className="hint">fecha {shortDate(s.closingDate)}, {inDays(s.daysToClosing)}</p>
             </div>
-            <div className={`card-stat ${s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 ? "warn" : ""}`}>
-              <p className="label">{s.dueInvoice === s.open ? "Vencimento desta fatura" : `Próximo vencimento · ${monthLabel(s.dueInvoice)}`}</p>
+            <div className={`card-stat ${s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "warn" : ""}`}>
+              <p className="label">{s.dueInvoice === s.open ? "Vencimento desta fatura" : "Próxima fatura a pagar"}</p>
               <p className="value"><Money cents={dueTotal} currency={cur} /></p>
               <SharesLine shares={dueShares} me={me} names={names} currency={cur} strong />
               <p className="hint">
                 <CalendarClock size={13} strokeWidth={1.8} style={{ verticalAlign: -2 }} aria-hidden /> vence {shortDate(s.dueDate)}, {inDays(s.daysToDue)}
                 {s.dueInvoice !== s.open ? " · já fechou" : ""}
+                {invoices.find((i) => i.key === s.dueInvoice)?.paid && <strong className="pos"> · paga</strong>}
               </p>
             </div>
           </div>
 
           <h3 className="card-subhead">Faturas</h3>
-          <InvoiceRows invoices={invoices.slice(0, 4)} cardId={card.id} currency={cur} me={me} names={names} />
+          <InvoiceRows invoices={invoices.slice(0, 4)} cardId={card.id} currency={cur} me={me} names={names} canPay={admin || card.ownerId === me} />
           {invoices.length > 4 && (
             <details className="more-invoices">
               <summary>Mais {invoices.length - 4} {invoices.length - 4 === 1 ? "fatura" : "faturas"} com parcelas lançadas</summary>
-              <InvoiceRows invoices={invoices.slice(4)} cardId={card.id} currency={cur} me={me} names={names} />
+              <InvoiceRows invoices={invoices.slice(4)} cardId={card.id} currency={cur} me={me} names={names} canPay={admin || card.ownerId === me} />
             </details>
           )}
           {series.length > 0 && (

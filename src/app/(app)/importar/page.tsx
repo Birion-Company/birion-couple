@@ -1,54 +1,6 @@
-import type { Metadata } from "next";
-import { DeleteImportButton } from "@/components/import-history";
-import { ImportWizard } from "@/components/import-wizard";
-import { requireAuth } from "@/lib/auth";
-import { getImportBatches, getLookupsFor, getPresets } from "@/lib/queries";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Importar" };
-
-export default async function ImportPage() {
-  const auth = await requireAuth();
-  const [lookups, presets, batches] = await Promise.all([
-    getLookupsFor(auth),
-    getPresets(auth.householdId),
-    getImportBatches(auth),
-  ]);
-  return (
-    <div style={{ maxWidth: 720 }}>
-      <div className="page-head">
-        <div>
-          <h1>Importar extrato</h1>
-          <p className="muted">Traga lançamentos de um arquivo OFX ou CSV. O que já foi importado é reconhecido e fica de fora.</p>
-        </div>
-      </div>
-      <ImportWizard
-        lookups={lookups}
-        presets={presets.map((p) => ({ id: p.id, name: p.name, mapping: p.mapping }))}
-        currency={auth.currency}
-        me={auth.participantId}
-      />
-      {batches.length > 0 && (
-        <section className="card section" aria-labelledby="hist">
-          <h2 id="hist" style={{ marginBottom: 8 }}>Importações recentes</h2>
-          <div className="rows">
-            {batches.map((b) => (
-              <div key={b.id} className="row">
-                <div className="grow">
-                  <p className="title">{b.fileName}</p>
-                  <p className="sub">
-                    {b.createdAt.toLocaleDateString("pt-BR")} · {b.format.toUpperCase()}
-                  </p>
-                </div>
-                <span className="faint num">
-                  {b.remaining === b.imported ? `${b.imported} lançamentos` : `${b.remaining} de ${b.imported} lançamentos`}
-                  {b.skipped ? ` · ${b.skipped} ignorados` : ""}
-                </span>
-                <DeleteImportButton id={b.id} fileName={b.fileName} remaining={b.remaining} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
+/** A importação mudou para Ajustes → Importação; o endereço antigo continua funcionando. */
+export default function ImportPage() {
+  redirect("/ajustes/importacao");
 }

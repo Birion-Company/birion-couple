@@ -9,12 +9,23 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       <AuthScaler />
       <div className="auth-viewport">
         <div className="auth-frame">
-          <ThemeToggle className="auth-theme" />
+          <ThemeToggle className="auth-theme auth-theme-desktop" />
           <BrandPanel />
           <section className="auth-panel">
+            {/* Celular: o tema fica dentro do bloco, no canto. */}
+            <ThemeToggle className="auth-theme auth-theme-mobile" />
             <div className="auth-panel-logo" aria-hidden>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/brand/mark.png" alt="" />
+            </div>
+            {/* Celular: a marca e a frase ficam no mesmo bloco do login (no computador estão no painel ao lado). */}
+            <div className="auth-mobile-brand">
+              <p className="auth-mobile-name">
+                BIRION <span>FINANCE</span>
+              </p>
+              <p className="auth-mobile-tagline">
+                Organize suas finanças de forma <em>simples e eficiente.</em>
+              </p>
             </div>
             <div className="auth-box">{children}</div>
           </section>

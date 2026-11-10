@@ -21,9 +21,9 @@ export function BrandPanel() {
         <div className="brand-copy">
           <h2 className="brand-title">
             Organize suas
-            <br />
+            {" "}<br />
             finanças de forma
-            <br />
+            {" "}<br />
             <em>simples e eficiente.</em>
           </h2>
           <p className="brand-desc">

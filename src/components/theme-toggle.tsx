@@ -10,7 +10,15 @@ const KEY = "bf-theme";
  * Roda no <head> antes da primeira pintura: aplica o tema salvo (ou o do sistema),
  * assim a tela não pisca ao carregar.
  */
-export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
+/** Cor da barra do celular (status bar / barra do navegador) em cada tema: a mesma do fundo do app. */
+export const BAR_COLOR: Record<Theme, string> = { light: "#eef6f8", dark: "#030a14" };
+
+export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}document.documentElement.setAttribute("data-theme",t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="light"?"${"#eef6f8"}":"${"#030a14"}")}catch(e){}})()`;
+
+/** Troca a cor da barra do celular junto com o tema. */
+function paintBar(theme: Theme) {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", BAR_COLOR[theme]);
+}
 
 function current(): Theme {
   if (typeof document === "undefined") return "dark";
@@ -32,6 +40,7 @@ export function ThemeToggle({ className = "icon-btn", withLabel = false }: { cla
     const root = document.documentElement;
     root.classList.add("theme-switching");
     root.setAttribute("data-theme", next);
+    paintBar(next);
     window.setTimeout(() => root.classList.remove("theme-switching"), 350);
     try {
       localStorage.setItem(KEY, next);

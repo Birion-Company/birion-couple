@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -32,6 +33,8 @@ export const users = pgTable("users", {
   passwordHash: text().notNull(),
   /** Foto de perfil já reduzida (JPEG ~320px) em base64; nula quando não há foto. */
   avatarData: text(),
+  /** Quais notificações push a pessoa quer receber ({ divida: false, … }); sem a chave = ligada. */
+  pushPrefs: jsonb().notNull().default({}),
   avatarUpdatedAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),
 });
@@ -79,6 +82,15 @@ export const participants = pgTable(
     color: text().notNull().default("#1AC4DB"),
     sortOrder: integer().notNull().default(0),
     archived: boolean().notNull().default(false),
+    /**
+     * Pessoa avulsa: criada só para um lançamento (ex.: "emprestei para o Fulano"). Não aparece nas listas
+     * nem conta no limite de pessoas; sai sozinha (arquivada) quando não deve nem tem a receber nada,
+     * e volta a mesma pessoa se o nome for usado de novo.
+     */
+    temporary: boolean().notNull().default(false),
+    /** Foto de quem não tem login (JPEG ~320px em base64). Quem tem login usa a foto do próprio perfil. */
+    photoData: text(),
+    photoUpdatedAt: timestamp({ withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [index("participants_household_idx").on(t.householdId)],
@@ -280,7 +292,17 @@ export const transactions = pgTable(
     payerId: uuid().references(() => participants.id, { onDelete: "set null" }),
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
     projectId: uuid().references(() => projects.id, { onDelete: "set null" }),
+    /** Antigo status escolhido à mão. Não é mais usado: o status agora é calculado (ver lib/tx-state.ts). */
     statusId: uuid().references(() => statuses.id, { onDelete: "set null" }),
+    /** Marcado como "Já acertado": sai das dívidas. É a única parte do status escolhida à mão. */
+    settled: boolean().notNull().default(false),
+    /** Compra no cartão: a fatura em que ela entrou já foi paga. */
+    invoicePaid: boolean().notNull().default(false),
+    /**
+     * Acerto que paga uma dívida de outro lançamento (ex.: Fulano pagando a parte dele).
+     * Se o valor for maior que o devido, a diferença é lucro de quem recebeu.
+     */
+    settlesId: uuid().references((): AnyPgColumn => transactions.id, { onDelete: "cascade" }),
     /** Cartão de crédito usado; a fatura sai da data e do dia de fechamento do cartão. */
     cardId: uuid().references(() => creditCards.id, { onDelete: "set null" }),
     /** Compras parceladas ou recorrentes: todas as parcelas compartilham o mesmo seriesId. */
@@ -315,9 +337,42 @@ export const transactionSplits = pgTable(
       .notNull()
       .references(() => participants.id, { onDelete: "cascade" }),
     amountCents: integer().notNull(),
+    /** Acerto que pagou esta parte (a dívida desta pessoa neste lançamento acabou). */
+    paidById: uuid().references(() => transactions.id, { onDelete: "set null" }),
   },
   (t) => [
     primaryKey({ columns: [t.transactionId, t.participantId] }),
     index("splits_participant_idx").on(t.participantId),
   ],
+);
+
+/** Aparelhos que aceitaram notificações push (iPhone pela Tela de Início, Android, computador). */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text().notNull(),
+    p256dh: text().notNull(),
+    auth: text().notNull(),
+    /** "iPhone", "Android", "Computador": só para mostrar onde está ligado. */
+    device: text(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("push_endpoint_idx").on(t.endpoint), index("push_user_idx").on(t.userId)],
+);
+
+/** Avisos agendados já enviados (ex.: "fatura vence amanhã"), para não mandar o mesmo duas vezes. */
+export const pushSent = pgTable(
+  "push_sent",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    key: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
 );

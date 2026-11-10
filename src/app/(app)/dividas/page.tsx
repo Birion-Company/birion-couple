@@ -1,54 +1,130 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, HandCoins } from "lucide-react";
-import { SettleButton } from "@/components/settle-button";
+import { ArrowRight, CheckCircle2, ChevronDown, HandCoins } from "lucide-react";
+import { PayButton, ProfitBadge, UndoButton } from "@/components/debt-payments";
 import { Avatar, Money, formatDate } from "@/components/ui";
-import { canEditTx } from "@/lib/access";
 import { requireAuth } from "@/lib/auth";
-import { seriesLabel } from "@/lib/cards";
-import { getDebtLedger, getLookupsFor } from "@/lib/queries";
+import { competenceMonth, longMonth, seriesLabel } from "@/lib/cards";
+import { closingDays, getDebtLedger, getLookupsFor } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Dívidas" };
 
-const KIND: Record<string, string> = { expense: "despesa dividida", income: "receita dividida", loan: "empréstimo", transfer: "pagamento" };
+const KIND: Record<string, string> = { expense: "despesa dividida", income: "receita dividida", loan: "dívida", transfer: "pagamento" };
 
-export default async function DebtsPage() {
+export default async function DebtsPage({ searchParams }: PageProps<"/dividas">) {
   const auth = await requireAuth();
   const lookups = await getLookupsFor(auth);
-  const ledger = await getDebtLedger(auth, lookups);
+  const [full, closing] = await Promise.all([getDebtLedger(auth, lookups), closingDays(auth.householdId)]);
   const cur = auth.currency;
   const people = new Map(lookups.participants.map((p) => [p.id, p]));
   const name = (id: string | null) => (id ? people.get(id)?.name ?? "Alguém" : "ninguém");
-  const settled = lookups.statuses.find((s) => s.behavior === "settled" && !s.archived);
+  const me = auth.participantId;
+
+  // Mês de cada dívida: no cartão, o mês da fatura (como no painel). Os chips mostram só meses com dívida em aberto.
+  const monthOf = (tx: { date: string; cardId: string | null }) => competenceMonth(tx.date, tx.cardId ? closing.get(tx.cardId) : null);
+  const months = [...new Set(full.people.flatMap((p) => [...p.entries, ...p.upcomingEntries].map((e) => monthOf(e.tx))))].sort();
+  const raw = (await searchParams).mes;
+  const month = typeof raw === "string" && months.includes(raw) ? raw : null;
+  const ledger = month
+    ? {
+        ...full,
+        people: full.people
+          .map((p) => {
+            // Mês escolhido: o que já venceu e as parcelas daquele mês (mesmo futuras).
+            const entries = [...p.entries, ...p.upcomingEntries].filter((e) => monthOf(e.tx) === month);
+            return { ...p, entries, net: entries.reduce((a, e) => a + e.effect, 0), upcoming: 0, upcomingCount: 0, upcomingEntries: [] };
+          })
+          .filter((p) => p.entries.length > 0),
+      }
+    : full;
   const owedToMe = ledger.people.filter((p) => p.net > 0).reduce((a, p) => a + p.net, 0);
   const iOwe = ledger.people.filter((p) => p.net < 0).reduce((a, p) => a - p.net, 0);
+  const monthWord = month ? ` em ${longMonth(month).replace(/ de \d{4}$/, "").toLowerCase()}` : "";
+
+  // "Quem deve para quem" (o total, sem filtro de mês): as dívidas que envolvem você primeiro.
+  // Só dívidas reais entre cada par de pessoas (sem "simplificar" passando por quem não tem nada a ver).
+  const debtLines = [
+    ...full.people
+      .filter((p) => p.net !== 0 && me)
+      .map((p) => (p.net > 0 ? { fromId: p.personId, toId: me!, amountCents: p.net } : { fromId: me!, toId: p.personId, amountCents: -p.net })),
+    ...full.others,
+  ];
+  const sentence = (fromId: string, toId: string) =>
+    fromId === me ? <>Você deve para <strong>{name(toId)}</strong></> : toId === me ? <><strong>{name(fromId)}</strong> te deve</> : <><strong>{name(fromId)}</strong> deve para <strong>{name(toId)}</strong></>;
 
   return (
     <div className="debts-page">
       <div className="page-head">
         <div>
           <h1>Dívidas</h1>
-          <p className="muted">O que cada pessoa deve, de onde veio e o que já foi pago.</p>
+          <p className="muted">Quem te deve, quanto e de onde veio.</p>
         </div>
         <Link className="btn primary" href="/transacoes/nova?tipo=emprestimo">
-          <HandCoins size={16} strokeWidth={1.7} /> Registrar empréstimo
+          <HandCoins size={16} strokeWidth={1.7} /> Registrar dívida
         </Link>
       </div>
+
+      <section className="card debts" aria-labelledby="quem-deve" data-tour="dash-debts">
+        <div className="card-head">
+          <h2 id="quem-deve">Quem deve para quem</h2>
+          <span className="faint">no total</span>
+        </div>
+        {debtLines.length === 0 ? (
+          <p className="debts-empty">
+            <CheckCircle2 size={18} strokeWidth={1.7} aria-hidden /> Ninguém deve nada a ninguém.
+          </p>
+        ) : (
+          <div className="rows">
+            {debtLines.map((d) => (
+              <div key={d.fromId + d.toId} className={`row debt-row ${d.toId === me ? "in" : d.fromId === me ? "out" : ""}`}>
+                <span className="debt-people" aria-hidden>
+                  <Avatar name={name(d.fromId)} color={people.get(d.fromId)?.color ?? "#94A3B8"} size={30} src={people.get(d.fromId)?.avatarUrl} />
+                  <ArrowRight size={14} strokeWidth={1.8} />
+                  <Avatar name={name(d.toId)} color={people.get(d.toId)?.color ?? "#94A3B8"} size={30} src={people.get(d.toId)?.avatarUrl} />
+                </span>
+                <p className="grow title">
+                  {sentence(d.fromId, d.toId)} <span className="debt-amount"><Money cents={d.amountCents} currency={cur} /></span>
+                </p>
+                <Link
+                  className="btn small"
+                  href={`/transacoes/nova?acerto=${d.fromId}.${d.toId}.${d.amountCents}`}
+                  aria-label={`Registrar pagamento de ${name(d.fromId)} para ${name(d.toId)}`}
+                >
+                  Registrar pagamento
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {months.length > 0 && (
+        <nav className="month-chips" aria-label="Mês das dívidas">
+          <Link className={`chip ${!month ? "on" : ""}`} href="/dividas" scroll={false} aria-current={!month ? "page" : undefined}>
+            Todos os meses
+          </Link>
+          {months.map((m) => (
+            <Link key={m} className={`chip ${month === m ? "on" : ""}`} href={`/dividas?mes=${m}`} scroll={false} aria-current={month === m ? "page" : undefined}>
+              {longMonth(m).replace(" de ", "/").replace(/^(\w)/, (c) => c.toUpperCase())}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {auth.participantId && (
         <div className="stats debts-stats" data-tour="debts">
           <div className="stat">
-            <p className="label">Te devem</p>
+            <p className="label">Te devem{monthWord}</p>
             <p className="value pos"><Money cents={owedToMe} currency={cur} /></p>
             <p className="hint">{ledger.people.filter((p) => p.net > 0).length} pessoa(s)</p>
           </div>
           <div className="stat">
-            <p className="label">Você deve</p>
+            <p className="label">Você deve{monthWord}</p>
             <p className="value neg"><Money cents={iOwe} currency={cur} /></p>
             <p className="hint">{ledger.people.filter((p) => p.net < 0).length} pessoa(s)</p>
           </div>
           <div className="stat">
-            <p className="label">Saldo</p>
+            <p className="label">Saldo{monthWord}</p>
             <p className="value"><Money cents={owedToMe - iOwe} currency={cur} signed /></p>
             <p className="hint">{owedToMe - iOwe > 0 ? "a receber" : owedToMe - iOwe < 0 ? "a pagar" : "tudo em dia"}</p>
           </div>
@@ -61,7 +137,7 @@ export default async function DebtsPage() {
             <CheckCircle2 size={18} strokeWidth={1.7} aria-hidden /> Ninguém deve nada para você, e você não deve nada a ninguém.
           </p>
           <p className="faint" style={{ marginTop: 6 }}>
-            Uma dívida aparece quando alguém paga algo e divide com outra pessoa, ou quando você registra um empréstimo.
+            Aparece quando alguém paga e divide, ou ao registrar uma dívida.
           </p>
         </div>
       )}
@@ -70,28 +146,40 @@ export default async function DebtsPage() {
         const person = people.get(p.personId);
         const theyOwe = p.net > 0;
         return (
-          <section key={p.personId} className="card section ledger" aria-labelledby={`dv-${p.personId}`}>
-            <div className="ledger-head">
-              <Avatar name={person?.name ?? "?"} color={person?.color ?? "#94A3B8"} size={40} />
+          <details key={p.personId} className="card section ledger" open={ledger.people.length === 1}>
+            <summary className="ledger-head">
+              <Avatar name={person?.name ?? "?"} color={person?.color ?? "#94A3B8"} size={40} src={person?.avatarUrl} />
               <div className="grow" style={{ minWidth: 0 }}>
-                <h2 id={`dv-${p.personId}`}>{person?.name ?? "Alguém"}</h2>
-                <p className={`ledger-net ${p.net > 0 ? "pos" : p.net < 0 ? "neg" : ""}`}>
-                  {p.net === 0 ? "Vocês estão quites" : theyOwe ? <>Te deve <Money cents={p.net} currency={cur} /></> : <>Você deve <Money cents={-p.net} currency={cur} /></>}
+                <h2 id={`dv-${p.personId}`}>
+                  {person?.name ?? "Alguém"}
+                  {person?.temporary && <span className="tag-temp" title="Pessoa avulsa: criada só para um lançamento">avulsa</span>}
+                </h2>
+                <p className="faint ledger-count">
+                  {p.entries.length} {p.entries.length === 1 ? "lançamento em aberto" : "lançamentos em aberto"}
+                  {p.upcomingCount > 0 ? ` · ${p.upcomingCount} a vencer` : ""}
                 </p>
               </div>
-              {p.net !== 0 && auth.participantId && (
+              <p className={`ledger-net ${p.net > 0 ? "pos" : p.net < 0 ? "neg" : ""}`}>
+                {p.net === 0 ? "Quites" : theyOwe ? <>Te deve <Money cents={p.net} currency={cur} /></> : <>Você deve <Money cents={-p.net} currency={cur} /></>}
+              </p>
+              <ChevronDown size={18} strokeWidth={1.8} className="impact-chevron" aria-hidden />
+            </summary>
+            {p.net !== 0 && auth.participantId && (
+              <div className="ledger-actions">
                 <Link
                   className="btn small"
                   data-tour="debts-pay"
                   href={`/transacoes/nova?acerto=${theyOwe ? p.personId : auth.participantId}.${theyOwe ? auth.participantId : p.personId}.${Math.abs(p.net)}`}
                 >
-                  Registrar pagamento
+                  Registrar pagamento do total
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
             <div className="rows">
-              {p.entries.map(({ tx, effect }) => {
+              {p.entries.map(({ tx, effect, covered }) => {
                 const series = seriesLabel(tx.seriesKind, tx.seriesIndex, tx.seriesTotal);
+                // Parte já coberta por um acerto: mostra só o que falta.
+                const left = Math.sign(effect) * (Math.abs(effect) - (covered ?? 0));
                 const card = lookups.cards.find((c) => c.id === tx.cardId);
                 return (
                   <div key={tx.id} className="row ledger-row">
@@ -104,53 +192,82 @@ export default async function DebtsPage() {
                         {series ? ` · ${series}` : ""}
                       </p>
                     </Link>
-                    <span className={`amount ${effect > 0 ? "pos" : "neg"}`}>
-                      <Money cents={effect} currency={cur} signed />
+                    <span className={`amount ${left > 0 ? "pos" : "neg"}`}>
+                      <Money cents={left} currency={cur} signed />
+                      {covered ? <span className="sub" style={{ display: "block" }}>falta, de <Money cents={Math.abs(effect)} currency={cur} /></span> : null}
                     </span>
-                    {settled && canEditTx(auth, tx.createdBy) && tx.kind !== "transfer" && (
-                      <SettleButton id={tx.id} statusId={settled.id} label={tx.description} />
+                    {tx.kind !== "transfer" && (
+                      <PayButton
+                        txId={tx.id}
+                        participantId={tx.payerId === auth.participantId ? p.personId : auth.participantId!}
+                        owedCents={Math.abs(left)}
+                        currency={cur}
+                        label={effect > 0 ? "Recebi" : "Paguei"}
+                      />
                     )}
                   </div>
                 );
               })}
             </div>
+            {p.paid.length > 0 && (
+              <details className="ledger-upcoming ledger-paid">
+                <summary>
+                  Já pago: {p.paid.length} {p.paid.length === 1 ? "registro" : "registros"}
+                </summary>
+                <div className="rows">
+                  {p.paid.map((x) => (
+                    <div key={x.key} className="row ledger-row paid">
+                      <Link href={`/transacoes/${x.tx.id}`} className="grow" style={{ minWidth: 0 }}>
+                        <span className="title" style={{ display: "block" }}>{x.tx.description}</span>
+                        <span className="sub" style={{ display: "block" }}>
+                          {formatDate(x.tx.date, { day: "2-digit", month: "short" })} ·{" "}
+                          {x.how === "acerto" ? (x.cents > 0 ? `${person?.name} te pagou (acerto)` : `você pagou a ${person?.name} (acerto)`) : x.how === "coberta" ? "paga pelo acerto" : x.cents > 0 ? "recebido" : "pago"}
+                        </span>
+                      </Link>
+                      <span className="amount">
+                        <Money cents={Math.abs(x.cents)} currency={cur} />
+                        {x.owedCents !== undefined && Math.abs(x.cents) !== x.owedCents ? (
+                          <ProfitBadge paidCents={Math.abs(x.cents)} owedCents={x.owedCents} currency={cur} />
+                        ) : null}
+                      </span>
+                      {x.undoId && <UndoButton payId={x.undoId} />}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
             {p.upcomingCount > 0 && (
-              <p className="ledger-upcoming">
-                A vencer: <Money cents={Math.abs(p.upcoming)} currency={cur} /> em {p.upcomingCount}{" "}
-                {p.upcomingCount === 1 ? "parcela futura" : "parcelas futuras"}
-                {p.upcoming > 0 ? ` que ${person?.name} vai te dever` : " que você vai dever"}. Entram na dívida no mês de cada uma.
-              </p>
+              <details className="ledger-upcoming">
+                <summary>
+                  Mais <Money cents={Math.abs(p.upcoming)} currency={cur} /> em {p.upcomingCount} {p.upcomingCount === 1 ? "parcela" : "parcelas"} a vencer
+                </summary>
+                <div className="rows">
+                  {[...p.upcomingEntries]
+                    .sort((a, b) => (a.tx.date < b.tx.date ? -1 : 1))
+                    .map(({ tx, effect }) => (
+                      <Link key={tx.id} href={`/transacoes/${tx.id}`} className="row ledger-row upcoming">
+                        <span className="grow" style={{ minWidth: 0 }}>
+                          <span className="title">{tx.description}</span>
+                          <span className="sub">
+                            vence {formatDate(tx.date, { day: "2-digit", month: "short", year: "numeric" })}
+                            {seriesLabel(tx.seriesKind, tx.seriesIndex, tx.seriesTotal) ? ` · ${seriesLabel(tx.seriesKind, tx.seriesIndex, tx.seriesTotal)}` : ""}
+                          </span>
+                        </span>
+                        <span className={`amount ${effect > 0 ? "pos" : "neg"}`}>
+                          <Money cents={effect} currency={cur} signed />
+                        </span>
+                      </Link>
+                    ))}
+                </div>
+              </details>
             )}
             <p className="faint ledger-hint">
-              <span className="pos">+</span> {person?.name} te deve · <span className="neg">−</span> você deve para {person?.name}. Pagamentos registrados já abatem.
+              <span className="pos">+</span> te deve · <span className="neg">−</span> você deve. Pagou a mais? A diferença vira lucro.
             </p>
-          </section>
+          </details>
         );
       })}
 
-      {ledger.others.length > 0 && (
-        <section className="card section" aria-labelledby="dv-outros">
-          <h2 id="dv-outros" style={{ marginBottom: 8 }}>Entre as outras pessoas</h2>
-          <div className="rows">
-            {ledger.others.map((o) => (
-              <div key={o.fromId + o.toId} className="row">
-                <span className="debt-people" aria-hidden>
-                  <Avatar name={name(o.fromId)} color={people.get(o.fromId)?.color ?? "#94A3B8"} size={28} />
-                  <ArrowRight size={14} strokeWidth={1.8} />
-                  <Avatar name={name(o.toId)} color={people.get(o.toId)?.color ?? "#94A3B8"} size={28} />
-                </span>
-                <p className="grow title">
-                  <strong>{name(o.fromId)}</strong> deve para <strong>{name(o.toId)}</strong>
-                </p>
-                <span className="amount"><Money cents={o.amountCents} currency={cur} /></span>
-                <Link className="btn small" href={`/transacoes/nova?acerto=${o.fromId}.${o.toId}.${o.amountCents}`}>
-                  Registrar pagamento
-                </Link>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

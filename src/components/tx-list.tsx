@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Inbox, Pencil, X } from "lucide-react";
+import { Inbox, Pencil, Repeat, X } from "lucide-react";
 import { BulkEditDialog } from "./bulk-edit";
-import { deleteTransactions, setTransactionsStatus } from "@/app/actions/transactions";
+import { deleteTransactions } from "@/app/actions/transactions";
 import { missingInfo } from "@/lib/explain";
 import type { Lookups, TxRow } from "@/lib/queries";
-import { Select } from "./select";
 import { toastResult } from "./toaster";
-import { StatusDot, amountTone, TxExplain, txMeta } from "./tx-row";
+import { ProfitAmount, StatusDot, amountTone, TxExplain, txLook, txMeta, txProfit } from "./tx-row";
 import { CategoryIcon, Money, formatDate } from "./ui";
 
 function groupByMonth(rows: TxRow[]) {
@@ -81,7 +80,6 @@ export function TxList({
   const ids = [...selected];
   const editable = rows.filter(canEdit);
   const allOn = editable.length > 0 && editable.every((r) => selected.has(r.id));
-  const activeStatuses = lookups.statuses.filter((s) => !s.archived);
 
   return (
     <>
@@ -106,9 +104,10 @@ export function TxList({
             <div className="rows">
               {g.rows.map((tx) => {
                 const { cat, status, project, series } = txMeta(tx, lookups);
-                const details = [formatDate(tx.date), cat?.name ?? "Sem categoria", project?.name].filter(Boolean).join(" · ");
+                const look = txLook(tx, cat);
+                const details = [formatDate(tx.date), look.name, project?.name].filter(Boolean).join(" · ");
                 return (
-                  <div key={tx.id} className="row tx-line">
+                  <div key={tx.id} className={`row tx-line ${txProfit(tx) > 0 ? "has-profit" : ""}`}>
                     <input
                       type="checkbox"
                       aria-label={canEdit(tx) ? `Selecionar ${tx.description}` : `${tx.description} (lançado por outra pessoa)`}
@@ -120,13 +119,23 @@ export function TxList({
                     />
                     <Link href={`/transacoes/${tx.id}${showMissing ? "?voltar=identificar" : ""}`} className="grow tx-line-link">
                       <StatusDot status={status} />
-                      <CategoryIcon icon={cat?.icon} color={cat?.color} title={cat?.name ?? "Sem categoria"} />
+                      <CategoryIcon icon={look.icon} color={look.color} title={look.name} />
                       <div className="grow" style={{ minWidth: 0 }}>
-                        <p className="title">
-                          {tx.description}
-                          {series && <span className="tx-series">{series.replace("Parcela ", "")}</span>}
+                        <p className="title tx-title">
+                          <span className="tx-desc" title={tx.description}>{tx.description}</span>
+                          {series && <span className="tx-series">{series}</span>}
+                          {tx.source === "previsto" && (
+                            <span className="tx-tag predicted" title="Parcela prevista: o extrato confirma sem duplicar.">
+                              prevista
+                            </span>
+                          )}
+                          {tx.recurring && (
+                            <span className="tx-tag recurring" title="Compra recorrente: as próximas herdam categoria e divisão.">
+                              <Repeat size={11} strokeWidth={2.2} aria-hidden /> recorrente
+                            </span>
+                          )}
                         </p>
-                        <p className="sub">{details}</p>
+                        <p className="sub tx-meta">{details}</p>
                         <TxExplain tx={tx} lookups={lookups} me={viewer.participantId} currency={currency} />
                         {showMissing && missingInfo(tx).length > 0 && (
                           <p className="missing-line">
@@ -137,6 +146,7 @@ export function TxList({
                       <span className="amount">
                         <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />
                         {status && <span className="sub tx-status">{status.name}</span>}
+                        <ProfitAmount tx={tx} currency={currency} />
                       </span>
                     </Link>
                   </div>
@@ -166,17 +176,8 @@ export function TxList({
           </button>
           <strong style={{ fontWeight: 500, fontSize: "0.9rem" }}>{selected.size} selecionado(s)</strong>
           <span style={{ flex: 1 }} />
-          <Select
-            variant="bulk"
-            ariaLabel="Marcar como"
-            value=""
-            placeholder="Marcar como…"
-            disabled={pending}
-            options={activeStatuses.map((s) => ({ value: s.id, label: s.name, color: s.color }))}
-            onChange={(v) => run(() => setTransactionsStatus(ids, v))}
-          />
           <button type="button" className="btn small primary" disabled={pending} onClick={() => setEditing(true)}>
-            <Pencil size={14} /> Editar em lote
+            <Pencil size={14} /> Editar<span className="hide-sm"> em lote</span>
           </button>
           <button
             className="btn small"

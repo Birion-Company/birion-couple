@@ -1,8 +1,10 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, max } from "drizzle-orm";
 import { cache } from "react";
 import { getDb, schema } from "@/db";
 import { todayIn } from "./cards";
+import { classifyFromHistory, expandInstallments } from "./patterns-server";
+import { archiveSettledTemporary } from "./temp-people";
 import { dueOccurrences, endOfMonth } from "./recurring";
 
 type Split = { participantId: string; amountCents: number };
@@ -74,5 +76,32 @@ export async function materializeRecurring(householdId: string) {
   }
 }
 
-/** Uma vez por requisição. */
-export const ensureRecurring = cache(materializeRecurring);
+/** Última manutenção de cada família neste servidor: quando, em que mês e a última atividade que já tinha visto. */
+const lastRun = new Map<string, { at: number; month: string; activity: number }>();
+/** Mesmo sem mudanças, refaz de tempos em tempos (ex.: o mês virou, outra instância do servidor gravou algo). */
+const FRESH_MS = 5 * 60_000;
+
+/**
+ * Manutenção da família: cria os meses das recorrências, as parcelas que faltam das compras
+ * parceladas do extrato, classifica o que ficou sem categoria pelo histórico do estabelecimento
+ * e arquiva pessoas avulsas quitadas.
+ *
+ * Roda antes das consultas, mas só quando algo mudou: toda ação que grava registra uma atividade,
+ * então basta ver se há atividade nova desde a última vez (uma consulta de ~1 ms). Assim trocar de
+ * página não espera essas quatro rotinas à toa.
+ */
+export const ensureRecurring = cache(async (householdId: string) => {
+  const month = todayIn().slice(0, 7);
+  const [row] = await getDb()
+    .select({ at: max(schema.activities.createdAt) })
+    .from(schema.activities)
+    .where(eq(schema.activities.householdId, householdId));
+  const activity = row?.at?.getTime() ?? 0;
+  const prev = lastRun.get(householdId);
+  if (prev && prev.month === month && prev.activity === activity && Date.now() - prev.at < FRESH_MS) return;
+  await materializeRecurring(householdId);
+  await expandInstallments(householdId);
+  await classifyFromHistory(householdId);
+  await archiveSettledTemporary(householdId);
+  lastRun.set(householdId, { at: Date.now(), month, activity });
+});

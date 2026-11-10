@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { BottomNav, SideNav } from "@/components/nav";
 import { BellButton, NotificationCenter } from "@/components/notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -6,7 +8,8 @@ import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
 import { getActivityFeed } from "@/lib/activity";
 import { getCardAlerts } from "@/lib/card-queries";
-import { countUnidentified, getLookups } from "@/lib/queries";
+import { countUnidentified, getLookups, getLookupsFor } from "@/lib/queries";
+import { TxModalHost } from "@/components/tx-modal";
 
 function Brand() {
   return (
@@ -24,7 +27,7 @@ function Brand() {
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
-  const lookups = await getLookups(auth.householdId);
+  const [lookups, myLookups] = await Promise.all([getLookups(auth.householdId), getLookupsFor(auth)]);
   const [alerts, activity, toIdentify] = await Promise.all([getCardAlerts(auth), getActivityFeed(auth, lookups, auth.currency, { all: true }), countUnidentified(auth)]);
   return (
     <div className="shell">
@@ -40,6 +43,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <header className="topbar">
           <Brand />
           <span className="spacer" />
+          <HelpButton />
           <div className="wb-group" role="group" aria-label="Notificações e tema">
             <BellButton />
             <ThemeToggle />
@@ -51,9 +55,13 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <main className="main">{children}</main>
       </div>
       <BottomNav toIdentify={toIdentify} />
-      {/* Ajuda sempre à mão: botão redondo no canto inferior direito. */}
-      <HelpButton className="help-fab" />
+      {/* Novo lançamento sempre à mão: botão no canto inferior direito (no celular, é o + da barra de baixo). */}
+      <Link href="/transacoes/nova" className="new-fab" aria-label="Novo lançamento" data-tour="new-fab">
+        <Plus size={20} strokeWidth={2.2} aria-hidden /> <span>Novo lançamento</span>
+      </Link>
       <Tutorial />
+      {/* Clicar num lançamento abre a edição numa janela, sem sair da página. */}
+      <TxModalHost lookups={myLookups} currency={auth.currency} me={auth.participantId} />
       {/* Sino: avisos de fatura e o que a família fez; procura novidades sozinho. */}
       <NotificationCenter initial={activity} cardAlerts={alerts} currency={auth.currency} />
     </div>

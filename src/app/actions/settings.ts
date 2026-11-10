@@ -1,11 +1,15 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { and, count, eq, ne } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNotNull, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
-import { requireAuth, requireOwner } from "@/lib/auth";
+import { canEditTx } from "@/lib/access";
+import { involved, logActivity, snapshots } from "@/lib/activity";
+import { requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
+import { ruleMatches } from "@/lib/rules-server";
+import { findOrCreateTempPerson } from "@/lib/temp-people";
 import { ICON_KEYS } from "@/lib/category-icons";
 import { FAMILY_FULL_MESSAGE, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { hasRoomForPerson } from "@/lib/household";
@@ -139,7 +143,7 @@ export async function deleteListItem(kind: ListKind, id: string): Promise<Action
     statuses: async () => (await db.select({ n: count() }).from(t).where(and(eq(t.householdId, auth.householdId), eq(t.statusId, id))))[0].n,
   };
   const used = await usage[kind]();
-  if (used > 0) return fail(`Está em uso em ${used} lançamento(s). Arquive em vez de excluir para manter o histórico.`);
+  if (used > 0) return fail(`Em uso em ${used} lançamento(s). Arquive em vez de excluir.`);
   if (kind === "statuses") {
     const [{ n }] = await db
       .select({ n: count() })
@@ -173,7 +177,41 @@ export async function addRule(input: { pattern: string; categoryId: string }): P
     .where(and(eq(schema.categories.id, parsed.data.categoryId), eq(schema.categories.householdId, auth.householdId)));
   if (!cat) return fail("Categoria não encontrada.");
   await db.insert(schema.categoryRules).values({ ...parsed.data, householdId: auth.householdId });
-  return done("Regra criada.");
+  const r = await applyRuleNow(auth, parsed.data.pattern, parsed.data.categoryId);
+  return done(`Regra criada. ${r}`);
+}
+
+/** Aplica de novo uma regra que já existe em todos os lançamentos que batem com ela. */
+export async function applyRule(id: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const [rule] = await getDb()
+    .select({ pattern: schema.categoryRules.pattern, categoryId: schema.categoryRules.categoryId })
+    .from(schema.categoryRules)
+    .where(and(eq(schema.categoryRules.id, id), eq(schema.categoryRules.householdId, auth.householdId)));
+  if (!rule) return fail("Regra não encontrada.");
+  return done(await applyRuleNow(auth, rule.pattern, rule.categoryId));
+}
+
+/** Passa para a categoria da regra todos os lançamentos (que a pessoa pode editar) cuja descrição contém o texto. */
+async function applyRuleNow(auth: AuthContext, pattern: string, categoryId: string): Promise<string> {
+  const db = getDb();
+  const all = await ruleMatches(auth.householdId, pattern, categoryId);
+  const rows = all.filter((r) => canEditTx(auth, r.createdBy));
+  const blocked = all.length - rows.length;
+  const tail = blocked ? ` ${blocked} de outras pessoas ficaram como estavam.` : "";
+  if (rows.length === 0) return `Nenhum lançamento para mudar agora.${tail}`;
+  const ids = rows.map((r) => r.id);
+  const snaps = await snapshots(db, auth.householdId, ids);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.transactions)
+      .set({ categoryId, updatedAt: new Date() })
+      .where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, ids)));
+    const items = [...snaps].map(([, x]) => ({ d: x.description, a: involved(x) }));
+    await logActivity(tx, auth, { action: "bulk", data: { items, fields: ["categoria"] }, audience: items.flatMap((i) => i.a) });
+  });
+  const n = rows.length;
+  return `${n} ${n === 1 ? "lançamento mudou" : "lançamentos mudaram"} de categoria.${tail}`;
 }
 
 export async function deleteRule(id: string): Promise<ActionResult> {
@@ -239,4 +277,120 @@ export async function removeMember(userId: string): Promise<ActionResult> {
     .delete(schema.memberships)
     .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, userId)));
   return done("Acesso removido. A pessoa continua nos lançamentos como participante.");
+}
+
+// ---------- Ordem das categorias ----------
+
+/** Grava a ordem das categorias (a mesma das listas de escolha nos lançamentos). */
+export async function reorderCategories(ids: string[]): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const parsed = z.array(z.uuid()).max(500).safeParse(ids);
+  if (!parsed.success) return fail("Ordem inválida.");
+  const db = getDb();
+  const c = schema.categories;
+  const mine = await db.select({ id: c.id }).from(c).where(eq(c.householdId, auth.householdId));
+  const known = new Set(mine.map((x) => x.id));
+  // As que não vieram na lista (ex.: arquivadas escondidas) vão para o fim, na ordem de antes.
+  const order = [...parsed.data.filter((id) => known.has(id)), ...mine.map((x) => x.id).filter((id) => !parsed.data.includes(id))];
+  await db.transaction(async (tx) => {
+    for (const [i, id] of order.entries()) await tx.update(c).set({ sortOrder: i }).where(and(eq(c.id, id), eq(c.householdId, auth.householdId)));
+  });
+  return done("Ordem salva.");
+}
+
+/** Põe primeiro as categorias com mais despesas nos últimos 12 meses. */
+export async function sortCategoriesByUse(): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const db = getDb();
+  const c = schema.categories;
+  const t = schema.transactions;
+  const since = new Date();
+  since.setFullYear(since.getFullYear() - 1);
+  const used = await db
+    .select({ id: t.categoryId, n: count() })
+    .from(t)
+    .where(and(eq(t.householdId, auth.householdId), eq(t.kind, "expense"), gte(t.date, since.toISOString().slice(0, 10)), isNotNull(t.categoryId)))
+    .groupBy(t.categoryId);
+  const uses = new Map(used.map((u) => [u.id, u.n]));
+  const cats = await db.select({ id: c.id, sortOrder: c.sortOrder, name: c.name }).from(c).where(eq(c.householdId, auth.householdId)).orderBy(asc(c.sortOrder), asc(c.name));
+  // Mais usadas primeiro; empate (e as nunca usadas) fica na ordem de antes.
+  const order = cats.map((x, i) => ({ id: x.id, i, n: uses.get(x.id) ?? 0 })).sort((a, b) => b.n - a.n || a.i - b.i);
+  await db.transaction(async (tx) => {
+    for (const [i, x] of order.entries()) await tx.update(c).set({ sortOrder: i }).where(eq(c.id, x.id));
+  });
+  return done(used.length ? "Pronto: as mais usadas estão no topo." : "Ainda não há despesas com categoria para saber quais você usa mais.");
+}
+
+// ---------- Pessoas avulsas ----------
+
+/**
+ * Pessoa só para um lançamento ("emprestei para o Fulano"). Se o nome já existe, devolve a mesma pessoa
+ * (não cria outro Fulano); se não, cria como avulsa.
+ */
+export async function addTempPerson(name: string): Promise<ActionResult & { person?: { id: string; name: string; color: string; archived: boolean; temporary: boolean }; reused?: boolean }> {
+  const auth = await requireAuth();
+  const parsed = label("a pessoa").safeParse(name);
+  if (!parsed.success) return firstIssue(parsed.error);
+  const { person, reused } = await findOrCreateTempPerson(auth.householdId, parsed.data);
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    person: { id: person.id, name: person.name, color: person.color, archived: person.archived, temporary: person.temporary },
+    reused,
+    message: reused ? `Usando ${person.name}, que já existe.` : `${person.name} adicionado só para este lançamento.`,
+  };
+}
+
+/** Pessoa avulsa vira pessoa da família (aparece nas listas e conta no limite). */
+export async function makePersonPermanent(id: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const db = getDb();
+  if (!(await hasRoomForPerson(db, auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
+  await db
+    .update(schema.participants)
+    .set({ temporary: false, archived: false })
+    .where(and(eq(schema.participants.id, id), eq(schema.participants.householdId, auth.householdId)));
+  return done("Agora faz parte das pessoas da família.");
+}
+
+// ---------- Foto e cor das pessoas ----------
+
+const MAX_PHOTO_CHARS = 400_000;
+
+/** Foto de uma pessoa sem login (quem tem login usa a foto do próprio perfil). Recebe JPEG já reduzido. */
+export async function setPersonPhoto(id: string, dataUrl: string | null): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const db = getDb();
+  const [login] = await db
+    .select({ u: schema.memberships.userId })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, id)))
+    .limit(1);
+  if (login) return fail("Essa pessoa tem login: a foto vem do perfil dela.");
+  let data: string | null = null;
+  if (dataUrl) {
+    const prefix = "data:image/jpeg;base64,";
+    if (!dataUrl.startsWith(prefix) || dataUrl.length > MAX_PHOTO_CHARS) return fail("Imagem inválida ou grande demais.");
+    const bytes = Buffer.from(dataUrl.slice(prefix.length), "base64");
+    if (bytes.length < 100 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return fail("Imagem inválida.");
+    data = bytes.toString("base64");
+  }
+  await db
+    .update(schema.participants)
+    .set({ photoData: data, photoUpdatedAt: data ? new Date() : null })
+    .where(and(eq(schema.participants.id, id), eq(schema.participants.householdId, auth.householdId)));
+  return done(data ? "Foto atualizada." : "Foto removida.");
+}
+
+/** A sua cor (a da pessoa ligada ao seu login), escolhida no perfil. */
+export async function setMyColor(value: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const parsed = color.safeParse(value);
+  if (!parsed.success) return firstIssue(parsed.error);
+  if (!auth.participantId) return fail("Sua conta não está ligada a uma pessoa da família.");
+  await getDb()
+    .update(schema.participants)
+    .set({ color: parsed.data })
+    .where(and(eq(schema.participants.id, auth.participantId), eq(schema.participants.householdId, auth.householdId)));
+  return done("Cor atualizada.");
 }

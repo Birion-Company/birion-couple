@@ -7,7 +7,9 @@ import { getDb, schema } from "@/db";
 import { canManageCard, checkEditable } from "@/lib/access";
 import { involved, logActivity, snapshots, type TxSnapshot } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
+import { matchCategory } from "@/lib/import/dedupe";
 import { splitEqually } from "@/lib/money";
+import { loadRules } from "@/lib/rules-server";
 import type { ActionResult } from "./settings";
 
 const uuid = z.uuid();
@@ -36,7 +38,7 @@ async function loadCard(householdId: string, id: string) {
 
 const PatchSchema = z.object({
   kind: z.enum(["expense", "income"]).optional(),
-  statusId: uuid.optional(),
+  settled: z.boolean().optional(),
   categoryId: nullableId.optional(),
   projectId: nullableId.optional(),
   cardId: nullableId.optional(),
@@ -49,7 +51,7 @@ export type BulkPatch = z.input<typeof PatchSchema>;
 
 const FIELD_NAMES: Record<keyof BulkPatch, string> = {
   kind: "tipo",
-  statusId: "status",
+  settled: "acertado",
   categoryId: "categoria",
   projectId: "projeto",
   cardId: "cartão",
@@ -81,7 +83,6 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
   if (!(await belongs(hid, schema.participants, people))) return { ok: false, error: "Pessoa inválida." };
   if (p.categoryId && !(await belongs(hid, schema.categories, [p.categoryId]))) return { ok: false, error: "Categoria inválida." };
   if (p.projectId && !(await belongs(hid, schema.projects, [p.projectId]))) return { ok: false, error: "Projeto inválido." };
-  if (p.statusId && !(await belongs(hid, schema.statuses, [p.statusId]))) return { ok: false, error: "Status inválido." };
   const newCard = p.cardId ? await loadCard(hid, p.cardId) : null;
   if (p.cardId && !newCard) return { ok: false, error: "Cartão inválido." };
   if (newCard && !canManageCard(auth, newCard)) return { ok: false, error: "Você só pode usar os seus cartões." };
@@ -110,8 +111,10 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
         if (between) betweenSkipped.add(id);
         else next.kind = p.kind;
       }
-      if (p.statusId !== undefined) next.statusId = p.statusId;
-      if (p.categoryId !== undefined && !between) next.categoryId = p.categoryId;
+      if (p.settled !== undefined && s.kind !== "transfer") next.settled = p.settled;
+      // Receita não tem categoria.
+      if (p.categoryId !== undefined && !between && next.kind === "expense") next.categoryId = p.categoryId;
+      if (next.kind === "income") next.categoryId = null;
       if (p.projectId !== undefined) next.projectId = p.projectId;
       if (p.date !== undefined) next.date = p.date;
       if (p.payerId !== undefined) {
@@ -128,10 +131,16 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
       }
       if (p.cardId !== undefined) {
         if (between && p.cardId) betweenSkipped.add(id);
-        else if (p.cardId && ownerOf.get(p.cardId) && ownerOf.get(p.cardId) !== next.payerId) skipped.card++;
-        else next.cardId = p.cardId;
+        else {
+          next.cardId = next.kind === "income" ? null : p.cardId;
+          // No cartão, quem pagou é sempre o dono dele.
+          const owner = p.cardId ? ownerOf.get(p.cardId) : null;
+          if (owner) next.payerId = owner;
+        }
       }
       // Quem pagou mudou e o cartão é de outra pessoa: o cartão sai.
+      // Receita não fica em cartão.
+      if (next.kind === "income") next.cardId = null;
       if (next.cardId && ownerOf.get(next.cardId) && ownerOf.get(next.cardId) !== next.payerId) {
         next.cardId = null;
         skipped.cardRemoved++;
@@ -139,8 +148,9 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
       await tx
         .update(schema.transactions)
         .set({
+          ...(next.cardId !== s.cardId ? { invoicePaid: false } : {}),
           kind: next.kind,
-          statusId: next.statusId,
+          settled: next.settled ?? false,
           categoryId: next.categoryId,
           projectId: next.projectId,
           date: next.date,
@@ -150,8 +160,11 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
         })
         .where(and(eq(schema.transactions.id, id), eq(schema.transactions.householdId, hid)));
       if (p.splitIds !== undefined && !between) {
+        // Quem já pagou a própria parte (com um acerto) continua quitado.
+        const old = await tx.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, id));
+        const paidBy = new Map(old.map((x) => [x.participantId, x.paidById]));
         await tx.delete(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, id));
-        if (next.splits.length) await tx.insert(schema.transactionSplits).values(next.splits.map((x) => ({ ...x, transactionId: id })));
+        if (next.splits.length) await tx.insert(schema.transactionSplits).values(next.splits.map((x) => ({ ...x, paidById: paidBy.get(x.participantId) ?? null, transactionId: id })));
       }
       items.push({ d: s.description, a: involved(s, next) });
     }
@@ -163,7 +176,7 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
   });
   revalidatePath("/", "layout");
   const notes = [
-    betweenSkipped.size ? `${betweenSkipped.size} empréstimo(s)/acerto(s) ficaram como estavam em tipo, quem pagou, quem deveria pagar e cartão (mude um por um)` : null,
+    betweenSkipped.size ? `${betweenSkipped.size} dívida(s)/acerto(s) não mudaram (edite um por um)` : null,
     skipped.card ? `${skipped.card} não receberam o cartão porque o cartão é de outra pessoa` : null,
     skipped.cardRemoved ? `${skipped.cardRemoved} saíram do cartão porque quem pagou mudou` : null,
   ].filter(Boolean);
@@ -178,7 +191,6 @@ const ManySchema = z.object({
   payerId: nullableId,
   splitIds: z.array(uuid).min(1, { error: "Escolha quem divide." }).max(10),
   cardId: nullableId,
-  statusId: nullableId,
   projectId: nullableId,
   rows: z
     .array(
@@ -195,7 +207,7 @@ const ManySchema = z.object({
 
 export type ManyInput = z.input<typeof ManySchema>;
 
-/** Cria vários lançamentos com as mesmas configurações (quem pagou, divisão, cartão, status). */
+/** Cria vários lançamentos com as mesmas configurações (quem pagou, divisão, cartão). */
 export async function createMany(input: ManyInput): Promise<ActionResult & { count?: number }> {
   const auth = await requireAuth();
   const parsed = ManySchema.safeParse(input);
@@ -205,14 +217,18 @@ export async function createMany(input: ManyInput): Promise<ActionResult & { cou
   if (!(await belongs(hid, schema.participants, [...(d.payerId ? [d.payerId] : []), ...d.splitIds]))) return { ok: false, error: "Pessoa inválida." };
   const cats = [...new Set(d.rows.map((r) => r.categoryId).filter((c): c is string => !!c))];
   if (!(await belongs(hid, schema.categories, cats))) return { ok: false, error: "Categoria inválida." };
-  if (d.statusId && !(await belongs(hid, schema.statuses, [d.statusId]))) return { ok: false, error: "Status inválido." };
   if (d.projectId && !(await belongs(hid, schema.projects, [d.projectId]))) return { ok: false, error: "Projeto inválido." };
   if (d.cardId) {
     const card = await loadCard(hid, d.cardId);
     if (!card) return { ok: false, error: "Cartão inválido." };
     if (!canManageCard(auth, card)) return { ok: false, error: "Você só pode usar os seus cartões." };
-    if (card.ownerId && card.ownerId !== d.payerId) return { ok: false, error: "Em “Quem pagou”, escolha o dono do cartão." };
+    // No cartão, quem pagou é sempre o dono dele.
+    if (card.ownerId) d.payerId = card.ownerId;
   }
+
+  // Linhas sem categoria usam as regras de Ajustes → Categorias.
+  const rules = await loadRules(hid);
+  for (const r of d.rows) r.categoryId = d.kind === "income" ? null : r.categoryId ?? matchCategory(r.description, rules);
 
   const db = getDb();
   const count = await db.transaction(async (tx) => {
@@ -228,8 +244,7 @@ export async function createMany(input: ManyInput): Promise<ActionResult & { cou
           payerId: d.payerId,
           categoryId: r.categoryId,
           projectId: d.projectId,
-          statusId: d.statusId,
-          cardId: d.cardId,
+          cardId: d.kind === "income" ? null : d.cardId,
           source: "manual",
           createdBy: auth.userId,
         })),

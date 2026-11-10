@@ -1,4 +1,3 @@
-export type StatusBehavior = "pending" | "open" | "settled";
 /** loan = empréstimo (quem emprestou → quem deve); transfer = acerto (quem deve → quem recebe). */
 export type TransactionKind = "expense" | "income" | "transfer" | "loan";
 
@@ -6,14 +5,22 @@ export type BalanceInput = {
   amountCents: number;
   kind: TransactionKind;
   payerId: string | null;
-  behavior: StatusBehavior | null;
-  splits: { participantId: string; amountCents: number }[];
+  /** Marcado como acertado no modelo antigo: fica fora das dívidas. */
+  settled: boolean;
+  /** Acerto ligado a uma dívida: quem paga já foi tirado da dívida pela própria parte (paidById). */
+  settlesId?: string | null;
+  /** paidById: parte já paga com um acerto, fica fora das dívidas. */
+  splits: { participantId: string; amountCents: number; paidById?: string | null }[];
 };
+
+/** Lançamentos que não mexem em dívida nenhuma. */
+const outOfDebts = (t: BalanceInput) => t.settled || !t.payerId || !!t.settlesId;
 
 /**
  * Saldo de cada pessoa: positivo = tem a receber, negativo = deve.
  *
- * Entra tudo que tem quem pagou e ainda não foi acertado (status de comportamento "settled" fica de fora).
+ * Entra tudo que tem quem pagou. Partes já pagas com um acerto ligado ficam de fora, e o próprio acerto
+ * ligado também (se Fulano pagou R$ 30,00 por uma dívida de R$ 20,00, os R$ 10,00 a mais são lucro, não dívida).
  * - Despesa, empréstimo ou acerto: quem pagou adianta o valor; cada participante deve a sua parte.
  * - Receita: quem recebeu ficou com dinheiro que é de todos; deve a parte de cada um.
  */
@@ -21,10 +28,13 @@ export function computeBalances(rows: BalanceInput[]): Map<string, number> {
   const net = new Map<string, number>();
   const add = (id: string, v: number) => net.set(id, (net.get(id) ?? 0) + v);
   for (const t of rows) {
-    if (t.behavior === "settled" || !t.payerId) continue;
+    if (outOfDebts(t)) continue;
     const sign = t.kind === "income" ? -1 : 1;
-    add(t.payerId, sign * t.amountCents);
-    for (const s of t.splits) add(s.participantId, -sign * s.amountCents);
+    for (const s of t.splits) {
+      if (s.participantId === t.payerId || s.paidById) continue;
+      add(t.payerId!, sign * s.amountCents);
+      add(s.participantId, -sign * s.amountCents);
+    }
   }
   return net;
 }
@@ -68,13 +78,13 @@ export function pairwiseFor(me: string, rows: BalanceInput[]): Map<string, numbe
  */
 export function pairEffects(me: string, t: BalanceInput): Map<string, number> {
   const out = new Map<string, number>();
-  if (t.behavior === "settled" || !t.payerId) return out;
+  if (outOfDebts(t)) return out;
   const add = (id: string, v: number) => out.set(id, (out.get(id) ?? 0) + v);
   const sign = t.kind === "income" ? -1 : 1;
   if (t.payerId === me) {
-    for (const s of t.splits) if (s.participantId !== me) add(s.participantId, sign * s.amountCents);
+    for (const s of t.splits) if (s.participantId !== me && !s.paidById) add(s.participantId, sign * s.amountCents);
   } else {
-    for (const s of t.splits) if (s.participantId === me) add(t.payerId, -sign * s.amountCents);
+    for (const s of t.splits) if (s.participantId === me && !s.paidById) add(t.payerId!, -sign * s.amountCents);
   }
   return out;
 }

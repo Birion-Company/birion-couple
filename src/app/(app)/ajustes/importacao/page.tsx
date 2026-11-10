@@ -1,12 +1,53 @@
 import type { Metadata } from "next";
+import { DeleteImportButton } from "@/components/import-history";
+import { ImportWizard } from "@/components/import-wizard";
 import { PresetsPanel } from "@/components/settings-panels";
 import { requireAuth } from "@/lib/auth";
-import { getPresets } from "@/lib/queries";
+import { getImportBatches, getLookupsFor, getPresets } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "Importação" };
+export const metadata: Metadata = { title: "Importar extrato" };
 
 export default async function ImportSettingsPage() {
   const auth = await requireAuth();
-  const presets = await getPresets(auth.householdId);
-  return <PresetsPanel presets={presets.map((p) => ({ id: p.id, name: p.name }))} />;
+  const [lookups, presets, batches] = await Promise.all([
+    getLookupsFor(auth),
+    getPresets(auth.householdId),
+    getImportBatches(auth),
+  ]);
+  return (
+    <>
+      <ImportWizard
+        lookups={lookups}
+        presets={presets.map((p) => ({ id: p.id, name: p.name, mapping: p.mapping }))}
+        currency={auth.currency}
+        me={auth.participantId}
+      />
+      {batches.length > 0 && (
+        <section className="card section" aria-labelledby="hist">
+          <h2 id="hist" style={{ marginBottom: 8 }}>Importações recentes</h2>
+          <div className="rows">
+            {batches.map((b) => (
+              <div key={b.id} className="row">
+                <div className="grow">
+                  <p className="title">{b.fileName}</p>
+                  <p className="sub">
+                    {b.createdAt.toLocaleDateString("pt-BR")} · {b.format.toUpperCase()}
+                  </p>
+                </div>
+                <span className="faint num">
+                  {b.remaining === b.imported ? `${b.imported} lançamentos` : `${b.remaining} de ${b.imported} lançamentos`}
+                  {b.skipped ? ` · ${b.skipped} ignorados` : ""}
+                </span>
+                <DeleteImportButton id={b.id} fileName={b.fileName} remaining={b.remaining} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      <section className="section" aria-labelledby="modelos">
+        <h2 id="modelos" style={{ marginBottom: 8 }}>Modelos de CSV salvos</h2>
+        <PresetsPanel presets={presets.map((p) => ({ id: p.id, name: p.name }))} />
+      </section>
+    </>
+  );
 }

@@ -1,3 +1,6 @@
+import { stateLabel, txState } from "@/lib/tx-state";
+import { firstDateOf, planSeries, scaleSplits } from "@/lib/series-plan";
+import { merchantKey, parseInstallment, recurringMerchants } from "@/lib/import/patterns";
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { computeBalances, pairwiseFor, pairwiseSettlements, suggestSettlements } from "@/lib/balances";
@@ -9,7 +12,7 @@ import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { explainTx, missingInfo } from "@/lib/explain";
 import { describeImpact } from "@/lib/impact";
 import { dueOccurrences, endOfMonth } from "@/lib/recurring";
-import { addMonthsIso, buildSeries, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoiceRange, suggestDueDay, todayIn } from "@/lib/cards";
+import { addMonthsIso, buildSeries, cardAlerts, cardSchedule, competenceMonth, invoiceDates, invoiceMonth, invoiceOf, invoiceRange, suggestDueDay, todayIn } from "@/lib/cards";
 
 const fx = (n: string) => readFileSync(`tests/fixtures/${n}`, n.endsWith(".ofx") ? "latin1" : "utf8");
 
@@ -34,60 +37,60 @@ describe("dinheiro", () => {
 });
 
 describe("saldos", () => {
-  const base = { kind: "expense" as const, behavior: "open" as const };
+  const base = { kind: "expense" as const, settled: false };
   test("despesa paga por uma pessoa e dividida entre três", () => {
     const net = computeBalances([
       { ...base, amountCents: 9000, payerId: "eu", splits: [
         { participantId: "eu", amountCents: 3000 },
-        { participantId: "mae", amountCents: 3000 },
+        { participantId: "ciclano", amountCents: 3000 },
         { participantId: "nam", amountCents: 3000 },
       ] },
     ]);
     expect(net.get("eu")).toBe(6000);
-    expect(net.get("mae")).toBe(-3000);
+    expect(net.get("ciclano")).toBe(-3000);
     expect(net.get("nam")).toBe(-3000);
     expect(suggestSettlements(net)).toEqual([
-      { fromId: "mae", toId: "eu", amountCents: 3000 },
+      { fromId: "ciclano", toId: "eu", amountCents: 3000 },
       { fromId: "nam", toId: "eu", amountCents: 3000 },
     ]);
   });
   test("pendente já conta; só acertado sai do saldo", () => {
-    const split = [{ participantId: "mae", amountCents: 100 }];
+    const split = [{ participantId: "ciclano", amountCents: 100 }];
     const net = computeBalances([
-      { ...base, behavior: "pending", amountCents: 100, payerId: "eu", splits: split },
-      { ...base, behavior: "settled", amountCents: 100, payerId: "eu", splits: split },
+      { ...base, settled: false, amountCents: 100, payerId: "eu", splits: split },
+      { ...base, settled: true, amountCents: 100, payerId: "eu", splits: split },
     ]);
     expect(net.get("eu")).toBe(100);
-    expect(net.get("mae")).toBe(-100);
+    expect(net.get("ciclano")).toBe(-100);
   });
   test("sem quem pagou não gera dívida", () => {
-    const net = computeBalances([{ ...base, behavior: "pending", amountCents: 100, payerId: null, splits: [{ participantId: "mae", amountCents: 100 }] }]);
+    const net = computeBalances([{ ...base, settled: false, amountCents: 100, payerId: null, splits: [{ participantId: "ciclano", amountCents: 100 }] }]);
     expect(net.size).toBe(0);
   });
   test("empréstimo: quem pegou emprestado deve para quem emprestou", () => {
     const net = computeBalances([
-      { kind: "loan", behavior: "pending", amountCents: 2040, payerId: "eu", splits: [{ participantId: "clara", amountCents: 2040 }] },
+      { kind: "loan", settled: false, amountCents: 2040, payerId: "eu", splits: [{ participantId: "beltrano", amountCents: 2040 }] },
     ]);
     expect(net.get("eu")).toBe(2040);
-    expect(net.get("clara")).toBe(-2040);
-    expect(suggestSettlements(net)).toEqual([{ fromId: "clara", toId: "eu", amountCents: 2040 }]);
+    expect(net.get("beltrano")).toBe(-2040);
+    expect(suggestSettlements(net)).toEqual([{ fromId: "beltrano", toId: "eu", amountCents: 2040 }]);
   });
   test("acerto zera a dívida", () => {
     const net = computeBalances([
-      { ...base, amountCents: 5000, payerId: "eu", splits: [{ participantId: "mae", amountCents: 5000 }] },
-      { kind: "transfer", behavior: "open", amountCents: 5000, payerId: "mae", splits: [{ participantId: "eu", amountCents: 5000 }] },
+      { ...base, amountCents: 5000, payerId: "eu", splits: [{ participantId: "ciclano", amountCents: 5000 }] },
+      { kind: "transfer", settled: false, amountCents: 5000, payerId: "ciclano", splits: [{ participantId: "eu", amountCents: 5000 }] },
     ]);
     expect(net.get("eu")).toBe(0);
-    expect(net.get("mae")).toBe(0);
+    expect(net.get("ciclano")).toBe(0);
   });
   test("receita recebida por um e dividida gera dívida de quem recebeu", () => {
     const net = computeBalances([
-      { kind: "income", behavior: "open", amountCents: 1000, payerId: "eu", splits: [
-        { participantId: "eu", amountCents: 500 }, { participantId: "mae", amountCents: 500 },
+      { kind: "income", settled: false, amountCents: 1000, payerId: "eu", splits: [
+        { participantId: "eu", amountCents: 500 }, { participantId: "ciclano", amountCents: 500 },
       ] },
     ]);
     expect(net.get("eu")).toBe(-500);
-    expect(net.get("mae")).toBe(500);
+    expect(net.get("ciclano")).toBe(500);
   });
 });
 
@@ -112,7 +115,7 @@ describe("OFX", () => {
 });
 
 describe("CSV", () => {
-  test("fatura do Nubank: compras positivas viram saídas", () => {
+  test("fatura do Cartão A: compras positivas viram saídas", () => {
     const t = readCsvTable(fx("nubank-cartao.csv"));
     const m = guessMapping(t);
     expect(m).toMatchObject({ dateColumn: 0, descriptionColumn: 1, amountColumn: 2, dateFormat: "YYYY-MM-DD", positiveIsExpense: true });
@@ -155,14 +158,14 @@ describe("deduplicação e regras", () => {
 });
 
 describe("cartão de crédito", () => {
-  const nubank = { closingDay: 15, dueDay: 22 };
+  const cartaoA = { closingDay: 15, dueDay: 22 };
   test("compra antes do fechamento entra na fatura do mês; no dia ou depois, na seguinte", () => {
     expect(invoiceOf("2026-11-14", 15)).toBe("2026-11");
     expect(invoiceOf("2026-11-15", 15)).toBe("2026-12");
     expect(invoiceOf("2026-12-20", 15)).toBe("2027-01");
   });
   test("vencimento no mesmo mês ou no seguinte", () => {
-    expect(invoiceDates("2026-11", nubank)).toEqual({ closing: "2026-11-15", due: "2026-11-22" });
+    expect(invoiceDates("2026-11", cartaoA)).toEqual({ closing: "2026-11-15", due: "2026-11-22" });
     expect(invoiceDates("2026-11", { closingDay: 28, dueDay: 5 })).toEqual({ closing: "2026-11-28", due: "2026-12-05" });
   });
   test("dias 29–31 viram o último dia em meses curtos", () => {
@@ -179,13 +182,13 @@ describe("cartão de crédito", () => {
   });
   test("situação de hoje: fatura aberta e próxima a vencer", () => {
     // Entre o fechamento (15) e o vencimento (22): a fatura de novembro já fechou e vence dia 22.
-    const s = cardSchedule(nubank, "2026-11-18");
+    const s = cardSchedule(cartaoA, "2026-11-18");
     expect(s).toMatchObject({ open: "2026-12", closingDate: "2026-12-15", dueInvoice: "2026-11", dueDate: "2026-11-22", daysToDue: 4 });
     // Depois do vencimento, a próxima a vencer é a aberta.
-    expect(cardSchedule(nubank, "2026-11-25")).toMatchObject({ dueInvoice: "2026-12", dueDate: "2026-12-22" });
+    expect(cardSchedule(cartaoA, "2026-11-25")).toMatchObject({ dueInvoice: "2026-12", dueDate: "2026-12-22" });
   });
   test("avisos dentro da antecedência", () => {
-    const card = { ...nubank, id: "c", name: "Nubank", color: "#000000", alertDays: 3 };
+    const card = { ...cartaoA, id: "c", name: "Cartão A", color: "#000000", alertDays: 3 };
     const total = () => 50000;
     expect(cardAlerts(card, "2026-11-13", total).map((a) => [a.type, a.daysLeft])).toEqual([["closing", 2]]);
     expect(cardAlerts(card, "2026-11-20", total).map((a) => [a.type, a.daysLeft])).toEqual([["due", 2]]);
@@ -246,7 +249,7 @@ describe("OFX de cartão de crédito", () => {
 
 describe("nome da família", () => {
   test("padrão cabe em 20 caracteres", () => {
-    expect(defaultHouseholdName("Felipe Gabriel")).toBe("Família de Felipe");
+    expect(defaultHouseholdName("Fulano de Tal")).toBe("Família de Fulano");
     expect(defaultHouseholdName("Maximiliano Souza").length).toBeLessThanOrEqual(HOUSEHOLD_NAME_MAX);
     expect(HOUSEHOLD_NAME_MAX).toBe(20);
   });
@@ -271,19 +274,19 @@ describe("recorrência sem fim", () => {
 describe("visão de um membro (só entre ele e cada pessoa)", () => {
   test("despesa paga por mim e dividida; empréstimo; receita", () => {
     const rows = [
-      { kind: "expense" as const, behavior: "pending" as const, amountCents: 9000, payerId: "eu", splits: [
-        { participantId: "eu", amountCents: 3000 }, { participantId: "mae", amountCents: 3000 }, { participantId: "clara", amountCents: 3000 },
+      { kind: "expense" as const, settled: false, amountCents: 9000, payerId: "eu", splits: [
+        { participantId: "eu", amountCents: 3000 }, { participantId: "ciclano", amountCents: 3000 }, { participantId: "beltrano", amountCents: 3000 },
       ] },
-      { kind: "expense" as const, behavior: "open" as const, amountCents: 1000, payerId: "mae", splits: [{ participantId: "eu", amountCents: 1000 }] },
-      { kind: "loan" as const, behavior: "open" as const, amountCents: 500, payerId: "clara", splits: [{ participantId: "mae", amountCents: 500 }] },
-      { kind: "income" as const, behavior: "open" as const, amountCents: 200, payerId: "eu", splits: [{ participantId: "clara", amountCents: 200 }] },
+      { kind: "expense" as const, settled: false, amountCents: 1000, payerId: "ciclano", splits: [{ participantId: "eu", amountCents: 1000 }] },
+      { kind: "loan" as const, settled: false, amountCents: 500, payerId: "beltrano", splits: [{ participantId: "ciclano", amountCents: 500 }] },
+      { kind: "income" as const, settled: false, amountCents: 200, payerId: "eu", splits: [{ participantId: "beltrano", amountCents: 200 }] },
     ];
     const net = pairwiseFor("eu", rows);
-    expect(net.get("mae")).toBe(2000); // mãe me deve 3000, eu devo 1000
-    expect(net.get("clara")).toBe(2800); // clara me deve 3000, eu devo 200 da receita
+    expect(net.get("ciclano")).toBe(2000); // mãe me deve 3000, eu devo 1000
+    expect(net.get("beltrano")).toBe(2800); // clara me deve 3000, eu devo 200 da receita
     expect(pairwiseSettlements("eu", net)).toEqual([
-      { fromId: "clara", toId: "eu", amountCents: 2800 },
-      { fromId: "mae", toId: "eu", amountCents: 2000 },
+      { fromId: "beltrano", toId: "eu", amountCents: 2800 },
+      { fromId: "ciclano", toId: "eu", amountCents: 2000 },
     ]);
   });
 });
@@ -295,12 +298,12 @@ describe("o que o lançamento muda", () => {
     payerId: "eu",
     shares: [
       { participantId: "eu", cents: 3000 },
-      { participantId: "clara", cents: 3000 },
-      { participantId: "mae", cents: 3000 },
+      { participantId: "beltrano", cents: 3000 },
+      { participantId: "ciclano", cents: 3000 },
     ],
     me: "eu",
-    names: { eu: "Felipe", clara: "Clara", mae: "Mãe" },
-    statusBehavior: "pending" as const,
+    names: { eu: "Fulano", beltrano: "Beltrano", ciclano: "Ciclano" },
+    settled: false,
     card: null,
     date: "2026-11-05",
     repeat: "once" as const,
@@ -309,50 +312,51 @@ describe("o que o lançamento muda", () => {
     today: "2026-11-08",
   };
   const by = (r: ReturnType<typeof describeImpact>, a: string) => (r.find((x) => x.area === a)?.lines ?? []).map((l) => l.replace(/\u00a0/g, " "));
-  test("despesa dividida gera dívida, gasto e pendência", () => {
+  test("despesa paga e dividida gera dívida e gasto, mas não fica em A pagar", () => {
     const r = describeImpact(base);
-    expect(by(r, "debts")).toEqual(["Clara fica devendo R$ 30,00 para você.", "Mãe fica devendo R$ 30,00 para você."]);
+    expect(by(r, "debts")).toEqual(["Beltrano fica devendo R$ 30,00 para você.", "Ciclano fica devendo R$ 30,00 para você."]);
     expect(by(r, "panel")[0]).toBe("Soma em Gastos de nov/2026, em Mercado.");
-    expect(by(r, "pending")).toHaveLength(1);
   });
   test("acertado ou sem quem pagou não geram dívida", () => {
-    expect(by(describeImpact({ ...base, statusBehavior: "settled" }), "debts")[0]).toMatch(/não gera dívida/);
+    expect(by(describeImpact({ ...base, settled: true }), "debts")[0]).toMatch(/não gera dívida/);
     expect(by(describeImpact({ ...base, payerId: null }), "debts")[0]).toMatch(/não gera dívida/);
   });
   test("parcelado no cartão: parcela por fatura e dívida por parcela", () => {
-    const r = describeImpact({ ...base, amountCents: 240000, shares: [{ participantId: "eu", cents: 120000 }, { participantId: "clara", cents: 120000 }], card: { name: "Nubank", closingDay: 10, dueDay: 17 }, repeat: "installment", count: 10 });
-    expect(by(r, "debts")[0]).toBe("Clara fica devendo R$ 120,00 por parcela para você.");
-    expect(by(r, "card")[0]).toBe("Uma parcela de R$ 240,00 em cada fatura do Nubank, de nov/2026 a ago/2027.");
+    const r = describeImpact({ ...base, amountCents: 240000, shares: [{ participantId: "eu", cents: 120000 }, { participantId: "beltrano", cents: 120000 }], card: { name: "Cartão A", closingDay: 10, dueDay: 17 }, repeat: "installment", count: 10 });
+    expect(by(r, "debts")[0]).toBe("Beltrano fica devendo R$ 120,00 por parcela para você.");
+    expect(by(r, "card")[0]).toBe("R$ 240,00 por fatura do Cartão A, de 17/11 até 17/08/27.");
   });
   test("empréstimo e acerto não contam como gasto", () => {
-    const loan = describeImpact({ ...base, kind: "loan", amountCents: 2040, shares: [{ participantId: "clara", cents: 2040 }] });
-    expect(by(loan, "debts")).toEqual(["Clara fica devendo R$ 20,40 para você."]);
+    const loan = describeImpact({ ...base, kind: "loan", amountCents: 2040, shares: [{ participantId: "beltrano", cents: 2040 }] });
+    expect(by(loan, "debts")).toEqual(["Beltrano fica devendo R$ 20,40 para você."]);
     expect(by(loan, "panel")[0]).toMatch(/Não conta como gasto/);
-    const pay = describeImpact({ ...base, kind: "transfer", payerId: "clara", amountCents: 1000, shares: [{ participantId: "eu", cents: 1000 }] });
-    expect(by(pay, "debts")).toEqual(["Abate R$ 10,00 do que Clara deve para você."]);
+    const pay = describeImpact({ ...base, kind: "transfer", payerId: "beltrano", amountCents: 1000, shares: [{ participantId: "eu", cents: 1000 }] });
+    expect(by(pay, "debts")).toEqual(["Abate R$ 10,00 do que Beltrano deve para você."]);
   });
 });
 
 describe("frase embaixo do lançamento", () => {
-  const base = { kind: "expense", amountCents: 9000, payerId: "f", cardName: null, settled: false, me: "f", names: { f: "Felipe", c: "Clara", m: "Mãe" } };
+  const base = { kind: "expense", amountCents: 9000, payerId: "f", cardName: null, settled: false, me: "f", names: { f: "Fulano", c: "Beltrano", m: "Ciclano" } };
   const t = (x: Partial<Parameters<typeof explainTx>[0]>) => explainTx({ ...base, splits: [], ...x }).replace(/ /g, " ");
   test("despesa paga e dividida, no cartão", () => {
-    expect(t({ cardName: "Nubank", splits: [{ participantId: "f", amountCents: 4500 }, { participantId: "c", amountCents: 4500 }] })).toBe(
-      "Pago por você · no cartão Nubank · quem deve reembolsar: Clara (R$ 45,00)",
+    expect(t({ cardName: "Cartão A", splits: [{ participantId: "f", amountCents: 4500 }, { participantId: "c", amountCents: 4500 }] })).toBe(
+      "Você comprou no cartão Cartão A · falta você receber de: Beltrano (R$ 45,00)",
     );
   });
-  test("conta toda de outra pessoa e já acertada", () => {
-    expect(t({ settled: true, splits: [{ participantId: "m", amountCents: 9000 }] })).toBe("Pago por você · quem deve reembolsar: Mãe (R$ 90,00) · já acertado");
+  test("conta toda de outra pessoa: em aberto, já paga e acertada no modelo antigo", () => {
+    expect(t({ splits: [{ participantId: "m", amountCents: 9000 }] })).toBe("Pago por você · falta você receber de: Ciclano (R$ 90,00)");
+    expect(t({ splits: [{ participantId: "m", amountCents: 9000, paidById: "x" }] })).toBe("Pago por você");
+    expect(t({ settled: true, splits: [{ participantId: "m", amountCents: 9000 }] })).toBe("Pago por você · já acertado");
   });
   test("só de quem pagou e sem quem pagou", () => {
     expect(t({ splits: [{ participantId: "f", amountCents: 9000 }] })).toBe("Pago por você · só de você, ninguém precisa reembolsar");
-    expect(t({ payerId: null, splits: [{ participantId: "c", amountCents: 9000 }] })).toBe("Ninguém pagou ainda · quem deve pagar: Clara (R$ 90,00)");
+    expect(t({ payerId: null, splits: [{ participantId: "c", amountCents: 9000 }] })).toBe("Falta dizer quem pagou · de quem é: Beltrano (R$ 90,00)");
   });
   test("empréstimo, acerto e receita", () => {
-    expect(t({ kind: "loan", amountCents: 5000, splits: [{ participantId: "c", amountCents: 5000 }] })).toBe("Emprestado por você · Clara deve devolver R$ 50,00");
-    expect(t({ kind: "transfer", payerId: "c", amountCents: 3000, splits: [{ participantId: "f", amountCents: 3000 }] })).toBe("Clara pagou R$ 30,00 para você (acerto)");
+    expect(t({ kind: "loan", amountCents: 5000, splits: [{ participantId: "c", amountCents: 5000 }] })).toBe("Emprestado por você · Beltrano deve devolver R$ 50,00");
+    expect(t({ kind: "transfer", payerId: "c", amountCents: 3000, splits: [{ participantId: "f", amountCents: 3000 }] })).toBe("Beltrano pagou R$ 30,00 para você (acerto)");
     expect(t({ kind: "income", amountCents: 4000, splits: [{ participantId: "f", amountCents: 2000 }, { participantId: "c", amountCents: 2000 }] })).toBe(
-      "Recebido por você · deve repassar para Clara (R$ 20,00)",
+      "Recebido por você · deve repassar para Beltrano (R$ 20,00)",
     );
   });
 });
@@ -364,4 +368,120 @@ describe("missingInfo (A identificar)", () => {
     expect(missingInfo({ ...base, categoryId: null, payerId: null, splits: [] })).toEqual(["categoria", "quem pagou", "quem deveria pagar"]));
   test("receita usa outras palavras", () => expect(missingInfo({ ...base, kind: "income", payerId: null })).toEqual(["quem recebeu"]));
   test("empréstimo e acerto nunca entram", () => expect(missingInfo({ ...base, kind: "loan", categoryId: null })).toEqual([]));
+});
+
+describe("status automático", () => {
+  const split = (...ids: string[]) => ids.map((participantId) => ({ participantId, amountCents: 100 }));
+  test("cada caso cai no status certo", () => {
+    expect(txState({ kind: "expense", payerId: null, settled: false, splits: split("eu") })).toBe("to-pay");
+    expect(txState({ kind: "expense", payerId: "ciclano", settled: false, splits: split("eu") })).toBe("to-settle");
+    expect(txState({ kind: "expense", payerId: "eu", settled: false, splits: split("eu") })).toBe("paid");
+    expect(txState({ kind: "expense", payerId: "ciclano", settled: true, splits: split("eu") })).toBe("paid");
+    expect(txState({ kind: "loan", payerId: "eu", settled: false, splits: split("beltrano") })).toBe("to-settle");
+    expect(txState({ kind: "transfer", payerId: "eu", settled: true, splits: split("ciclano") })).toBe("paid");
+  });
+  test("compra no cartão segue a fatura, mesmo com alguém devendo", () => {
+    const c = { kind: "expense", payerId: "eu", settled: false, cardId: "cartaoA", splits: split("ciclano") };
+    expect(txState({ ...c, invoicePaid: false })).toBe("on-card");
+    expect(txState({ ...c, invoicePaid: true })).toBe("paid");
+  });
+  test("parte paga com acerto sai da dívida e do status", () => {
+    const paid = [{ participantId: "ciclano", amountCents: 2000, paidById: "acerto" }];
+    expect(txState({ kind: "expense", payerId: "eu", settled: false, splits: paid })).toBe("paid");
+    expect(txState({ kind: "expense", payerId: "eu", settled: false, splits: [...paid, { participantId: "beltrano", amountCents: 100 }] })).toBe("to-settle");
+  });
+  test("receita usa nomes próprios", () => {
+    expect(stateLabel("to-pay", "income")).toBe("Falta quem recebeu");
+    expect(stateLabel("to-settle", "income")).toBe("A repassar");
+    expect(stateLabel("to-settle", "expense")).toBe("A acertar");
+  });
+});
+
+describe("pagamento de dívida com lucro", () => {
+  test("a mãe devia R$ 20,00 e pagou R$ 30,00: a dívida some e os R$ 10,00 não viram dívida ao contrário", () => {
+    const remedio = { amountCents: 2000, kind: "expense" as const, payerId: "eu", settled: false, splits: [{ participantId: "ciclano", amountCents: 2000, paidById: "acerto" }] };
+    const acerto = { amountCents: 3000, kind: "transfer" as const, payerId: "ciclano", settled: false, settlesId: "remedio", splits: [{ participantId: "eu", amountCents: 3000 }] };
+    expect([...computeBalances([remedio, acerto]).values()].every((v) => v === 0)).toBe(true);
+    expect(pairwiseFor("eu", [remedio, acerto]).size).toBe(0);
+  });
+  test("sem o acerto, a mãe continua devendo", () => {
+    const remedio = { amountCents: 2000, kind: "expense" as const, payerId: "eu", settled: false, splits: [{ participantId: "ciclano", amountCents: 2000 }] };
+    expect(computeBalances([remedio]).get("ciclano")).toBe(-2000);
+  });
+});
+
+describe("parcelas e compras repetidas no extrato", () => {
+  test("reconhece parcela", () => {
+    expect(parseInstallment("Mercadolivre*Mercadol - Parcela 1/10")).toEqual({ base: "Mercadolivre*Mercadol", index: 1, total: 10 });
+    expect(parseInstallment("LOJA X PARC 03/10")).toEqual({ base: "LOJA X", index: 3, total: 10 });
+    expect(parseInstallment("Viacao Cidade Sol")).toBeNull();
+    expect(parseInstallment("Compra 3/10")).toBeNull();
+  });
+  test("mesmo estabelecimento, com ou sem parcela e NuPay", () => {
+    expect(merchantKey("Viacao Cidade Sol - Parcela 1/2")).toBe(merchantKey("Viacao Cidade Sol"));
+    expect(merchantKey("99Food - NuPay")).toBe("99food");
+    expect(merchantKey("Panificadora Super Pão")).toBe("panificadora super pao");
+  });
+  test("recorrente = aparece em meses diferentes", () => {
+    const r = recurringMerchants([
+      { description: "EBW*Spotify - NuPay", date: "2026-09-25" },
+      { description: "EBW*Spotify - NuPay", date: "2026-10-25" },
+      { description: "Posto Brx", date: "2026-10-26" },
+      { description: "Posto Brx", date: "2026-10-28" },
+      { description: "Loja - Parcela 1/3", date: "2026-09-01" },
+      { description: "Loja - Parcela 2/3", date: "2026-10-01" },
+    ]);
+    expect([...r]).toEqual(["ebw spotify"]);
+  });
+});
+
+describe("mudar o parcelamento depois de criado", () => {
+  const items = [
+    { id: "a", index: 1, date: "2026-10-24", amountCents: 33851, source: "ofx" },
+    { id: "b", index: 2, date: "2026-11-24", amountCents: 33851, source: "previsto" },
+    { id: "c", index: 3, date: "2026-12-24", amountCents: 33851, source: "previsto" },
+  ];
+  test("a 1ª parcela pode estar antes da importação", () => {
+    expect(firstDateOf([{ id: "x", index: 3, date: "2026-10-03", amountCents: 1, source: "ofx" }])).toBe("2026-08-03");
+  });
+  test("mais parcelas e outra data: o extrato fica, as previstas se ajustam, as novas são criadas", () => {
+    const p = planSeries(items, { total: 4, firstDate: "2026-10-10", amountCents: null });
+    expect(p.error).toBeNull();
+    expect(p.steps.map((s) => [s.action, s.index, s.date])).toEqual([
+      ["keep", 1, "2026-10-24"],
+      ["update", 2, "2026-11-10"],
+      ["update", 3, "2026-12-10"],
+      ["create", 4, "2027-01-10"],
+    ]);
+  });
+  test("menos parcelas apaga as do fim, mas nunca uma que veio do extrato", () => {
+    expect(planSeries(items, { total: 2, firstDate: "2026-10-24", amountCents: null }).remove.map((r) => r.id)).toEqual(["c"]);
+    const real = items.map((x) => ({ ...x, source: "ofx" }));
+    expect(planSeries(real, { total: 2, firstDate: "2026-10-24", amountCents: null }).error).toMatch(/mínimo é 3/);
+  });
+  test("divisão acompanha o valor novo", () => {
+    expect(scaleSplits([{ participantId: "eu", amountCents: 50 }, { participantId: "ciclano", amountCents: 50 }], 101)).toEqual([
+      { participantId: "eu", amountCents: 51 },
+      { participantId: "ciclano", amountCents: 50 },
+    ]);
+  });
+});
+
+describe("mês da compra = mês em que é paga", () => {
+  const cartaoA = { closingDay: 3, dueDay: 10 };
+  const outro = { closingDay: 15, dueDay: 22 };
+  test("sem cartão é o mês da data", () => expect(competenceMonth("2026-11-02", null)).toBe("2026-11"));
+  test("Cartão A (fecha 3, vence 10): compras de 03/10 a 02/11 são da fatura de novembro", () => {
+    expect(competenceMonth("2026-10-03", cartaoA)).toBe("2026-11");
+    expect(competenceMonth("2026-11-02", cartaoA)).toBe("2026-11");
+    expect(competenceMonth("2026-11-03", cartaoA)).toBe("2026-12");
+  });
+  test("cartões com fechamentos diferentes caem no mês do vencimento", () => {
+    expect(competenceMonth("2026-10-20", outro)).toBe("2026-11");
+    expect(competenceMonth("2026-11-10", outro)).toBe("2026-11");
+  });
+  test("vencimento antes do fechamento vence no mês seguinte", () => {
+    expect(competenceMonth("2026-10-10", { closingDay: 28, dueDay: 5 })).toBe("2026-11");
+    expect(invoiceMonth("2026-11", cartaoA)).toBe("2026-11");
+  });
 });

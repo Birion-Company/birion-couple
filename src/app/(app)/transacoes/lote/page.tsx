@@ -8,16 +8,15 @@ export const metadata: Metadata = { title: "Lançar vários" };
 export default async function BatchPage() {
   const auth = await requireAuth();
   const lookups = await getLookupsFor(auth);
-  const defaultStatus = lookups.statuses.find((s) => s.isDefault && !s.archived) ?? lookups.statuses.find((s) => !s.archived);
   return (
     <div className="tx-page">
       <div className="page-head">
         <div>
           <h1>Lançar vários</h1>
-          <p className="muted">Preencha uma linha por lançamento. Quem pagou, a divisão, o cartão e o status de cima valem para todas.</p>
+          <p className="muted">Uma linha por lançamento. O que está em cima vale para todas.</p>
         </div>
       </div>
-      <BatchForm lookups={lookups} currency={auth.currency} me={auth.participantId} defaultStatusId={defaultStatus?.id ?? null} />
+      <BatchForm lookups={lookups} currency={auth.currency} me={auth.participantId} />
     </div>
   );
 }

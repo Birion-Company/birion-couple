@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ListPlus, Plus, Search, Upload } from "lucide-react";
+import { ListPlus, Plus, Search } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { RecurringList } from "@/components/recurring-list";
 import { TxList } from "@/components/tx-list";
 import { Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { filtersToQuery, parseFilters } from "@/lib/filters";
-import { getLookupsFor, getRecurring, listTransactions } from "@/lib/queries";
+import { getLookupsFor, getRecurringFor, listTransactions } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Lançamentos" };
 
@@ -18,10 +18,14 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const pages = Math.min(50, Math.max(1, Number(sp.paginas) || 1));
-  const lookups = await getLookupsFor(auth);
-  const { rows, count, total, futureCount } = await listTransactions(auth, filters, PAGE * pages);
-  // Depois da lista: ela é que cria os meses que faltam, e o "próximo em" já sai atualizado.
-  const recurring = await getRecurring(auth);
+  // Em paralelo: as duas listas esperam a mesma manutenção (ensureRecurring, uma vez por requisição),
+  // então o "próximo em" das contas fixas já sai atualizado.
+  const [lookups, { rows, count, total, futureCount }, recurring] = await Promise.all([
+    getLookupsFor(auth),
+    listTransactions(auth, filters, PAGE * pages),
+    getRecurringFor(auth, filters),
+  ]);
+  const personName = filters.person ? lookups.participants.find((p) => p.id === filters.person)?.name : null;
 
   return (
     <>
@@ -29,25 +33,23 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         <div>
           <h1>Lançamentos</h1>
           <p className="muted">
-            {count} {count === 1 ? "lançamento" : "lançamentos"} · <Money cents={total} currency={auth.currency} /> em despesas
+            {count} {count === 1 ? "lançamento" : "lançamentos"} · <Money cents={total} currency={auth.currency} /> em despesas{personName ? ` (parte de ${personName})` : ""}
           </p>
         </div>
-        <div className="actions">
-          <Link className="btn" href="/importar">
-            <Upload size={16} strokeWidth={1.6} aria-hidden /> <span className="hide-sm">Importar</span>
-            <span className="sr-only">Importar extrato</span>
-          </Link>
+        <div className="actions" data-tour="tx-actions">
           <Link className="btn" href="/transacoes/lote">
             <ListPlus size={16} strokeWidth={1.6} aria-hidden /> <span className="hide-sm">Lançar vários</span>
             <span className="sr-only">Lançar vários</span>
           </Link>
-          <Link className="btn primary" href="/transacoes/nova">
+          <Link className="btn primary" href="/transacoes/nova" data-tour="tx-new">
             <Plus size={16} /> <span>Novo</span>
           </Link>
         </div>
       </div>
 
-      <form action="/transacoes" style={{ marginBottom: 12, position: "relative" }}>
+      {/* Busca e filtros ficam presos no topo ao rolar: dá para pesquisar sem voltar lá em cima. */}
+      <div className="list-toolbar">
+      <form action="/transacoes" style={{ marginBottom: 10, position: "relative" }}>
         {Object.entries(sp)
           .filter(([k]) => !["q", "paginas"].includes(k))
           .map(([k, v]) => (
@@ -62,20 +64,22 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         participants={lookups.participants}
         categories={lookups.categories}
         projects={lookups.projects}
-        statuses={lookups.statuses}
         cards={lookups.cards}
       />
+      </div>
 
       <RecurringList items={recurring} currency={auth.currency} />
 
-      <TxList rows={rows} lookups={lookups} currency={auth.currency} viewer={{ userId: auth.userId, admin: auth.role === "owner", participantId: auth.participantId }} />
+      <div data-tour={rows.length > 0 ? "tx-list" : "tx-list-empty"}>
+        <TxList rows={rows} lookups={lookups} currency={auth.currency} viewer={{ userId: auth.userId, admin: auth.role === "owner", participantId: auth.participantId }} />
+      </div>
 
       {(futureCount > 0 || filters.future) && filters.period === "tudo" && (
         <div style={{ textAlign: "center", marginTop: 12 }}>
           <Link className="btn ghost small future-toggle" href={`/transacoes${filtersToQuery({ ...filters, future: !filters.future })}`} scroll={false}>
             {filters.future
               ? "Esconder lançamentos futuros"
-              : `Mostrar ${futureCount} ${futureCount === 1 ? "lançamento futuro" : "lançamentos futuros"} (parcelas que ainda vão chegar)`}
+              : `Mostrar ${futureCount} ${futureCount === 1 ? "lançamento futuro" : "lançamentos futuros"}`}
           </Link>
         </div>
       )}

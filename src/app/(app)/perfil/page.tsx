@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { AvatarEditor, PasswordForm, ProfileForm } from "@/components/profile-forms";
+import { MyColor } from "@/components/my-color";
 import { requireAuth } from "@/lib/auth";
+import { getLookups } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Meu perfil" };
 
 export default async function ProfilePage() {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
+  const me = auth.participantId ? (await getLookups(auth.householdId)).participants.find((p) => p.id === auth.participantId) : null;
   return (
     <div className="profile-page">
       <section className="profile-hero" aria-label="Foto e identificação">
@@ -23,6 +26,7 @@ export default async function ProfilePage() {
         <ProfileForm name={auth.userName} email={auth.email} />
         <PasswordForm />
       </div>
+      {me && <MyColor color={me.color} />}
     </div>
   );
 }

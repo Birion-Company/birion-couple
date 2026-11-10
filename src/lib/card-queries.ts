@@ -1,5 +1,6 @@
 import "server-only";
 import { asc, eq, gte, inArray, isNotNull } from "drizzle-orm";
+import { cache } from "react";
 import { getDb, schema } from "@/db";
 import { cardsFor, txScope, type Viewer } from "./access";
 import { ensureRecurring } from "./recurring-server";
@@ -7,7 +8,7 @@ import { addMonthsKey, cardAlerts, cardSchedule, invoiceDates, invoiceOf, invoic
 
 const t = schema.transactions;
 
-type CardTx = {
+export type CardTx = {
   id: string;
   cardId: string | null;
   date: string;
@@ -18,6 +19,7 @@ type CardTx = {
   seriesKind: string | null;
   seriesIndex: number | null;
   seriesTotal: number | null;
+  invoicePaid: boolean;
   splits: { participantId: string; amountCents: number }[];
 };
 
@@ -25,7 +27,8 @@ type CardTx = {
 const signed = (r: CardTx) => (r.kind === "expense" ? r.amountCents : r.kind === "income" ? -r.amountCents : 0);
 
 /** Cartões da família e os lançamentos de cartão que esta pessoa pode ver. */
-async function loadCards(viewer: Viewer, since: string) {
+/** Uma vez por requisição para o mesmo período (o painel pede as mesmas faturas mais de uma vez). */
+const loadCards = cache(async (viewer: Viewer, since: string) => {
   const householdId = viewer.householdId;
   await ensureRecurring(householdId);
   const db = getDb();
@@ -43,6 +46,7 @@ async function loadCards(viewer: Viewer, since: string) {
         seriesKind: t.seriesKind,
         seriesIndex: t.seriesIndex,
         seriesTotal: t.seriesTotal,
+        invoicePaid: t.invoicePaid,
       })
       .from(t)
       .where(txScope(viewer, isNotNull(t.cardId), gte(t.date, since)))
@@ -57,10 +61,10 @@ async function loadCards(viewer: Viewer, since: string) {
   const by = new Map<string, CardTx["splits"]>();
   for (const x of splits) by.set(x.transactionId, [...(by.get(x.transactionId) ?? []), { participantId: x.participantId, amountCents: x.amountCents }]);
   return { cards, rows: rows.map((r) => ({ ...r, splits: by.get(r.id) ?? [] })) as CardTx[] };
-}
+});
 
 /** Quanto de cada fatura é de cada pessoa (pela divisão das compras; estornos abatem). */
-function sharesByInvoice(rows: CardTx[], closingDay: number) {
+export function sharesByInvoice(rows: CardTx[], closingDay: number) {
   const out = new Map<string, Map<string, number>>();
   for (const r of rows) {
     const sign = r.kind === "expense" ? 1 : r.kind === "income" ? -1 : 0;
@@ -76,7 +80,7 @@ function sharesByInvoice(rows: CardTx[], closingDay: number) {
 const sharesList = (m: Map<string, number> | undefined) =>
   [...(m ?? new Map<string, number>())].filter(([, v]) => v !== 0).map(([participantId, cents]) => ({ participantId, cents })).sort((a, b) => b.cents - a.cents);
 
-function totalsByInvoice(rows: CardTx[], closingDay: number) {
+export function totalsByInvoice(rows: CardTx[], closingDay: number) {
   const totals = new Map<string, number>();
   for (const r of rows) {
     const key = invoiceOf(r.date, closingDay);
@@ -108,6 +112,11 @@ export async function getCardOverview(viewer: Viewer) {
         keys.push(k);
         if (keys.length >= 13) break;
       }
+      // Fatura paga: tem compras e todas foram marcadas como pagas.
+      const paidOf = (key: string) => {
+        const inv = mine.filter((r) => invoiceOf(r.date, card.closingDay) === key);
+        return inv.length > 0 && inv.every((r) => r.invoicePaid);
+      };
       const invoices = keys.map((key) => ({
         key,
         ...invoiceDates(key, card),
@@ -115,6 +124,7 @@ export async function getCardOverview(viewer: Viewer) {
         totalCents: totals.get(key) ?? 0,
         shares: sharesList(shares.get(key)),
         state: key < s.open ? ("closed" as const) : key === s.open ? ("open" as const) : ("future" as const),
+        paid: paidOf(key),
       }));
 
       const series = new Map<string, { id: string; nextId: string; description: string; kind: string; total: number | null; next: number; remaining: number; amountCents: number; lastDate: string }>();
@@ -153,11 +163,66 @@ export async function getCardAlerts(viewer: Viewer): Promise<CardAlert[]> {
   return cards
     .filter((c) => !c.archived && c.ownerId !== null && c.ownerId === viewer.participantId)
     .flatMap((card) => {
-      const mine = rows.filter((r) => r.cardId === card.id);
+      // Fatura já paga não precisa de aviso de vencimento.
+      const mine = rows.filter((r) => r.cardId === card.id && !r.invoicePaid);
       const totals = totalsByInvoice(mine, card.closingDay);
       const shares = sharesByInvoice(mine, card.closingDay);
       const me = viewer.participantId;
       return cardAlerts(card, today, (k) => totals.get(k) ?? 0, me ? (k) => shares.get(k)?.get(me) ?? 0 : undefined);
     })
     .sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
+export type DueInvoice = { cardId: string; cardName: string; color: string; key: string; due: string; totalCents: number; mineCents: number; paid: boolean };
+
+/**
+ * Faturas que vencem num mês ("2026-11" = fatura de novembro), de cada cartão da pessoa.
+ * Só dos cartões da pessoa (`person`, ou de quem está vendo). Mostra quanto é dela e quanto é de outras pessoas.
+ */
+export async function getInvoicesDue(viewer: Viewer, month: string, person: string | null, everyone = false): Promise<DueInvoice[]> {
+  // Desde 4 meses antes do mês atual (ou antes, para meses passados): o mesmo período para as
+  // faturas do mês passado, deste e do escolhido, e a leitura do banco sai uma vez só.
+  const from = addMonthsKey(month, -3) < addMonthsKey(todayIn().slice(0, 7), -4) ? addMonthsKey(month, -3) : addMonthsKey(todayIn().slice(0, 7), -4);
+  const { cards, rows } = await loadCards(viewer, `${from}-01`);
+  // "Todos": as faturas de todos os cartões que você vê; senão, só os da pessoa.
+  const owner = everyone ? null : person ?? viewer.participantId;
+  const out: DueInvoice[] = [];
+  for (const card of cardsFor(viewer, cards)) {
+    if (card.archived || (owner && card.ownerId !== owner) || (!owner && !everyone)) continue;
+    const mine = rows.filter((r) => r.cardId === card.id);
+    const totals = totalsByInvoice(mine, card.closingDay);
+    const shares = sharesByInvoice(mine, card.closingDay);
+    // A fatura do mês: a que vence nele (fecha no mês anterior ou no próprio mês).
+    for (const key of [addMonthsKey(month, -1), month]) {
+      const { due } = invoiceDates(key, card);
+      if (due.slice(0, 7) !== month) continue;
+      const total = totals.get(key) ?? 0;
+      if (total === 0) continue;
+      const inv = mine.filter((r) => invoiceOf(r.date, card.closingDay) === key);
+      out.push({
+        cardId: card.id,
+        cardName: card.name,
+        color: card.color,
+        key,
+        due,
+        totalCents: total,
+        mineCents: owner ? shares.get(key)?.get(owner) ?? 0 : total,
+        paid: inv.length > 0 && inv.every((r) => r.invoicePaid),
+      });
+    }
+  }
+  return out.sort((a, b) => (a.due < b.due ? -1 : 1));
+}
+
+/**
+ * Mês que o painel abre: o da fatura que ainda falta pagar. Se as faturas do mês (de todos os seus cartões)
+ * já foram pagas, pula para o próximo; se há uma do mês passado em aberto, fica nela. Sem cartão, o mês atual.
+ */
+export async function defaultPanelMonth(viewer: Viewer): Promise<string> {
+  const current = todayIn().slice(0, 7);
+  const prev = addMonthsKey(current, -1);
+  const [before, now] = await Promise.all([getInvoicesDue(viewer, prev, null), getInvoicesDue(viewer, current, null)]);
+  if (before.some((v) => !v.paid && v.totalCents > 0)) return prev;
+  if (now.length > 0 && now.every((v) => v.paid || v.totalCents <= 0)) return addMonthsKey(current, 1);
+  return current;
 }

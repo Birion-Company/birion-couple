@@ -9,7 +9,7 @@ import { toast, toastResult } from "./toaster";
 import { Avatar } from "./ui";
 
 /** Corta a imagem num quadrado centralizado e reduz para 320px em JPEG. */
-async function squareJpeg(file: File, size = 320): Promise<string> {
+export async function squareJpeg(file: File, size = 320): Promise<string> {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const side = Math.min(bitmap.width, bitmap.height);
   const sx = (bitmap.width - side) / 2;
@@ -222,7 +222,7 @@ export function PasswordForm() {
   return (
     <section className="card form password-card">
       <h2>Senha</h2>
-      <p className="muted">Use pelo menos 8 caracteres. Depois de trocar, a senha nova vale para entrar em qualquer aparelho.</p>
+      <p className="muted">Pelo menos 8 caracteres.</p>
       <div className="actions">
         <button ref={opener} type="button" className="btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
           <KeyRound size={16} strokeWidth={1.7} /> Alterar senha

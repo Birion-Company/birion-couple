@@ -8,7 +8,7 @@ export default function SettingsLayout({ children }: LayoutProps<"/ajustes">) {
         <div>
           <h1>Ajustes</h1>
           <p className="muted">
-            Tudo aqui pode ser mudado a qualquer hora. Dúvidas? Veja <Link href="/ajuda" className="pos">Como funciona</Link>.
+            Dúvidas? Veja <Link href="/ajuda" className="pos">Como funciona</Link>.
           </p>
         </div>
       </div>

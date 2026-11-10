@@ -2,7 +2,9 @@ import "server-only";
 import { and, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { isAdmin, type Viewer } from "./access";
+import { after } from "next/server";
 import { formatMoney } from "./money";
+import { pushActivity } from "./push-server";
 import type { Lookups } from "./queries";
 
 type Db = ReturnType<typeof getDb>;
@@ -20,12 +22,14 @@ export type TxSnapshot = {
   payerId: string | null;
   categoryId: string | null;
   projectId: string | null;
-  statusId: string | null;
+  /** Registros antigos guardam o status escolhido à mão. */
+  statusId?: string | null;
+  settled?: boolean;
   cardId: string | null;
   splits: Split[];
 };
 
-export type Change = { field: "amount" | "description" | "date" | "kind" | "payer" | "category" | "project" | "status" | "card" | "splits"; from: unknown; to: unknown };
+export type Change = { field: "amount" | "description" | "date" | "kind" | "payer" | "category" | "project" | "status" | "settled" | "card" | "splits"; from: unknown; to: unknown };
 
 /** Item de uma ação em lote; cada pessoa só vê os itens que a envolvem. */
 export type ActivityItem = { d: string; a: string[] };
@@ -36,6 +40,10 @@ export type ActivityData = {
   seriesKind?: string | null;
   seriesCount?: number | null;
   statusId?: string;
+  settled?: boolean;
+  /** Pagamento de uma dívida: quanto foi pago e quanto era devido (a diferença é lucro ou desconto). */
+  paidCents?: number;
+  owedCents?: number;
   fileName?: string;
   items?: ActivityItem[];
   /** Edição em lote: nomes dos campos alterados ("quem pagou", "divisão"…). */
@@ -80,7 +88,7 @@ export async function snapshots(db: Conn, householdId: string, ids: string[]): P
       payerId: t.payerId,
       categoryId: t.categoryId,
       projectId: t.projectId,
-      statusId: t.statusId,
+      settled: t.settled,
       cardId: t.cardId,
       createdBy: t.createdBy,
     })
@@ -110,7 +118,7 @@ export function diff(before: TxSnapshot, after: TxSnapshot): Change[] {
   add("payer", before.payerId, after.payerId);
   add("category", before.categoryId, after.categoryId);
   add("project", before.projectId, after.projectId);
-  add("status", before.statusId, after.statusId);
+  add("settled", before.settled ?? false, after.settled ?? false);
   add("card", before.cardId, after.cardId);
   const norm = (s: Split[]) => [...s].sort((x, y) => x.participantId.localeCompare(y.participantId));
   add("splits", norm(before.splits), norm(after.splits));
@@ -130,13 +138,20 @@ export async function logActivity(
     data: entry.data,
     audience: [...new Set(entry.audience)],
   });
+  // Notificação no celular de quem foi envolvido, depois da resposta (não atrasa quem fez a ação).
+  const job = () => pushActivity(viewer.householdId, viewer.userId, entry as Parameters<typeof pushActivity>[2]).catch((e) => console.error("push", e));
+  try {
+    after(job);
+  } catch {
+    void job();
+  }
 }
 
 // ---------- Leitura: o popup "o que mudou" ----------
 
 export type FeedItem = { id: string; actor: string; text: string; detail: string | null; when: string; href: string | null; unread: boolean };
 
-const KIND_WORD: Record<string, string> = { expense: "a despesa", income: "a receita", loan: "o empréstimo", transfer: "o acerto" };
+const KIND_WORD: Record<string, string> = { expense: "a despesa", income: "a receita", loan: "a dívida", transfer: "o acerto" };
 const FIELD: Record<Change["field"], string> = {
   amount: "valor",
   description: "descrição",
@@ -146,10 +161,11 @@ const FIELD: Record<Change["field"], string> = {
   category: "categoria",
   project: "projeto",
   status: "status",
+  settled: "acertado",
   card: "cartão",
   splits: "quem deveria pagar",
 };
-const KIND_NAME: Record<string, string> = { expense: "despesa", income: "receita", loan: "empréstimo", transfer: "acerto" };
+const KIND_NAME: Record<string, string> = { expense: "despesa", income: "receita", loan: "dívida", transfer: "acerto" };
 
 /**
  * Atividades de outras pessoas que envolvem esta pessoa, já em frases.
@@ -207,6 +223,8 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
           return nameIn(lookups.projects, x, "nenhum");
         case "status":
           return nameIn(lookups.statuses, x, "sem status");
+        case "settled":
+          return x ? "acertado" : "não acertado";
         case "card":
           return nameIn(lookups.cards, x, "sem cartão");
         case "splits":
@@ -234,7 +252,7 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
     if (!me) return null;
     const to = tx.splits[0]?.participantId;
     if (tx.kind === "loan") {
-      if (to === me) return [`${actor} registrou um empréstimo: você deve ${money(tx.amountCents)} para ${person(tx.payerId)}`, `"${tx.description}"`];
+      if (to === me) return [`${actor} registrou uma dívida: você deve ${money(tx.amountCents)} para ${person(tx.payerId)}`, `"${tx.description}"`];
       if (tx.payerId === me) return [`${actor} registrou que ${person(to)} te deve ${money(tx.amountCents)}`, `"${tx.description}"`];
       return null;
     }
@@ -305,13 +323,18 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
       case "bulk": {
         const items = visibleItems(d.items);
         if (items.length === 0) continue;
-        const what = r.action === "status" ? `como "${nameIn(lookups.statuses, d.statusId, "sem status")}"` : "";
+        const what = r.action !== "status" ? "" : d.settled !== undefined ? `como "${d.settled ? "pago" : "não pago"}"` : `como "${nameIn(lookups.statuses, d.statusId, "sem status")}"`;
         text =
           r.action === "status"
             ? `${actor} marcou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`} ${what}`
             : `${actor} mudou ${items.length === 1 ? `"${items[0].d}"` : `${items.length} lançamentos`}`;
         if (r.action === "bulk" && d.fields?.length) {
           detail = `mudou ${d.fields.join(", ")}` + (items.length > 1 ? ` · ${items.slice(0, 3).map((i) => i.d).join(", ")}${items.length > 3 ? "…" : ""}` : "");
+          break;
+        }
+        if (r.action === "status" && d.paidCents !== undefined && d.owedCents !== undefined) {
+          const diff = d.paidCents - d.owedCents;
+          detail = `pagou ${formatMoney(d.paidCents, currency)}${diff > 0 ? ` · ${formatMoney(diff, currency)} de lucro` : diff < 0 ? ` · ${formatMoney(-diff, currency)} de desconto` : ""}`;
           break;
         }
         detail = items.length > 1 ? items.slice(0, 4).map((i) => i.d).join(", ") + (items.length > 4 ? "…" : "") : (d.changes ?? []).map(describeChange).join(" · ") || null;

@@ -21,7 +21,7 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
     prefill = { kind: "loan", payerId: auth.participantId ?? undefined };
   }
 
-  if (lookups.participants.filter((p) => !p.archived).length === 0) {
+  if (lookups.participants.filter((p) => !p.archived && !p.temporary).length === 0) {
     return (
       <div className="card">
         <div className="empty">
@@ -34,14 +34,13 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
     );
   }
 
-  const defaultStatus = lookups.statuses.find((s) => s.isDefault && !s.archived) ?? lookups.statuses.find((s) => !s.archived);
   return (
     <div className="tx-page">
       <div className="page-head">
-        <h1>{prefill?.kind === "transfer" ? "Registrar pagamento" : prefill?.kind === "loan" ? "Registrar empréstimo" : "Novo lançamento"}</h1>
+        <h1>{prefill?.kind === "transfer" ? "Registrar pagamento" : prefill?.kind === "loan" ? "Registrar dívida" : "Novo lançamento"}</h1>
       </div>
       <div className="card">
-        <TxForm lookups={lookups} currency={auth.currency} initial={null} prefill={prefill} defaultStatusId={defaultStatus?.id ?? null} me={auth.participantId} />
+        <TxForm lookups={lookups} currency={auth.currency} initial={null} prefill={prefill} me={auth.participantId} />
       </div>
     </div>
   );

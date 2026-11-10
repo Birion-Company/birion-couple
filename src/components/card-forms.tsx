@@ -101,7 +101,7 @@ export function CardForm({
       )}
       <label className="field">
         <span>Nome do cartão</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Nubank, Itaú Visa" maxLength={40} required autoFocus={!card} />
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Cartão A" maxLength={40} required autoFocus={!card} />
       </label>
       <div className="field-row">
         <div className="field">

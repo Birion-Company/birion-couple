@@ -105,7 +105,7 @@ export async function acceptInvite(_: FormState, form: FormData): Promise<FormSt
     .where(and(eq(schema.memberships.householdId, invite.householdId), eq(schema.users.email, parsed.data.email)))
     .limit(1);
   if (!member && !(await hasRoomForPerson(db, invite.householdId))) {
-    return { error: `Esta família já tem ${FAMILY_PEOPLE_MAX} pessoas, o máximo. Peça para quem administra abrir espaço.`, fields };
+    return { error: `Esta família já está no limite de ${FAMILY_PEOPLE_MAX} pessoas.`, fields };
   }
 
   const [existing] = await db.select().from(schema.users).where(eq(schema.users.email, parsed.data.email)).limit(1);

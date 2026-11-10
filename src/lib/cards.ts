@@ -59,6 +59,21 @@ export function invoiceOf(date: string, closingDay: number) {
   return date < dayInMonth(key, closingDay) ? key : addMonthsKey(key, 1);
 }
 
+/**
+ * Mês a que uma compra pertence = mês em que ela é paga. Sem cartão: o mês da data. No cartão: o mês em que
+ * vence a fatura em que ela cai (cartão que fecha 3 e vence 10 → compras de 03/10 a 02/11 são da "fatura de
+ * novembro"). Assim, com vários cartões fechando em dias diferentes, o mês é sempre o do pagamento.
+ */
+export function competenceMonth(date: string, card: CardRules | null | undefined) {
+  if (!card) return date.slice(0, 7);
+  return invoiceDates(invoiceOf(date, card.closingDay), card).due.slice(0, 7);
+}
+
+/** Mês de uma fatura ("2026-11", que fecha em 03/11): o mês em que ela vence. */
+export function invoiceMonth(key: string, card: CardRules) {
+  return invoiceDates(key, card).due.slice(0, 7);
+}
+
 /** Datas de fechamento e vencimento de uma fatura. */
 export function invoiceDates(key: string, rules: CardRules) {
   const closing = dayInMonth(key, rules.closingDay);
@@ -150,6 +165,19 @@ export function todayIn(timeZone = "America/Sao_Paulo", now = new Date()) {
 export function monthLabel(key: string) {
   const { y, m } = parseMonth(key);
   return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "numeric" }).replace(".", "").replace(" de ", "/");
+}
+
+/** "novembro de 2026" → "Novembro de 2026". */
+export function longMonth(key: string) {
+  const [y, m] = key.split("-").map(Number);
+  const s = new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Quantos meses de `from` até `to` ("2026-11" → "2027-02" = 3). */
+export function monthsBetween(from: string, to: string) {
+  const [a, b] = [from, to].map((k) => k.split("-").map(Number));
+  return (b[0] - a[0]) * 12 + (b[1] - a[1]);
 }
 
 /** "15/12" */

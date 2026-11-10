@@ -1,17 +1,31 @@
 import "server-only";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, isNotNull, notInArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { DEFAULT_CATEGORIES, DEFAULT_STATUSES, FAMILY_PEOPLE_MAX, HOUSEHOLD_NAME_MAX } from "./defaults";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Db = ReturnType<typeof getDb> | Tx;
 
-/** Quantas pessoas ativas (não arquivadas) a família tem. */
+/**
+ * Quantas pessoas ativas contam no limite da família. Não contam: quem administra (você), as arquivadas
+ * e as avulsas.
+ */
 export async function activePeopleCount(db: Db, householdId: string) {
+  const owners = db
+    .select({ id: schema.memberships.participantId })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, householdId), eq(schema.memberships.role, "owner"), isNotNull(schema.memberships.participantId)));
   const [{ n }] = await db
     .select({ n: count() })
     .from(schema.participants)
-    .where(and(eq(schema.participants.householdId, householdId), eq(schema.participants.archived, false)));
+    .where(
+      and(
+        eq(schema.participants.householdId, householdId),
+        eq(schema.participants.archived, false),
+        eq(schema.participants.temporary, false),
+        notInArray(schema.participants.id, owners),
+      ),
+    );
   return n;
 }
 

@@ -3,11 +3,17 @@ import { notFound } from "next/navigation";
 import { TxForm } from "@/components/tx-form";
 import { requireAuth } from "@/lib/auth";
 import { canEditTx } from "@/lib/access";
-import { getLookupsFor, getMembers, getTransaction } from "@/lib/queries";
+import { getLookupsFor, getMembers, getSeriesItems, getTransaction } from "@/lib/queries";
+import { SeriesEditor } from "@/components/series-editor";
 
 export const metadata: Metadata = { title: "Editar lançamento" };
 
-const SOURCES: Record<string, string> = { manual: "lançado à mão", ofx: "importado de OFX", csv: "importado de CSV" };
+const SOURCES: Record<string, string> = {
+  manual: "lançado à mão",
+  ofx: "importado de OFX",
+  csv: "importado de CSV",
+  previsto: "parcela prevista: o extrato confirma sem duplicar.",
+};
 
 export default async function EditTransactionPage({ params, searchParams }: PageProps<"/transacoes/[id]">) {
   const auth = await requireAuth();
@@ -19,6 +25,7 @@ export default async function EditTransactionPage({ params, searchParams }: Page
   if (!tx) notFound();
   const canEdit = canEditTx(auth, tx.createdBy);
   const createdByName = members.find((m) => m.userId === tx.createdBy)?.name ?? null;
+  const series = tx.seriesId && tx.seriesTotal && canEdit ? await getSeriesItems(auth, tx.seriesId) : null;
   return (
     <div className="tx-page">
       <div className="page-head">
@@ -27,8 +34,9 @@ export default async function EditTransactionPage({ params, searchParams }: Page
           <p className="faint">{SOURCES[tx.source] ?? tx.source}</p>
         </div>
       </div>
+      {series && <SeriesEditor txId={tx.id} items={series} total={tx.seriesTotal!} currency={auth.currency} monthly={tx.seriesKind === "monthly"} />}
       <div className="card">
-        <TxForm lookups={lookups} currency={auth.currency} initial={tx} defaultStatusId={null} me={auth.participantId} readOnly={!canEdit} createdByName={createdByName} returnTo={returnTo} />
+        <TxForm key={`${tx.date}-${tx.amountCents}-${tx.seriesTotal ?? 0}`} lookups={lookups} currency={auth.currency} initial={tx} me={auth.participantId} readOnly={!canEdit} createdByName={createdByName} returnTo={returnTo} />
       </div>
     </div>
   );

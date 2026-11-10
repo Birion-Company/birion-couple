@@ -10,7 +10,7 @@ export const FAMILY_FULL_MESSAGE = `A família já tem ${FAMILY_PEOPLE_MAX} pess
 /** Tamanho máximo do nome da família (aparece no menu lateral, abaixo da marca). */
 export const HOUSEHOLD_NAME_MAX = 20;
 
-/** "Família de Felipe", cortado para caber no limite quando o primeiro nome é muito longo. */
+/** "Família de Fulano", cortado para caber no limite quando o primeiro nome é muito longo. */
 export function defaultHouseholdName(fullName: string) {
   const first = fullName.trim().split(/\s+/)[0] || "";
   return `Família de ${first}`.slice(0, HOUSEHOLD_NAME_MAX).trim();
@@ -66,7 +66,7 @@ export const STATUS_BEHAVIORS = [
 export const KINDS = [
   { value: "expense", label: "Despesa" },
   { value: "income", label: "Receita" },
-  { value: "loan", label: "Empréstimo" },
+  { value: "loan", label: "Dívida" },
   { value: "transfer", label: "Acerto entre pessoas" },
 ] as const;
 

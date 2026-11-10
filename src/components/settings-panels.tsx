@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, Plus, RefreshCw, Trash2 } from "lucide-react";
 import {
   addRule,
+  applyRule,
   createInvite,
   deleteHousehold,
   deletePreset,
@@ -22,37 +23,13 @@ import { Dot } from "./ui";
 
 /** Abas de Ajustes, com uma frase dizendo para que serve cada uma. */
 const TABS = [
-  { href: "/ajustes", label: "Família", help: "Nome da família (aparece embaixo do seu nome no menu) e a moeda usada nos valores. Só quem administra pode mudar." },
-  {
-    href: "/ajustes/pessoas",
-    label: "Pessoas",
-    help: "Quem divide as contas: aparecem em “Quem pagou”, “Quem deveria pagar” e em Dívidas. Não precisam ter login; para dar acesso ao app, use a aba Acesso. Máximo de 10 pessoas ativas.",
-  },
-  {
-    href: "/ajustes/categorias",
-    label: "Categorias",
-    help: "Com o que o dinheiro foi gasto (Mercado, Moradia…). Servem para o gráfico “Gastos por categoria” e para filtrar. Embaixo, regras que escolhem a categoria sozinhas na importação.",
-  },
-  {
-    href: "/ajustes/projetos",
-    label: "Projetos",
-    help: "Agrupam lançamentos de um mesmo assunto, como uma viagem ou uma reforma, para ver quanto custou no total. São opcionais e viram filtro.",
-  },
-  {
-    href: "/ajustes/status",
-    label: "Status",
-    help: "Em que pé está cada lançamento. O que conta é o significado: só “Acertado” tira o lançamento das dívidas; “Pendente” ainda aparece em Pendentes no painel.",
-  },
-  {
-    href: "/ajustes/membros",
-    label: "Acesso",
-    help: "Quem entra no app. Gere um link de convite para alguém da família criar a conta. Quem administra vê tudo; os outros membros só veem o que os envolve.",
-  },
-  {
-    href: "/ajustes/importacao",
-    label: "Importação",
-    help: "Modelos salvos de leitura de CSV (qual coluna é a data, o valor…), para não precisar configurar de novo a cada extrato do mesmo banco.",
-  },
+  { href: "/ajustes", label: "Família", help: "Nome da família e moeda." },
+  { href: "/ajustes/pessoas", label: "Pessoas", help: "Quem divide as contas. Não precisa ter login." },
+  { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
+  { href: "/ajustes/projetos", label: "Projetos", help: "Opcionais. Juntam gastos de um assunto, como uma viagem." },
+  { href: "/ajustes/status", label: "Status", help: "Automático, a partir de quem pagou e de quem tem parte." },
+  { href: "/ajustes/membros", label: "Acesso", help: "Convites para entrar no app." },
+  { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
 ];
 
 export function SettingsTabs() {
@@ -135,7 +112,7 @@ export function RulesEditor({ rules, categories }: { rules: { id: string; patter
   return (
     <div className="card">
       <p className="faint" style={{ marginBottom: 10 }}>
-        Na importação, a categoria é escolhida sozinha quando a descrição contém o texto. Ex.: “uber” → Transporte.
+        Ex.: “uber” → Transporte. Vale para o que já existe e para o que vier.
       </p>
       <div className="rows">
         {rules.map((r) => (
@@ -146,6 +123,9 @@ export function RulesEditor({ rules, categories }: { rules: { id: string; patter
                 <Dot color={cat.get(r.categoryId)?.color ?? "#ccc"} /> {cat.get(r.categoryId)?.name}
               </p>
             </div>
+            <button className="btn ghost small" disabled={pending} onClick={() => act(() => applyRule(r.id))} title="Passa para esta categoria todos os lançamentos que já existem com esse texto">
+              <RefreshCw size={14} /> Aplicar de novo
+            </button>
             <button className="icon-btn" disabled={pending} onClick={() => act(() => deleteRule(r.id))} aria-label={`Remover regra ${r.pattern}`}>
               <Trash2 size={16} strokeWidth={1.6} />
             </button>
@@ -250,7 +230,7 @@ export function MembersPanel({
         <section className="card section">
           <h2 style={{ marginBottom: 4 }}>Convidar alguém</h2>
           <p className="faint" style={{ marginBottom: 12 }}>
-            Gere um link e envie pelo WhatsApp ou e-mail. Quem entrar vira também uma pessoa nos lançamentos.
+            Gere um link e envie para a pessoa.
           </p>
           <div className="actions">
             <Select
@@ -308,7 +288,7 @@ export function PresetsPanel({ presets }: { presets: { id: string; name: string 
   return (
     <div className="card">
       <p className="faint" style={{ marginBottom: 10 }}>
-        Modelos guardam como ler o CSV de cada banco (colunas, formato de data, sinal dos valores). Você cria um na tela de importação.
+        Como ler o CSV de cada banco. Criados ao importar um CSV.
       </p>
       {presets.length === 0 ? (
         <div className="empty">Nenhum modelo salvo ainda.</div>

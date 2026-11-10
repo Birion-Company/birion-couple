@@ -8,18 +8,17 @@ const inter = Inter({ variable: "--font-sans", subsets: ["latin"], display: "swa
 
 export const metadata: Metadata = {
   title: { default: "BIRION FINANCE", template: "%s · BIRION FINANCE" },
-  description: "Finanças da família em um só lugar: quem pagou, quem deve e o que está pendente.",
+  description: "Finanças da família em um só lugar: quem pagou, quem deve e o que falta pagar.",
   applicationName: "BIRION FINANCE",
   appleWebApp: { capable: true, title: "BIRION", statusBarStyle: "default" },
 };
 
+// Sem zoom (no celular confunde) e a cor da barra do celular vem do tema escolhido no app (ver THEME_SCRIPT).
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f9fa" },
-    { media: "(prefers-color-scheme: dark)", color: "#07111f" },
-  ],
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 
@@ -27,6 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={inter.variable} data-theme="dark" suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#030a14" />
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>

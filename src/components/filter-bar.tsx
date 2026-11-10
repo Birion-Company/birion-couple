@@ -1,22 +1,27 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
-import { PERIODS, filtersToQuery, type Filters } from "@/lib/filters";
+import { monthLabel } from "@/lib/cards";
+import { PERIODS, PERSON_ROLES, filtersToQuery, type Filters } from "@/lib/filters";
 import { Select, type SelectOption } from "./select";
+import { STATE_FILTER_OPTIONS } from "@/lib/tx-state";
 import { Avatar } from "./ui";
 
-type Option = { id: string; name: string; color: string; archived: boolean };
+type Option = { id: string; name: string; color: string; archived: boolean; temporary?: boolean; avatarUrl?: string | null };
 
 type Props = {
   filters: Filters;
   participants: Option[];
   categories: Option[];
   projects: Option[];
-  statuses: Option[];
   cards?: Option[];
   showStatus?: boolean;
+  /** No painel o mês fica no navegador de mês, em destaque; aqui some o seletor de período. */
+  showPeriod?: boolean;
+  /** Pessoa que a página mostra sem escolher ninguém (no painel, você). "Todos" vira a família inteira. */
+  defaultPerson?: string | null;
   /** Período que a página usa sem parâmetro na URL. */
   defaultPeriod?: Filters["period"];
 };
@@ -54,34 +59,60 @@ function ChipSelect({
   );
 }
 
-export function FilterBar({ filters, participants, categories, projects, statuses, cards = [], showStatus = true, defaultPeriod = "tudo" }: Props) {
+export function FilterBar({ filters, participants, categories, projects, cards = [], showStatus = true, showPeriod = true, defaultPeriod = "tudo", defaultPerson = null }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, start] = useTransition();
   // Filtros extras (pessoa, categoria, status…) ficam recolhidos; abrem sozinhos se algum estiver em uso.
-  const extras = [filters.person, filters.category, filters.project, filters.status, filters.card].filter(Boolean).length;
+  const extras = [filters.person, filters.everyone && defaultPerson, filters.category, filters.project, filters.status, filters.card].filter(Boolean).length;
+  // Quem está escolhido de verdade: a pessoa do filtro, ou a padrão da página (a não ser que "Todos" tenha sido escolhido).
+  const selected = filters.person ?? (defaultPerson && !filters.everyone ? defaultPerson : null);
+  const pickPerson = (id: string | null) => {
+    // Clicar de novo na pessoa escolhida desmarca: volta ao padrão da página (no painel, você; na lista, todos).
+    if (id && id === selected && id !== defaultPerson) return go({ person: null, everyone: false, role: null });
+    go({ person: id && id !== defaultPerson ? id : null, everyone: id === null && !!defaultPerson, role: null });
+  };
   const [open, setOpen] = useState(extras > 0);
+  // No celular a barra fica presa no topo: com os filtros abertos ela cobriria a lista.
+  // Ao rolar para baixo, os filtros se recolhem sozinhos (o botão "Filtros" abre de novo).
+  useEffect(() => {
+    if (!open) return;
+    const start = window.scrollY;
+    const onScroll = () => {
+      if (window.innerWidth < 900 && window.scrollY - start > 120) setOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [open]);
 
   const go = (patch: Partial<Filters>) => {
     const next = { ...filters, ...patch };
     start(() => router.replace(pathname + filtersToQuery(next, defaultPeriod), { scroll: false }));
   };
 
-  const active = extras > 0 || !!filters.q || filters.period !== defaultPeriod;
-  const people = participants.filter((p) => !p.archived || p.id === filters.person);
+  const active = extras > 0 || !!filters.q || (showPeriod && (filters.period !== defaultPeriod || !!filters.month));
+  // Pessoas avulsas só aparecem se estiverem escolhidas (ex.: vindo de Dívidas).
+  const people = participants.filter((p) => (!p.archived && !p.temporary) || p.id === filters.person);
 
   return (
     <div className="filter-bar" style={{ opacity: pending ? 0.6 : 1, transition: "opacity .15s" }}>
       <div className="filters" role="group" aria-label="Período e filtros">
+        {showPeriod && !filters.month && (
         <Select
           variant="chip"
           ariaLabel="Período"
           value={filters.period}
           options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
-          onChange={(v) => go({ period: v as Filters["period"] })}
+          onChange={(v) => go({ period: v as Filters["period"], month: null })}
           active={filters.period !== defaultPeriod}
         />
-        {filters.period === "custom" && (
+        )}
+        {showPeriod && filters.month && (
+          <button type="button" className="chip on" onClick={() => go({ month: null, period: defaultPeriod, from: null, to: null })} title="Tirar o mês">
+            {monthLabel(filters.month)} <X size={13} strokeWidth={1.8} />
+          </button>
+        )}
+        {showPeriod && filters.period === "custom" && !filters.month && (
           <>
             <span className="chip on">
               <span className="sr-only">De</span>
@@ -100,7 +131,7 @@ export function FilterBar({ filters, participants, categories, projects, statuse
           <button
             type="button"
             className="chip"
-            onClick={() => go({ person: null, category: null, project: null, status: null, card: null, q: null, period: defaultPeriod, from: null, to: null })}
+            onClick={() => go({ ...(showPeriod ? { month: null, period: defaultPeriod, from: null, to: null } : {}), person: null, everyone: false, role: null, category: null, project: null, status: null, card: null, q: null })}
           >
             <X size={14} strokeWidth={1.6} /> Limpar
           </button>
@@ -110,19 +141,35 @@ export function FilterBar({ filters, participants, categories, projects, statuse
         <div className="filters-more">
           {people.length > 1 && (
             <div className="person-pills" role="group" aria-label="Filtrar por pessoa">
-              <button type="button" className={`chip ${!filters.person ? "on" : ""}`} onClick={() => go({ person: null })}>
+              <button type="button" className={`chip ${!selected ? "on" : ""}`} onClick={() => pickPerson(null)} aria-pressed={!selected}>
                 Todos
               </button>
               {people.map((p) => (
                 <button
                   key={p.id}
                   type="button"
-                  className={`chip ${filters.person === p.id ? "on" : ""}`}
-                  onClick={() => go({ person: filters.person === p.id ? null : p.id })}
-                  aria-pressed={filters.person === p.id}
+                  className={`chip ${selected === p.id ? "on" : ""}`}
+                  onClick={() => pickPerson(p.id)}
+                  aria-pressed={selected === p.id}
                 >
-                  <Avatar name={p.name} color={p.color} size={22} />
+                  <Avatar name={p.name} color={p.color} size={22} src={p.avatarUrl} />
                   {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {selected && (
+            <div className="person-pills role-pills" role="group" aria-label="O que mostrar da pessoa">
+              {PERSON_ROLES.map((r) => (
+                <button
+                  key={r.value || "tudo"}
+                  type="button"
+                  className={`chip ${(filters.role ?? "") === r.value ? "on" : ""}`}
+                  onClick={() => go({ role: (r.value || null) as Filters["role"], person: r.value ? selected : filters.person })}
+                  aria-pressed={(filters.role ?? "") === r.value}
+                  title={r.hint}
+                >
+                  {r.label}
                 </button>
               ))}
             </div>
@@ -140,7 +187,7 @@ export function FilterBar({ filters, participants, categories, projects, statuse
               <ChipSelect label="Projeto" allLabel="Todos os projetos" value={filters.project} options={projects} onChange={(v) => go({ project: v })} />
             )}
             {showStatus && (
-              <ChipSelect label="Status" allLabel="Todos os status" value={filters.status} options={statuses} onChange={(v) => go({ status: v })} />
+              <ChipSelect label="Status" allLabel="Todos os status" value={filters.status} options={STATE_FILTER_OPTIONS.map((o) => ({ ...o, archived: false }))} onChange={(v) => go({ status: v })} />
             )}
             {cards.length > 0 && (
               <ChipSelect label="Cartão" allLabel="Todos os cartões" value={filters.card} options={cards} onChange={(v) => go({ card: v })} />

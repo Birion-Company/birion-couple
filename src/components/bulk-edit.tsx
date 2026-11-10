@@ -21,14 +21,13 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
   const [payer, setPayer] = useState(KEEP);
   // Quem deveria pagar: nenhuma pessoa marcada = não mudar.
   const [owers, setOwers] = useState<string[]>([]);
-  const [status, setStatus] = useState(KEEP);
   const [category, setCategory] = useState(KEEP);
   const [project, setProject] = useState(KEEP);
   const [card, setCard] = useState(KEEP);
   const [changeDate, setChangeDate] = useState(false);
   const [date, setDate] = useState("");
   const dialog = useRef<HTMLDivElement>(null);
-  const people = lookups.participants.filter((p) => !p.archived);
+  const people = lookups.participants.filter((p) => !p.archived && !p.temporary);
   const name = (id: string | null) => lookups.participants.find((p) => p.id === id)?.name ?? "alguém";
 
   useEffect(() => {
@@ -42,7 +41,6 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
   if (kind !== KEEP) patch.kind = kind as "expense" | "income";
   if (payer !== KEEP) patch.payerId = payer || null;
   if (owers.length) patch.splitIds = owers;
-  if (status !== KEEP) patch.statusId = status;
   if (category !== KEEP) patch.categoryId = category || null;
   if (project !== KEEP) patch.projectId = project || null;
   if (card !== KEEP) patch.cardId = card || null;
@@ -84,14 +82,14 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
             <X size={18} />
           </button>
         </div>
-        <p className="faint" style={{ marginBottom: 12 }}>Só muda o que você alterar; o resto de cada lançamento fica como está. Valor e descrição se editam um por um.</p>
+        <p className="faint" style={{ marginBottom: 12 }}>Só muda o que você alterar.</p>
 
         <div className="form">
           <fieldset className="bulk-group">
             <legend>Quem pagou e quem deveria pagar</legend>
             <label className="field">
               <span>Quem pagou</span>
-              <Select value={payer} onChange={setPayer} options={[keep, { value: "", label: "Ninguém ainda" }, ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]} />
+              <Select value={payer} onChange={setPayer} options={[keep, ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]} />
             </label>
             <div className="field">
               <span className="label-text" id="bulk-owers">Quem deveria pagar</span>
@@ -100,12 +98,12 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
                   const on = owers.includes(p.id);
                   return (
                     <button key={p.id} type="button" className={`chip ${on ? "on" : ""}`} aria-pressed={on} onClick={() => setOwers((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}>
-                      <Avatar name={p.name} color={p.color} size={22} /> {p.name}
+                      <Avatar name={p.name} color={p.color} size={22} src={p.avatarUrl} /> {p.name}
                     </button>
                   );
                 })}
               </div>
-              <span className="faint">Nenhuma marcada: não muda. Uma pessoa: a conta é toda dela. Várias: dividem em partes iguais.</span>
+              <span className="faint">Nenhuma: não muda. Uma: conta toda dela. Várias: partes iguais.</span>
             </div>
             {summary && (
               <p className="bulk-summary" role="status">
@@ -120,10 +118,6 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
               <label className="field">
                 <span>Tipo</span>
                 <Select value={kind} onChange={setKind} options={[keep, { value: "expense", label: "Despesa" }, { value: "income", label: "Receita" }]} />
-              </label>
-              <label className="field">
-                <span>Status</span>
-                <Select value={status} onChange={setStatus} options={[keep, ...lookups.statuses.filter((s) => !s.archived).map((s) => ({ value: s.id, label: s.name, color: s.color }))]} />
               </label>
             </div>
             <div className="field-row">
@@ -172,8 +166,7 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
           </fieldset>
 
           <p className="faint">
-            Empréstimos e acertos não mudam de tipo, quem pagou, quem deveria pagar nem cartão (edite um por um). O cartão precisa ser de quem pagou; se quem pagou
-            mudar, um cartão de outra pessoa sai.
+            Dívidas e acertos se editam um por um.
           </p>
         </div>
         <div className="bulk-actions">

@@ -1,0 +1,1 @@
+ALTER TABLE "participants" ADD COLUMN "temporary" boolean DEFAULT false NOT NULL;

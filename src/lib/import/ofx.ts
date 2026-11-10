@@ -42,7 +42,7 @@ function tag(block: string, name: string): string | null {
 
 /**
  * Leitura direta dos blocos <STMTTRN>, usada quando a biblioteca não encontra nada
- * (acontece com faturas de cartão, como as do Nubank). Serve para conta e cartão.
+ * (acontece com faturas de cartão). Serve para conta e cartão.
  */
 export function readStatementBlocks(text: string) {
   const body = normalizeOfxText(text);

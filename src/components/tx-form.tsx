@@ -1,11 +1,13 @@
 "use client";
 
+import { STATE_INFO, stateLabel, txState } from "@/lib/tx-state";
+import { DebtPayments, ProfitBadge } from "./debt-payments";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
 import { deleteSeries, deleteTransactions, saveTransaction } from "@/app/actions/transactions";
-import { addMonthsIso, monthLabel, seriesLabel } from "@/lib/cards";
+import { addMonthsIso, monthLabel } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
@@ -13,16 +15,17 @@ import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { ImpactBox } from "./impact-box";
 import { Avatar } from "./ui";
+import { TempPersonAdder, type TempPerson } from "./temp-person";
 
 type Kind = "expense" | "income" | "loan" | "transfer";
 type Repeat = "once" | "installment" | "monthly";
 
 /** O que cada tipo significa, mostrado embaixo da escolha. */
 const KIND_HELP: Record<Kind, string> = {
-  expense: "Algo que foi pago. Se dividir com outras pessoas, cada uma passa a dever a parte dela para quem pagou.",
-  income: "Dinheiro que entrou (salário, venda, estorno). Se dividir, quem recebeu fica devendo a parte de cada um.",
-  loan: "Dinheiro emprestado ou algo pago só para outra pessoa. Quem pegou emprestado fica devendo o valor todo.",
-  transfer: "Pagamento de uma dívida entre pessoas da família. Abate o que uma deve para a outra.",
+  expense: "Algo pago. Quem tem parte fica devendo para quem pagou.",
+  income: "Dinheiro que entrou: salário, venda, estorno.",
+  loan: "Alguém fica te devendo. Ex.: um empréstimo para Fulano.",
+  transfer: "Pagamento entre pessoas. Abate a dívida.",
 };
 
 export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" | "description">> & { toId?: string };
@@ -37,29 +40,42 @@ export function TxForm({
   currency,
   initial,
   prefill,
-  defaultStatusId,
   me,
   readOnly = false,
   createdByName,
   returnTo,
+  onDone,
 }: {
   lookups: Lookups;
   currency: string;
   initial: TxRow | null;
   prefill?: TxPrefill;
-  defaultStatusId: string | null;
   me: string | null;
   /** Lançamento de outra pessoa: só para ver. */
   readOnly?: boolean;
   createdByName?: string | null;
   /** Para onde voltar depois de salvar ou excluir (ex.: "/identificar"). */
   returnTo?: string;
+  /** Aberto numa janela (popup): ao salvar, excluir ou cancelar, fecha a janela em vez de mudar de página. */
+  onDone?: () => void;
 }) {
+  const leave = (to: string) => {
+    if (onDone) onDone();
+    else router.push(to);
+    router.refresh();
+  };
   const router = useRouter();
   const [pending, start] = useTransition();
-  const people = lookups.participants.filter(
-    (p) => !p.archived || p.id === initial?.payerId || initial?.splits.some((s) => s.participantId === p.id),
+  // Pessoas da família (ativas) + as avulsas que estão neste lançamento ou que acabaram de ser adicionadas.
+  const [extra, setExtra] = useState<TempPerson[]>([]);
+  const inThisTx = new Set(
+    [initial?.payerId, ...(initial?.splits.map((s) => s.participantId) ?? []), prefill?.payerId, prefill?.toId, ...extra.map((x) => x.id)].filter(Boolean) as string[],
   );
+  const people = [
+    ...lookups.participants.filter((p) => (!p.archived && !p.temporary) || inThisTx.has(p.id)),
+    ...extra.filter((x) => !lookups.participants.some((p) => p.id === x.id && ((!p.archived && !p.temporary) || inThisTx.has(p.id)))),
+  ];
+  const tempNames = lookups.participants.filter((p) => p.temporary).map((p) => p.name);
   const firstPerson = me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "";
 
   const [kind, setKind] = useState<Kind>(initial?.kind ?? prefill?.kind ?? "expense");
@@ -73,12 +89,6 @@ export function TxForm({
   const [payerId, setPayerId] = useState(initial?.payerId ?? prefill?.payerId ?? firstPerson);
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
-  const [statusId, setStatusId] = useState(
-    initial?.statusId ??
-      (prefill?.kind === "transfer" || prefill?.kind === "loan" ? lookups.statuses.find((s) => s.behavior === "open" && !s.archived)?.id : undefined) ??
-      defaultStatusId ??
-      "",
-  );
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const cards = lookups.cards.filter((c) => !c.archived || c.id === initial?.cardId);
   const [cardId, setCardId] = useState(initial?.cardId ?? "");
@@ -87,17 +97,26 @@ export function TxForm({
   // "Todo mês": por padrão repete sem data para acabar.
   const [forever, setForever] = useState(true);
   const [applyToSeries, setApplyToSeries] = useState(true);
-  // Cada pessoa tem os próprios cartões: só aparecem os de quem pagou.
-  const payerCards = cards.filter((c) => !c.ownerId || c.ownerId === payerId || c.id === initial?.cardId);
-  const card = payerCards.find((c) => c.id === cardId) ?? null;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  // Cartões que esta pessoa vê (os próprios; quem administra vê todos). No cartão, quem pagou é o dono.
+  const visibleCards = cards.filter((c) => !c.archived || c.id === cardId);
+  const card = cards.find((c) => c.id === cardId) ?? null;
+  // Cartão só em despesa: receita é dinheiro que entra (vai para você, não para um cartão).
+  const showMethod = kind === "expense" && (visibleCards.length > 0 || !!card);
+  const payerFromCard = kind === "expense" && !!card?.ownerId;
   const payerName = people.find((p) => p.id === payerId)?.name;
+  const cardLabel = (c: { name: string; ownerId: string | null }) =>
+    c.ownerId && c.ownerId !== me ? `Cartão ${c.name} (de ${people.find((p) => p.id === c.ownerId)?.name ?? "outra pessoa"})` : `Cartão ${c.name}`;
   const n = Math.min(Math.max(Number(count) || 0, 0), repeat === "installment" ? 48 : 60);
-  const isSeries = !initial && !between && repeat !== "once";
+  // Empréstimo também pode ser parcelado ("emprestei 5.600, ele paga em 10x"); acerto não.
+  const canRepeat = !initial && kind !== "transfer";
+  const isSeries = canRepeat && repeat !== "once" && !(kind === "loan" && repeat === "monthly");
   const isForever = isSeries && repeat === "monthly" && forever;
 
   const initialSplitIds =
     initial?.splits.map((s) => s.participantId) ??
-    (prefill?.toId ? [prefill.toId] : prefill?.kind === "loan" ? [] : people.filter((p) => !p.archived).map((p) => p.id));
+    // Novo lançamento: só você marcado (a conta é sua até você marcar mais alguém).
+    (prefill?.toId ? [prefill.toId] : prefill?.kind === "loan" ? [] : firstPerson ? [firstPerson] : []);
   const [splitIds, setSplitIds] = useState<string[]>(initialSplitIds);
   const equalBefore = useMemo(() => {
     if (!initial) return true;
@@ -119,10 +138,10 @@ export function TxForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (cents <= 0) return toast("Digite um valor maior que zero.", "error");
-    if (between && splitIds.length !== 1) return toast(kind === "loan" ? "Escolha quem pegou emprestado." : "Escolha para quem foi o acerto.", "error");
-    if (between && !payerId) return toast(kind === "loan" ? "Escolha quem emprestou." : "Escolha quem pagou o acerto.", "error");
+    if (between && splitIds.length !== 1) return toast(kind === "loan" ? "Escolha quem deve." : "Escolha para quem foi o acerto.", "error");
+    if (!payerId) return toast(kind === "loan" ? "Escolha quem vai receber." : kind === "transfer" ? "Escolha quem pagou o acerto." : kind === "income" ? "Escolha quem recebeu." : "Escolha quem pagou.", "error");
     if (mode === "custom" && !between && customSum !== cents) {
-      return toast(`As partes somam ${formatMoney(customSum, currency)}, mas o total é ${formatMoney(cents, currency)}.`, "error");
+      return toast(customSum < cents ? `Falta dividir ${formatMoney(cents - customSum, currency)} entre as pessoas.` : `As partes passam ${formatMoney(customSum - cents, currency)} do total.`, "error");
     }
     if (isSeries && !isForever && (n < 2 || String(n) !== count.trim())) {
       return toast(repeat === "installment" ? "Escolha de 2 a 48 parcelas." : "Escolha de 2 a 60 meses.", "error");
@@ -130,14 +149,14 @@ export function TxForm({
     start(async () => {
       const r = await saveTransaction(initial?.id ?? null, {
         date,
-        description: description || (kind === "transfer" ? "Acerto" : kind === "loan" ? "Empréstimo" : ""),
+        description: description || (kind === "transfer" ? "Acerto" : kind === "loan" ? "Dívida" : ""),
         amountCents: cents,
         kind,
         payerId: payerId || null,
-        categoryId: between ? null : categoryId || null,
+        // Só despesa tem categoria.
+        categoryId: kind === "expense" ? categoryId || null : null,
         projectId: projectId || null,
-        statusId: statusId || null,
-        cardId: between ? null : cardId || null,
+        cardId: kind === "expense" ? cardId || null : null,
         notes,
         series: isSeries ? { kind: repeat as "installment" | "monthly", count: isForever ? null : n } : null,
         applyToSeries: initial?.seriesId ? applyToSeries : undefined,
@@ -149,20 +168,18 @@ export function TxForm({
       });
       toastResult(r);
       if (r.ok) {
-        router.push(returnTo ?? (initial ? "/transacoes" : "/painel"));
-        router.refresh();
+        leave(returnTo ?? (initial ? "/transacoes" : "/painel"));
       }
     });
   };
 
   const remove = () => {
-    if (!initial || !window.confirm("Excluir este lançamento?")) return;
+    if (!initial || !window.confirm(initial.seriesId ? "Excluir só esta?" : "Excluir este lançamento?")) return;
     start(async () => {
       const r = await deleteTransactions([initial.id]);
       toastResult(r);
       if (r.ok) {
-        router.push(returnTo ?? "/transacoes");
-        router.refresh();
+        leave(returnTo ?? "/transacoes");
       }
     });
   };
@@ -183,17 +200,16 @@ export function TxForm({
       const r = await deleteSeries(initial.id, scope);
       toastResult(r);
       if (r.ok) {
-        router.push(returnTo ?? "/transacoes");
-        router.refresh();
+        leave(returnTo ?? "/transacoes");
       }
     });
   };
 
   const payerLabel =
-    kind === "income" ? "Quem recebeu" : kind === "transfer" ? "Quem pagou o acerto" : kind === "loan" ? "Quem emprestou" : "Quem pagou";
-  const amountLabel = isSeries ? (repeat === "installment" ? "Valor total da compra" : "Valor por mês") : "Valor";
-  const seriesWord = initial?.seriesKind === "monthly" ? "lançamento recorrente" : "compra parcelada";
-  const endless = initial?.seriesKind === "monthly" && !initial.seriesTotal;
+    kind === "income" ? "Quem recebeu" : kind === "transfer" ? "Quem pagou o acerto" : kind === "loan" ? "Quem vai receber" : "Quem pagou";
+  const amountLabel = isSeries ? (repeat === "installment" ? (kind === "loan" ? "Valor total da dívida" : "Valor total da compra") : "Valor por mês") : "Valor";
+  const monthly = initial?.seriesKind === "monthly";
+  const endless = monthly && !initial?.seriesTotal;
 
   // Resumo das parcelas.
   let seriesHint: string | null = null;
@@ -213,7 +229,19 @@ export function TxForm({
   const sharesNow = mode === "equal" ? equalParts : splitIds.map((id) => parseAmountToCents(custom[id] ?? "", ",") ?? 0);
 
   // O que este lançamento muda em cada parte do app (mesmas regras do cálculo de verdade).
-  const statusBehavior = (lookups.statuses.find((x) => x.id === statusId)?.behavior ?? null) as "pending" | "open" | "settled" | null;
+  // Quem já pagou a própria parte (com um acerto ligado) continua pago enquanto estiver na divisão.
+  const paidBy = new Map((initial?.splits ?? []).map((x) => [x.participantId, x.paidById]));
+  const settled = initial?.settled ?? false;
+  const state = txState({
+    kind,
+    payerId: payerId || null,
+    cardId: kind === "expense" ? cardId || null : null,
+    invoicePaid: !!initial?.invoicePaid && initial.cardId === cardId,
+    settled,
+    splits: between
+      ? splitIds.slice(0, 1).map((id) => ({ participantId: id, amountCents: 1, paidById: paidBy.get(id) }))
+      : splitIds.map((id, i) => ({ participantId: id, amountCents: sharesNow[i] ?? 1, paidById: paidBy.get(id) })),
+  });
   const impact =
     cents > 0
       ? describeImpact({
@@ -225,12 +253,12 @@ export function TxForm({
             : splitIds.map((id, i) => ({ participantId: id, cents: sharesNow[i] ?? 0 })),
           me,
           names: Object.fromEntries(people.map((p) => [p.id, p.name])),
-          statusBehavior,
+          settled: settled || (state === "paid" && !card),
           card: card && !between ? { name: card.name, closingDay: card.closingDay, dueDay: card.dueDay } : null,
           date,
           repeat: isSeries ? repeat : "once",
           count: isSeries ? (isForever ? null : n) : null,
-          categoryName: lookups.categories.find((c) => c.id === categoryId)?.name ?? null,
+          categoryName: kind === "expense" ? lookups.categories.find((c) => c.id === categoryId)?.name ?? null : null,
           currency,
           today: today(),
         })
@@ -244,31 +272,6 @@ export function TxForm({
           administra a família) pode alterar ou excluir.
         </div>
       )}
-      {initial?.seriesId && !readOnly && (
-        <div className="series-notice">
-          <p className="series-notice-title">
-            <Repeat size={16} strokeWidth={1.8} aria-hidden />
-            {endless
-              ? `Lançamento que se repete todo mês (${initial.seriesIndex}º mês)`
-              : `${seriesLabel(initial.seriesKind, initial.seriesIndex, initial.seriesTotal)} de uma ${seriesWord}`}
-          </p>
-          <label className="check">
-            <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
-            <span>
-              Levar descrição, categoria, projeto, cartão, quem pagou e observações para {endless ? "os outros meses (inclusive os próximos)" : "as outras parcelas"}
-            </span>
-          </label>
-          <p className="faint">Valor, data, divisão e status mudam só nesta.</p>
-          <div className="actions">
-            <button type="button" className="btn small ghost danger" onClick={() => removeSeries("next")} disabled={pending}>
-              {endless ? "Parar de repetir a partir deste mês" : "Excluir esta e as próximas"}
-            </button>
-            <button type="button" className="btn small ghost danger" onClick={() => removeSeries("all")} disabled={pending}>
-              Excluir todas
-            </button>
-          </div>
-        </div>
-      )}
       <fieldset className="tx-fieldset" disabled={readOnly}>
       <div className="tx-cols">
         <div className="tx-col" role="group" aria-label="O lançamento">
@@ -276,7 +279,7 @@ export function TxForm({
             {([
               ["expense", "Despesa"],
               ["income", "Receita"],
-              ["loan", "Empréstimo"],
+              ["loan", "Dívida"],
               ["transfer", "Acerto"],
             ] as const).map(([v, l]) => (
               <button
@@ -316,7 +319,7 @@ export function TxForm({
               className="input"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={kind === "transfer" ? "Acerto" : kind === "loan" ? "Empréstimo" : "Ex.: Mercado, conta de luz"}
+              placeholder={kind === "transfer" ? "Acerto" : kind === "loan" ? "Ex.: Notebook" : "Ex.: Mercado, conta de luz"}
               required={!between}
               maxLength={200}
             />
@@ -327,59 +330,71 @@ export function TxForm({
               <span>{isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
               <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </label>
-            <label className="field">
-              <span>{payerLabel}</span>
-              <Select
-                value={payerId}
-                onChange={(v) => {
-                  setPayerId(v);
-                  // Cartão de outra pessoa não vale para o novo pagador.
-                  const c = cards.find((x) => x.id === cardId);
-                  if (c?.ownerId && c.ownerId !== v) setCardId("");
-                }}
-                options={[...(!between ? [{ value: "", label: "Ninguém ainda" }] : []), ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
-                placeholder="Escolha"
-              />
-            </label>
-          </div>
-
-          {!between &&
-            (payerCards.length > 0 ? (
+            {showMethod && (
               <label className="field" data-tour="tx-card">
-                <span>{payerName && payerId !== me ? `Cartão de crédito de ${payerName}` : "Cartão de crédito"}</span>
+                <span>Como foi pago</span>
                 <Select
                   value={cardId}
-                  onChange={setCardId}
+                  onChange={(v) => {
+                    setCardId(v);
+                    // No cartão, quem pagou é sempre o dono dele: a fatura é dele.
+                    const c = cards.find((x) => x.id === v);
+                    if (c?.ownerId) setPayerId(c.ownerId);
+                  }}
                   options={[
-                    { value: "", label: "Não foi no cartão" },
-                    ...payerCards.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+                    { value: "", label: "Sem cartão (Pix, dinheiro, débito…)" },
+                    ...visibleCards.map((c) => ({ value: c.id, label: cardLabel(c), color: c.color })),
                   ]}
                 />
               </label>
-            ) : (
-              kind === "expense" && !readOnly && (
-                <p className="faint card-cta" data-tour="tx-card">
-                  <CreditCard size={15} strokeWidth={1.7} aria-hidden />
-                  {payerId && payerId !== me ? (
-                    <>{payerName ?? "Essa pessoa"} não tem cartão cadastrado.</>
-                  ) : (
-                    <>
-                      Pagou no cartão de crédito? <Link href="/cartoes" className="pos">Cadastre o seu cartão</Link> para acompanhar a fatura.
-                    </>
-                  )}
-                </p>
-              )
-            ))}
+            )}
+            {!payerFromCard && (
+              <label className="field" data-tour="tx-payer">
+                <span>{payerLabel}</span>
+                <Select
+                  value={payerId}
+                  onChange={setPayerId}
+                  options={[...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
+                  placeholder="Escolha"
+                />
+              </label>
+            )}
+          </div>
 
-          {!initial && !between && (
+          {payerFromCard && card && (
+            <p className="faint card-paid-hint">
+              <CreditCard size={15} strokeWidth={1.7} aria-hidden />
+              {card.ownerId === me ? (
+                <>Entra na sua fatura do {card.name}. Quem tem parte fica te devendo.</>
+              ) : (
+                <>Entra na fatura do {card.name} de {payerName ?? "outra pessoa"}.</>
+              )}
+            </p>
+          )}
+          {!between && kind === "expense" && visibleCards.length === 0 && !readOnly && (
+            <p className="faint card-cta">
+              <CreditCard size={15} strokeWidth={1.7} aria-hidden />
+              Usa cartão? <Link href="/cartoes" className="pos">Cadastre o seu cartão</Link>.
+            </p>
+          )}
+
+          <ImpactBox impact={impact} />
+
+          {canRepeat && (
             <div className="field" data-tour="tx-repeat">
-              <span className="label-text">Repetição</span>
+              <span className="label-text">{kind === "loan" ? "Como vai te pagar" : "Repetição"}</span>
               <div className="segmented" role="group" aria-label="Repetição">
-                {([
-                  ["once", "Uma vez"],
-                  ["installment", "Parcelado"],
-                  ["monthly", "Todo mês"],
-                ] as const).map(([v, l]) => (
+                {(kind === "loan"
+                  ? ([
+                      ["once", "De uma vez"],
+                      ["installment", "Parcelado"],
+                    ] as const)
+                  : ([
+                      ["once", "Uma vez"],
+                      ["installment", "Parcelado"],
+                      ["monthly", "Todo mês"],
+                    ] as const)
+                ).map(([v, l]) => (
                   <button
                     key={v}
                     type="button"
@@ -429,17 +444,26 @@ export function TxForm({
         <div className="tx-col" role="group" aria-label="Divisão e detalhes">
           {between ? (
             <div className="field">
-              <span className="label-text" id="destino-label">{kind === "loan" ? "Quem pegou emprestado" : "Para quem"}</span>
+              <span className="label-text" id="destino-label">{kind === "loan" ? "Quem deve" : "Para quem"}</span>
               <Select
                 value={splitIds[0] ?? ""}
                 onChange={(v) => setSplitIds(v ? [v] : [])}
                 options={people.filter((p) => p.id !== payerId).map((p) => ({ value: p.id, label: p.name, color: p.color }))}
                 placeholder="Escolha"
-                ariaLabel={kind === "loan" ? "Quem pegou emprestado" : "Para quem"}
+                ariaLabel={kind === "loan" ? "Quem deve" : "Para quem"}
               />
+              {!readOnly && (
+                <TempPersonAdder
+                  suggestions={tempNames}
+                  onAdd={(p) => {
+                    setExtra((x) => [...x.filter((y) => y.id !== p.id), p]);
+                    setSplitIds([p.id]);
+                  }}
+                />
+              )}
               <span className="faint">
                 {kind === "loan"
-                  ? "Use para dinheiro emprestado ou algo que você pagou só para outra pessoa."
+                  ? "Quem fica devendo o valor para quem vai receber."
                   : "Um acerto abate o que uma pessoa deve para a outra."}
               </span>
             </div>
@@ -450,8 +474,8 @@ export function TxForm({
               </legend>
               <span className="faint" style={{ marginTop: -2, marginBottom: 6, display: "block" }}>
                 {kind === "income"
-                  ? "Marque de quem é a receita; quem recebeu fica devendo a parte de cada um."
-                  : "Marque só uma pessoa se a conta é toda dela, ou várias para dividir. Quem pagou recebe a parte dos outros."}
+                  ? "Quem recebeu repassa a parte dos outros."
+                  : "Uma pessoa = conta toda dela. Várias = dividir."}
               </span>
               <div className="segmented" role="group" aria-label="Como dividir" style={{ marginBottom: 6 }}>
                 <button type="button" aria-pressed={mode === "equal"} onClick={() => setMode("equal")}>Partes iguais</button>
@@ -479,7 +503,7 @@ export function TxForm({
                   <div key={p.id} className="split-row">
                     <label className="check">
                       <input type="checkbox" checked={on} onChange={() => toggleSplit(p.id)} />
-                      <Avatar name={p.name} color={p.color} size={26} />
+                      <Avatar name={p.name} color={p.color} size={26} src={"avatarUrl" in p ? (p.avatarUrl as string | null) : null} />
                       <span>{p.name}</span>
                     </label>
                     {on &&
@@ -500,16 +524,29 @@ export function TxForm({
                   </div>
                 );
               })}
+              {!readOnly && (
+                <TempPersonAdder
+                  suggestions={tempNames}
+                  onAdd={(p) => {
+                    setExtra((x) => [...x.filter((y) => y.id !== p.id), p]);
+                    setSplitIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));
+                  }}
+                />
+              )}
               {mode === "custom" && (
                 <p className={`faint ${customSum !== cents ? "neg" : ""}`}>
-                  Soma das partes: {formatMoney(customSum, currency)} de {formatMoney(cents, currency)}
+                  {customSum === cents
+                    ? `Tudo dividido: ${formatMoney(cents, currency)}`
+                    : customSum < cents
+                      ? `Falta dividir ${formatMoney(cents - customSum, currency)} de ${formatMoney(cents, currency)}`
+                      : `Passou ${formatMoney(customSum - cents, currency)} do total de ${formatMoney(cents, currency)}`}
                 </p>
               )}
             </fieldset>
           )}
 
           <div className="field-row">
-            {!between && (
+            {kind === "expense" && (
               <label className="field">
                 <span>Categoria</span>
                 <Select
@@ -522,17 +559,33 @@ export function TxForm({
                 />
               </label>
             )}
-            <label className="field">
-              <span>Status</span>
-              <Select
-                value={statusId}
-                onChange={setStatusId}
-                options={[
-                  { value: "", label: "Sem status" },
-                  ...lookups.statuses.filter((s) => !s.archived || s.id === statusId).map((s) => ({ value: s.id, label: s.name, color: s.color })),
-                ]}
+          </div>
+
+          <div className="field tx-state" data-tour="tx-state">
+            <span className="label-text">Status</span>
+            <p className="tx-state-line">
+              <span className="status-dot" style={{ background: STATE_INFO[state].color, borderColor: STATE_INFO[state].color }} aria-hidden />
+              <strong>{stateLabel(state, kind)}</strong>
+              <span className="faint">· automático</span>
+            </p>
+            <p className="faint tx-state-help">{STATE_INFO[state].help}</p>
+            {initial?.settles && (
+              <p className="tx-settles">
+                Pagamento da dívida em <Link href={`/transacoes/${initial.settles.txId}`} className="pos">{initial.settles.description}</Link>, que era de{" "}
+                {formatMoney(initial.settles.owedCents, currency)}.{" "}
+                <ProfitBadge paidCents={cents || initial.amountCents} owedCents={initial.settles.owedCents} currency={currency} />
+                <span className="faint" style={{ display: "block" }}>Mude se o valor pago foi outro.</span>
+              </p>
+            )}
+            {initial && initial.kind !== "transfer" && (
+              <DebtPayments
+                tx={initial}
+                names={Object.fromEntries(people.map((p) => [p.id, p.name]))}
+                me={me}
+                currency={currency}
+                canPay={!readOnly || initial.payerId === me || initial.splits.some((x) => x.participantId === me)}
               />
-            </label>
+            )}
           </div>
 
           {lookups.projects.length > 0 && (
@@ -554,7 +607,6 @@ export function TxForm({
             <textarea className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} placeholder="Opcional" />
           </label>
 
-          <ImpactBox impact={impact} />
 
         </div>
       </div>
@@ -563,22 +615,60 @@ export function TxForm({
 
       {readOnly ? (
         <div className="actions" style={{ justifyContent: "flex-end" }}>
-          <button type="button" className="btn" onClick={() => router.back()}>Voltar</button>
+          <button type="button" className="btn" onClick={() => (onDone ? onDone() : router.back())}>Voltar</button>
         </div>
       ) : (
+      <>
+      {initial?.seriesId && (
+        <label className="check series-apply">
+          <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
+          <span>
+            Levar descrição, categoria, projeto, cartão, quem pagou e observações para {monthly ? "os outros meses" : "as outras parcelas"}
+            <span className="faint"> (valor, data e divisão mudam só nesta)</span>
+          </span>
+        </label>
+      )}
       <div className="actions" style={{ justifyContent: "space-between" }}>
         {initial ? (
-          <button type="button" className="btn ghost danger" onClick={remove} disabled={pending}>
-            <Trash2 size={16} strokeWidth={1.6} /> Excluir
-          </button>
+          <div className="delete-wrap">
+            <button
+              type="button"
+              className="btn ghost danger"
+              onClick={() => (initial.seriesId ? setDeleteOpen((o) => !o) : remove())}
+              disabled={pending}
+              aria-expanded={initial.seriesId ? deleteOpen : undefined}
+            >
+              <Trash2 size={16} strokeWidth={1.6} /> Excluir
+            </button>
+            {deleteOpen && initial.seriesId && (
+              <div className="delete-menu" role="group" aria-label="O que excluir">
+                <button type="button" className="btn small ghost danger" onClick={remove} disabled={pending}>
+                  {monthly ? "Só este mês" : "Só esta parcela"}
+                </button>
+                {/* Parcelas não "param no meio": apagar daqui para frente deixaria a 1/3 sem as outras. Só o que é todo mês para. */}
+                {monthly && (
+                  <button type="button" className="btn small ghost danger" onClick={() => removeSeries("next")} disabled={pending}>
+                    {endless ? "Parar de repetir a partir deste mês" : "Este e os próximos"}
+                  </button>
+                )}
+                <button type="button" className="btn small ghost danger" onClick={() => removeSeries("all")} disabled={pending}>
+                  {monthly ? "Todos os meses" : "Todas as parcelas"}
+                </button>
+                <button type="button" className="btn small ghost" onClick={() => setDeleteOpen(false)}>
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <span />
         )}
         <div className="actions">
-          <button type="button" className="btn ghost" onClick={() => router.back()} disabled={pending}>Cancelar</button>
+          <button type="button" className="btn ghost" onClick={() => (onDone ? onDone() : router.back())} disabled={pending}>Cancelar</button>
           <button className="btn primary" disabled={pending}>{pending ? "Salvando…" : "Salvar"}</button>
         </div>
       </div>
+      </>
       )}
     </form>
   );

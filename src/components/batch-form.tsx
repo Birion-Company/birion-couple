@@ -21,15 +21,14 @@ let seq = 0;
 const emptyRow = (date: string): Row => ({ key: ++seq, date, description: "", amount: "", categoryId: "" });
 
 /** Lançar vários de uma vez: as configurações de cima valem para todas as linhas. */
-export function BatchForm({ lookups, currency, me, defaultStatusId }: { lookups: Lookups; currency: string; me: string | null; defaultStatusId: string | null }) {
+export function BatchForm({ lookups, currency, me }: { lookups: Lookups; currency: string; me: string | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const people = lookups.participants.filter((p) => !p.archived);
+  const people = lookups.participants.filter((p) => !p.archived && !p.temporary);
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [payerId, setPayerId] = useState(me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "");
   const [splitIds, setSplitIds] = useState<string[]>(payerId ? [payerId] : []);
   const [cardId, setCardId] = useState("");
-  const [statusId, setStatusId] = useState(defaultStatusId ?? "");
   const [rows, setRows] = useState<Row[]>(() => [emptyRow(today()), emptyRow(today()), emptyRow(today())]);
 
   const cards = lookups.cards.filter((c) => !c.archived && (!c.ownerId || c.ownerId === payerId));
@@ -48,9 +47,8 @@ export function BatchForm({ lookups, currency, me, defaultStatusId }: { lookups:
         payerId: payerId || null,
         splitIds,
         cardId: kind === "expense" ? cardId || null : null,
-        statusId: statusId || null,
         projectId: null,
-        rows: filled.map((x) => ({ date: x.date, description: x.description.trim(), amountCents: parseAmountToCents(x.amount, ",")!, categoryId: x.categoryId || null })),
+        rows: filled.map((x) => ({ date: x.date, description: x.description.trim(), amountCents: parseAmountToCents(x.amount, ",")!, categoryId: kind === "expense" ? x.categoryId || null : null })),
       });
       toastResult(r);
       if (r.ok) {
@@ -83,12 +81,8 @@ export function BatchForm({ lookups, currency, me, defaultStatusId }: { lookups:
                   const c = lookups.cards.find((x) => x.id === cardId);
                   if (c?.ownerId && c.ownerId !== v) setCardId("");
                 }}
-                options={[{ value: "", label: "Ninguém ainda" }, ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
+                options={[...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
               />
-            </label>
-            <label className="field">
-              <span>Status</span>
-              <Select value={statusId} onChange={setStatusId} options={[{ value: "", label: "Sem status" }, ...lookups.statuses.filter((s) => !s.archived).map((s) => ({ value: s.id, label: s.name, color: s.color }))]} />
             </label>
           </div>
           {kind === "expense" && cards.length > 0 && (
@@ -104,7 +98,7 @@ export function BatchForm({ lookups, currency, me, defaultStatusId }: { lookups:
                 const on = splitIds.includes(p.id);
                 return (
                   <button key={p.id} type="button" className={`chip ${on ? "on" : ""}`} aria-pressed={on} onClick={() => setSplitIds((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}>
-                    <Avatar name={p.name} color={p.color} size={22} /> {p.name}
+                    <Avatar name={p.name} color={p.color} size={22} src={p.avatarUrl} /> {p.name}
                   </button>
                 );
               })}
@@ -120,7 +114,7 @@ export function BatchForm({ lookups, currency, me, defaultStatusId }: { lookups:
             <span>Data</span>
             <span>Descrição</span>
             <span>Valor</span>
-            <span>Categoria</span>
+            <span>{kind === "expense" ? "Categoria" : ""}</span>
             <span />
           </div>
           {rows.map((r, i) => (
@@ -135,12 +129,16 @@ export function BatchForm({ lookups, currency, me, defaultStatusId }: { lookups:
                 placeholder="0,00"
                 aria-label={`Valor da linha ${i + 1}`}
               />
-              <Select
-                ariaLabel={`Categoria da linha ${i + 1}`}
-                value={r.categoryId}
-                onChange={(v) => set(r.key, { categoryId: v })}
-                options={[{ value: "", label: "Sem categoria" }, ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))]}
-              />
+              {kind === "expense" ? (
+                <Select
+                  ariaLabel={`Categoria da linha ${i + 1}`}
+                  value={r.categoryId}
+                  onChange={(v) => set(r.key, { categoryId: v })}
+                  options={[{ value: "", label: "Sem categoria" }, ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))]}
+                />
+              ) : (
+                <span />
+              )}
               <button type="button" className="icon-btn" onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((x) => x.key !== r.key) : rs))} aria-label={`Remover linha ${i + 1}`} disabled={rows.length === 1}>
                 <Trash2 size={16} strokeWidth={1.6} />
               </button>

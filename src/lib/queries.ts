@@ -1,25 +1,52 @@
 import "server-only";
-import { and, asc, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { cardsFor, isAdmin, txScope, type Viewer } from "./access";
-import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type StatusBehavior, type TransactionKind } from "./balances";
+import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type TransactionKind } from "./balances";
+import { stateFromParam } from "./tx-state";
 import type { Filters } from "./filters";
-import { todayIn } from "./cards";
-import { endOfMonth } from "./recurring";
+import { addDaysIso, addMonthsKey, competenceMonth, todayIn } from "./cards";
+import { merchantKey, recurringMerchants } from "./import/patterns";
+import { dueOccurrences, endOfMonth } from "./recurring";
 import { ensureRecurring } from "./recurring-server";
 
 const t = schema.transactions;
 
+// Pessoas sem a foto em si (pesada): a foto vem por /api/avatar/pessoa/<id>.
+const { photoData: _photo, ...participantColumns } = getTableColumns(schema.participants);
+void _photo;
+
 export async function getLookups(householdId: string) {
   const db = getDb();
   const [participants, categories, projects, statuses, cards] = await Promise.all([
-    db.select().from(schema.participants).where(eq(schema.participants.householdId, householdId)).orderBy(asc(schema.participants.sortOrder), asc(schema.participants.createdAt)),
+    db.select(participantColumns).from(schema.participants).where(eq(schema.participants.householdId, householdId)).orderBy(asc(schema.participants.sortOrder), asc(schema.participants.createdAt)),
     db.select().from(schema.categories).where(eq(schema.categories.householdId, householdId)).orderBy(asc(schema.categories.sortOrder), asc(schema.categories.name)),
     db.select().from(schema.projects).where(eq(schema.projects.householdId, householdId)).orderBy(asc(schema.projects.name)),
     db.select().from(schema.statuses).where(eq(schema.statuses.householdId, householdId)).orderBy(asc(schema.statuses.sortOrder), asc(schema.statuses.createdAt)),
     db.select().from(schema.creditCards).where(eq(schema.creditCards.householdId, householdId)).orderBy(asc(schema.creditCards.createdAt)),
   ]);
-  return { participants, categories, projects, statuses, cards };
+  // Foto de perfil de quem tem login (a pessoa ligada a um usuário com foto).
+  const photos = await db
+    .select({ participantId: schema.memberships.participantId, userId: schema.users.id, at: schema.users.avatarUpdatedAt })
+    .from(schema.memberships)
+    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+    .where(and(eq(schema.memberships.householdId, householdId), isNotNull(schema.users.avatarUpdatedAt)));
+  const photoOf = new Map(photos.map((x) => [x.participantId, `/api/avatar/${x.userId}?v=${x.at!.getTime()}`]));
+  // Quem tem login: a foto do perfil. Quem não tem: a foto cadastrada em Ajustes → Pessoas (se houver).
+  const logins = new Set(
+    (await db.select({ id: schema.memberships.participantId }).from(schema.memberships).where(eq(schema.memberships.householdId, householdId))).map((m) => m.id),
+  );
+  return {
+    participants: participants.map((x) => ({
+      ...x,
+      hasLogin: logins.has(x.id),
+      avatarUrl: photoOf.get(x.id) ?? (x.photoUpdatedAt && !logins.has(x.id) ? `/api/avatar/pessoa/${x.id}?v=${x.photoUpdatedAt.getTime()}` : null),
+    })),
+    categories,
+    projects,
+    statuses,
+    cards,
+  };
 }
 
 export type Lookups = Awaited<ReturnType<typeof getLookups>>;
@@ -33,24 +60,77 @@ export async function getLookupsFor(viewer: Viewer): Promise<Lookups> {
 /** Último dia do mês atual: em "Todo o período", o que vem depois só aparece se pedir. */
 const endOfThisMonth = () => endOfMonth(todayIn());
 
+/** Condição SQL de cada status calculado (mesma regra de txState, em lib/tx-state.ts). */
+function stateWhere(state: NonNullable<ReturnType<typeof stateFromParam>>): SQL {
+  const owes = sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" <> "transactions"."payerId" and s."amountCents" > 0 and s."paidById" is null)`;
+  const notTransfer = sql`"transactions"."kind" <> 'transfer'`;
+  const onCard = and(isNotNull(t.cardId), sql`"transactions"."kind" <> 'loan'`)!;
+  const offCard = or(isNull(t.cardId), eq(t.kind, "loan"))!;
+  switch (state) {
+    case "on-card":
+      return and(notTransfer, onCard, eq(t.invoicePaid, false))!;
+    case "to-pay":
+      return and(notTransfer, offCard, isNull(t.payerId))!;
+    case "to-settle":
+      return and(notTransfer, offCard, isNotNull(t.payerId), eq(t.settled, false), owes)!;
+    case "paid":
+      return or(
+        eq(t.kind, "transfer"),
+        and(onCard, eq(t.invoicePaid, true)),
+        and(offCard, isNotNull(t.payerId), or(eq(t.settled, true), sql`not ${owes}`)),
+      )!;
+  }
+}
+
+/**
+ * Primeiro dia do mês em que o lançamento é pago: sem cartão, o mês da data; no cartão, o mês em que vence
+ * a fatura em que ele cai (mesma regra de competenceMonth, em lib/cards.ts).
+ */
+const competenceSql = sql`coalesce(
+  (select (
+    (case when extract(day from "transactions"."date") >= least(c."closingDay", extract(day from date_trunc('month', "transactions"."date") + interval '1 month - 1 day'))
+      then date_trunc('month', "transactions"."date") + interval '1 month'
+      else date_trunc('month', "transactions"."date") end)
+    + (case when c."dueDay" > c."closingDay" then interval '0 month' else interval '1 month' end)
+  )::date from "credit_cards" c where c."id" = "transactions"."cardId"),
+  date_trunc('month', "transactions"."date")::date
+)`;
+
 function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean } = {}): SQL {
   const parts: (SQL | undefined)[] = [];
-  if (f.from) parts.push(gte(t.date, f.from));
-  if (f.to) parts.push(lte(t.date, f.to));
+  if (f.competence) {
+    // No cartão, a compra pode ser de até 2 meses antes do mês em que a fatura vence.
+    parts.push(gte(t.date, `${addMonthsKey(f.competence, -2)}-01`), lte(t.date, endOfMonth(`${f.competence}-01`)));
+    parts.push(sql`${competenceSql} = ${`${f.competence}-01`}::date`);
+  } else {
+    if (f.from) parts.push(gte(t.date, f.from));
+    if (f.to) parts.push(lte(t.date, f.to));
+  }
   if (f.period === "tudo" && !f.future && !opts.includeFuture) parts.push(lte(t.date, endOfThisMonth()));
   if (f.category === "sem") parts.push(isNull(t.categoryId));
   else if (f.category) parts.push(eq(t.categoryId, f.category));
   if (f.project) parts.push(eq(t.projectId, f.project));
-  if (f.status) parts.push(eq(t.statusId, f.status));
+  const state = stateFromParam(f.status);
+  if (state) parts.push(stateWhere(state));
   if (f.card) parts.push(eq(t.cardId, f.card));
   if (f.q) parts.push(or(ilike(t.description, `%${f.q}%`), ilike(t.notes, `%${f.q}%`)));
   if (f.person) {
-    parts.push(
-      or(
-        eq(t.payerId, f.person),
-        sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person})`,
-      ),
-    );
+    const hasPart = sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person} and s."amountCents" > 0)`;
+    if (f.role === "dele") {
+      // Só o que é da pessoa: ela tem parte na conta (o que comprou para outra pessoa fica de fora).
+      parts.push(hasPart);
+    } else if (f.role === "a-receber") {
+      // O que as outras pessoas ainda têm que dar a ela: ela pagou e a conta é (também) delas, sem pagamento ainda.
+      const stillOwe = sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" <> ${f.person} and s."amountCents" > 0 and s."paidById" is null)`;
+      parts.push(eq(t.payerId, f.person), inArray(t.kind, ["expense", "loan"]), eq(t.settled, false), stillOwe);
+    } else {
+      parts.push(
+        or(
+          eq(t.payerId, f.person),
+          sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person})`,
+        ),
+      );
+    }
   }
   return txScope(viewer, ...parts);
 }
@@ -65,6 +145,12 @@ export type TxRow = {
   categoryId: string | null;
   projectId: string | null;
   statusId: string | null;
+  settled: boolean;
+  invoicePaid: boolean;
+  /** Acerto que paga a dívida de outro lançamento. */
+  settlesId: string | null;
+  /** Para acertos ligados: o lançamento pago e quanto era devido (o resto é lucro ou desconto). */
+  settles: { txId: string; description: string; owedCents: number } | null;
   notes: string | null;
   source: string;
   cardId: string | null;
@@ -74,14 +160,19 @@ export type TxRow = {
   seriesTotal: number | null;
   /** Quem criou (usuário); só essa pessoa ou quem administra pode alterar. */
   createdBy: string | null;
-  splits: { participantId: string; amountCents: number }[];
+  /** Compra recorrente: o mesmo estabelecimento aparece em meses diferentes (só na lista de lançamentos). */
+  recurring?: boolean;
+  /** paidById/paidCents: o acerto que pagou esta parte e quanto foi pago nele. */
+  splits: { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null }[];
 };
 
-async function attachSplits(rows: Omit<TxRow, "splits">[]): Promise<TxRow[]> {
+type BaseRow = Omit<TxRow, "splits" | "settles">;
+
+async function attachSplits(rows: BaseRow[]): Promise<TxRow[]> {
   if (rows.length === 0) return [];
   const db = getDb();
   const ids = rows.map((r) => r.id);
-  const splits: { transactionId: string; participantId: string; amountCents: number }[] = [];
+  const splits: { transactionId: string; participantId: string; amountCents: number; paidById: string | null }[] = [];
   for (let i = 0; i < ids.length; i += 500) {
     splits.push(
       ...(await db
@@ -90,13 +181,30 @@ async function attachSplits(rows: Omit<TxRow, "splits">[]): Promise<TxRow[]> {
         .where(inArray(schema.transactionSplits.transactionId, ids.slice(i, i + 500)))),
     );
   }
+  // Quanto foi pago em cada acerto que quitou uma parte.
+  const payIds = [...new Set(splits.map((s) => s.paidById).filter((x): x is string => !!x))];
+  const paid = new Map<string, number>();
+  for (let i = 0; i < payIds.length; i += 500) {
+    for (const p of await db.select({ id: t.id, amountCents: t.amountCents }).from(t).where(inArray(t.id, payIds.slice(i, i + 500)))) paid.set(p.id, p.amountCents);
+  }
+  // Acertos ligados: o que pagaram e quanto era devido.
+  const acertoIds = rows.filter((r) => r.settlesId).map((r) => r.id);
+  const settles = new Map<string, NonNullable<TxRow["settles"]>>();
+  for (let i = 0; i < acertoIds.length; i += 500) {
+    const found = await db
+      .select({ paidById: schema.transactionSplits.paidById, owedCents: schema.transactionSplits.amountCents, txId: t.id, description: t.description })
+      .from(schema.transactionSplits)
+      .innerJoin(t, eq(t.id, schema.transactionSplits.transactionId))
+      .where(inArray(schema.transactionSplits.paidById, acertoIds.slice(i, i + 500)));
+    for (const f of found) settles.set(f.paidById!, { txId: f.txId, description: f.description, owedCents: f.owedCents });
+  }
   const by = new Map<string, TxRow["splits"]>();
   for (const s of splits) {
     const list = by.get(s.transactionId) ?? [];
-    list.push({ participantId: s.participantId, amountCents: s.amountCents });
+    list.push({ participantId: s.participantId, amountCents: s.amountCents, paidById: s.paidById, paidCents: s.paidById ? paid.get(s.paidById) ?? null : null });
     by.set(s.transactionId, list);
   }
-  return rows.map((r) => ({ ...r, splits: by.get(r.id) ?? [] }));
+  return rows.map((r) => ({ ...r, splits: by.get(r.id) ?? [], settles: settles.get(r.id) ?? null }));
 }
 
 const txColumns = {
@@ -109,6 +217,9 @@ const txColumns = {
   categoryId: t.categoryId,
   projectId: t.projectId,
   statusId: t.statusId,
+  settled: t.settled,
+  invoicePaid: t.invoicePaid,
+  settlesId: t.settlesId,
   notes: t.notes,
   source: t.source,
   cardId: t.cardId,
@@ -123,14 +234,38 @@ export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, 
   await ensureRecurring(viewer.householdId);
   const db = getDb();
   const where = whereFor(viewer, f);
+  // Com pessoa escolhida, o total é a parte dela (no Mercado dividido, só a metade).
+  const expenseValue = f.person
+    ? sql`coalesce((select s."amountCents" from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person}), 0)`
+    : sql`${t.amountCents}`;
   // Quantos ficaram escondidos por serem futuros (para o botão "Mostrar futuros").
   const futureWhere = f.period === "tudo" && !f.future ? and(whereFor(viewer, f, { includeFuture: true }), gt(t.date, endOfThisMonth())) : null;
   const [rows, [{ count, total }], future] = await Promise.all([
     db.select(txColumns).from(t).where(where).orderBy(desc(t.date), desc(t.createdAt)).limit(limit).offset(offset),
-    db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${t.amountCents} else 0 end), 0)::int` }).from(t).where(where),
+    db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${expenseValue} else 0 end), 0)::int` }).from(t).where(where),
     futureWhere ? db.select({ n: sql<number>`count(*)::int` }).from(t).where(futureWhere) : Promise.resolve([{ n: 0 }]),
   ]);
-  return { rows: await attachSplits(rows as Omit<TxRow, "splits">[]), count, total, futureCount: future[0].n };
+  // Estabelecimentos que se repetem em meses diferentes (últimos 18 meses).
+  const history = await db
+    .select({ description: t.description, date: t.date })
+    .from(t)
+    .where(
+      and(
+        eq(t.householdId, viewer.householdId),
+        eq(t.kind, "expense"),
+        // Parcelas já são uma série: não contam como compra recorrente.
+        or(isNull(t.seriesKind), sql`${t.seriesKind} <> 'installment'`),
+        gte(t.date, `${addMonthsKey(todayIn().slice(0, 7), -18)}-01`),
+      ),
+    );
+  const recurring = recurringMerchants(history);
+  const withSplits = await attachSplits(rows as BaseRow[]);
+  return {
+    rows: withSplits.map((r) => ({ ...r, recurring: r.kind === "expense" && r.seriesKind !== "installment" && recurring.has(merchantKey(r.description)) })),
+    count,
+    total,
+    futureCount: future[0].n,
+  };
 }
 
 /**
@@ -142,14 +277,14 @@ function unidentifiedWhere(viewer: Viewer): SQL {
     viewer,
     inArray(t.kind, ["expense", "income"]),
     lte(t.date, todayIn()),
-    or(isNull(t.categoryId), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
+    or(and(eq(t.kind, "expense"), isNull(t.categoryId)), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
   );
 }
 
 export async function listUnidentified(viewer: Viewer, limit = 300) {
   await ensureRecurring(viewer.householdId);
   const rows = await getDb().select(txColumns).from(t).where(unidentifiedWhere(viewer)).orderBy(desc(t.date), desc(t.createdAt)).limit(limit);
-  return attachSplits(rows as Omit<TxRow, "splits">[]);
+  return attachSplits(rows as BaseRow[]);
 }
 
 export async function countUnidentified(viewer: Viewer): Promise<number> {
@@ -161,31 +296,159 @@ export async function countUnidentified(viewer: Viewer): Promise<number> {
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();
   const rows = await db.select(txColumns).from(t).where(txScope(viewer, eq(t.id, id))).limit(1);
-  const [row] = await attachSplits(rows as Omit<TxRow, "splits">[]);
+  const [row] = await attachSplits(rows as BaseRow[]);
   return row ?? null;
 }
 
+/** Parcelas de uma compra parcelada (para mudar o parcelamento depois de criado). */
+export async function getSeriesItems(viewer: Viewer, seriesId: string) {
+  return getDb()
+    .select({ id: t.id, index: sql<number>`coalesce(${t.seriesIndex}, 0)`, date: t.date, amountCents: t.amountCents, source: t.source })
+    .from(t)
+    .where(txScope(viewer, eq(t.seriesId, seriesId)))
+    .orderBy(asc(t.seriesIndex));
+}
+
+/**
+ * Meses futuros: o que se repete todo mês sem data para acabar só é criado quando o mês chega.
+ * Para ver os próximos meses, cada recorrência vira uma "previsão" (não gravada) em cada mês do período.
+ */
+/** Fechamento e vencimento de cada cartão da família (para saber em que mês uma compra no cartão é paga). */
+export async function closingDays(householdId: string) {
+  const rows = await getDb()
+    .select({ id: schema.creditCards.id, closingDay: schema.creditCards.closingDay, dueDay: schema.creditCards.dueDay })
+    .from(schema.creditCards)
+    .where(eq(schema.creditCards.householdId, householdId));
+  return new Map(rows.map((r) => [r.id, { closingDay: r.closingDay, dueDay: r.dueDay }]));
+}
+
+/** Mês em que um lançamento é pago: no cartão, o mês do vencimento da fatura; sem cartão, o da data. */
+const monthOf = (r: { date: string; cardId: string | null }, cards: Map<string, { closingDay: number; dueDay: number }>) =>
+  competenceMonth(r.date, r.cardId ? cards.get(r.cardId) : null);
+
+async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: string): Promise<TxRow[]> {
+  if (to <= endOfThisMonth()) return [];
+  const start = from > endOfThisMonth() ? from : addDaysIso(endOfThisMonth(), 1);
+  const series = await getRecurring(viewer);
+  const out: TxRow[] = [];
+  for (const s of series) {
+    const splits = (s.splits as { participantId: string; amountCents: number }[]).filter((x) => x.amountCents > 0);
+    for (const o of dueOccurrences(s.startDate, s.nextIndex, to)) {
+      if (o.date < start) continue;
+      out.push({
+        id: `previsao-${s.id}-${o.index}`,
+        date: o.date,
+        description: s.description,
+        amountCents: splits.reduce((a, x) => a + x.amountCents, 0) || s.amountCents,
+        kind: s.kind as TransactionKind,
+        payerId: s.payerId,
+        categoryId: s.categoryId,
+        projectId: s.projectId,
+        statusId: null,
+        settled: false,
+        invoicePaid: false,
+        settlesId: null,
+        settles: null,
+        notes: s.notes,
+        source: "projetado",
+        cardId: s.cardId,
+        seriesId: s.id,
+        seriesKind: "monthly",
+        seriesIndex: o.index,
+        seriesTotal: null,
+        createdBy: s.createdBy,
+        splits: splits.map((x) => ({ ...x, paidById: null, paidCents: null })),
+      });
+    }
+  }
+  return out.filter((r) => matchesFilters(r, f));
+}
+
+type Filterable = {
+  description: string;
+  categoryId: string | null;
+  projectId: string | null;
+  cardId: string | null;
+  payerId: string | null;
+  splits: { participantId: string; amountCents: number }[];
+};
+
+/**
+ * Os mesmos filtros da lista (pessoa e o que mostrar dela, categoria, projeto, cartão, busca), em memória:
+ * para o que não está no banco como lançamento (contas fixas e as previsões delas).
+ */
+export function matchesFilters(r: Filterable, f: Filters): boolean {
+  if (f.category === "sem" ? r.categoryId : f.category && r.categoryId !== f.category) return false;
+  if (f.project && r.projectId !== f.project) return false;
+  if (f.card && r.cardId !== f.card) return false;
+  if (f.q && !r.description.toLowerCase().includes(f.q.toLowerCase())) return false;
+  if (f.person) {
+    const part = r.splits.some((x) => x.participantId === f.person && x.amountCents > 0);
+    if (f.role === "dele" && !part) return false;
+    if (f.role === "a-receber" && !(r.payerId === f.person && r.splits.some((x) => x.participantId !== f.person && x.amountCents > 0))) return false;
+    if (!f.role && !part && r.payerId !== f.person) return false;
+  }
+  return true;
+}
+
+/** Contas fixas que entram nos filtros escolhidos (escolhendo Fulano, só as que envolvem Fulano). */
+export async function getRecurringFor(viewer: Viewer, f: Filters) {
+  const series = await getRecurring(viewer);
+  return series.filter((s) => matchesFilters({ ...s, splits: s.splits as Filterable["splits"] }, f));
+}
+
 /** Tudo o que o painel precisa, calculado a partir das transações filtradas. */
-export async function getDashboard(viewer: Viewer, f: Filters, lookups: Lookups) {
+export async function getDashboard(viewer: Viewer, f: Filters) {
   await ensureRecurring(viewer.householdId);
   const db = getDb();
-  const rows = await attachSplits(
-    (await db.select(txColumns).from(t).where(whereFor(viewer, f)).orderBy(desc(t.date), desc(t.createdAt))) as Omit<TxRow, "splits">[],
+  const saved = await attachSplits(
+    (await db.select(txColumns).from(t).where(whereFor(viewer, f)).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
   );
-  const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
-  const behavior = (r: TxRow) => (r.statusId ? behaviorOf.get(r.statusId) ?? null : null);
-
-  // Pendentes são contas ainda não pagas: só despesas (somar receitas junto confundiria o total).
+  let projected: TxRow[] = [];
+  if (f.competence) {
+    // Previsões no cartão: a compra pode ser de até 2 meses antes do vencimento da fatura.
+    const closing = await closingDays(viewer.householdId);
+    projected = (await projectedRecurring(viewer, f, `${addMonthsKey(f.competence, -2)}-01`, endOfMonth(`${f.competence}-01`))).filter((r) => monthOf(r, closing) === f.competence);
+  } else if (f.from && f.to) projected = await projectedRecurring(viewer, f, f.from, f.to);
+  const rows = [...saved, ...projected].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const today = todayIn();
-  const pending = rows.filter((r) => r.kind === "expense" && behavior(r) === "pending" && r.date <= today);
-  const pendingTotal = pending.reduce((a, r) => a + r.amountCents, 0);
 
-  // Gastos: despesas do período (acertos entre pessoas não são gasto).
-  // Com filtro de pessoa, conta só a parte dela.
-  const share = (r: TxRow) =>
-    f.person ? r.splits.find((s) => s.participantId === f.person)?.amountCents ?? 0 : r.amountCents;
+  // Gastos: só a parte de quem está sendo visto (a pessoa do filtro, ou você). O que você pagou por outras
+  // pessoas não é gasto seu: elas te devolvem (fica em "Pagou por outros" e em Dívidas).
+  // Sem pessoa nenhuma (conta sem pessoa ligada), conta o valor inteiro.
+  const focus = f.person ?? (f.everyone ? null : viewer.participantId) ?? null;
+  const share = (r: TxRow) => (focus ? r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0 : r.amountCents);
   const expenses = rows.filter((r) => r.kind === "expense");
   const spent = expenses.reduce((a, r) => a + share(r), 0);
+  const familySpent = expenses.reduce((a, r) => a + r.amountCents, 0);
+  // Vendo outra pessoa: o que você pagou por ela e o que ela te pagou de volta no mês.
+  const me = viewer.participantId;
+  const other = focus && me && focus !== me ? focus : null;
+  const paidByMeForFocus = other
+    ? expenses.filter((r) => r.payerId === me).reduce((a, r) => a + (r.splits.find((s) => s.participantId === other)?.amountCents ?? 0), 0)
+    : 0;
+  // O que essa pessoa ainda te deve das contas do mês que você pagou.
+  const stillOwesMe = other
+    ? rows
+        .filter((r) => (r.kind === "expense" || r.kind === "loan") && r.payerId === me && !r.settled)
+        .reduce((a, r) => a + r.splits.filter((sp) => sp.participantId === other && !sp.paidById).reduce((b, sp) => b + sp.amountCents, 0), 0)
+    : 0;
+  const repaidToMe = other
+    ? rows.filter((r) => r.kind === "transfer" && r.payerId === other && r.splits.some((s) => s.participantId === me)).reduce((a, r) => a + r.amountCents, 0)
+    : 0;
+  // "Devem a você": das contas do mês que a pessoa pagou (e empréstimos que deu), a parte dos outros que
+  // ainda não foi paga, por pessoa. Família inteira: tudo que alguém pagou e outra pessoa ainda deve.
+  const owedBy = new Map<string, number>();
+  for (const r of rows) {
+    if ((r.kind !== "expense" && r.kind !== "loan") || !r.payerId || r.settled || r.settlesId) continue;
+    if (focus && r.payerId !== focus) continue;
+    for (const sp of r.splits) {
+      if (sp.participantId === r.payerId || sp.paidById || sp.amountCents <= 0) continue;
+      owedBy.set(sp.participantId, (owedBy.get(sp.participantId) ?? 0) + sp.amountCents);
+    }
+  }
+  const paidForOthers = [...owedBy.values()].reduce((a, v) => a + v, 0);
+  const owedToMe = [...owedBy].map(([id, cents]) => ({ id, cents })).sort((a, b) => b.cents - a.cents);
   const income = rows.filter((r) => r.kind === "income").reduce((a, r) => a + share(r), 0);
   const byCategory = new Map<string, number>();
   for (const r of expenses) {
@@ -196,15 +459,23 @@ export async function getDashboard(viewer: Viewer, f: Filters, lookups: Lookups)
   for (const r of expenses) for (const s of r.splits) byPerson.set(s.participantId, (byPerson.get(s.participantId) ?? 0) + s.amountCents);
 
   return {
-    pending: pending.slice(0, 6),
-    pendingCount: pending.length,
-    pendingTotal,
     spent,
+    familySpent,
+    paidForOthers,
+    /** Quem deve (e quanto) das contas do mês que a pessoa vista pagou. */
+    owedToMe,
+    paidByMeForFocus,
+    repaidToMe,
+    stillOwesMe,
+    /** De quem são os números (a pessoa do filtro ou você). */
+    focus,
     income,
     byCategory: [...byCategory].map(([id, cents]) => ({ id, cents })).filter((c) => c.cents > 0).sort((a, b) => b.cents - a.cents),
     byPerson: [...byPerson].map(([id, cents]) => ({ id, cents })).sort((a, b) => b.cents - a.cents),
     recent: rows.slice(0, 6),
     count: rows.length,
+    /** Mês futuro: o que já está combinado (parcelas, previsões e o que se repete), do primeiro ao último dia. */
+    planned: [...rows].filter((r) => r.date > today && r.kind !== "transfer").sort((a, b) => (a.date < b.date ? -1 : 1)),
   };
 }
 
@@ -214,15 +485,14 @@ export async function getDashboard(viewer: Viewer, f: Filters, lookups: Lookups)
  * - Quem administra vê a família inteira, com a compensação geral.
  * - Os outros veem só as dívidas entre eles e cada pessoa.
  */
-export async function getDebts(viewer: Viewer, lookups: Lookups) {
+export async function getDebts(viewer: Viewer) {
   await ensureRecurring(viewer.householdId);
   const db = getDb();
   const rows = await attachSplits(
     // Parcelas e meses futuros ainda não viraram dívida.
-    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, todayIn())))) as Omit<TxRow, "splits">[],
+    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, todayIn())))) as BaseRow[],
   );
-  const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
-  const input = rows.map((r) => ({ ...r, behavior: r.statusId ? behaviorOf.get(r.statusId) ?? null : null }));
+  const input = rows;
   if (isAdmin(viewer) || !viewer.participantId) {
     const balances = computeBalances(input);
     return { balances, settlements: suggestSettlements(balances), whole: true };
@@ -232,8 +502,30 @@ export async function getDebts(viewer: Viewer, lookups: Lookups) {
   return { balances: new Map([[viewer.participantId, mine]]), settlements: pairwiseSettlements(viewer.participantId, net), whole: false };
 }
 
-export type LedgerEntry = { tx: TxRow; effect: number };
-export type LedgerPerson = { personId: string; net: number; entries: LedgerEntry[]; upcoming: number; upcomingCount: number };
+/** covered: quanto deste lançamento já foi pago por acertos avulsos (sem ligação a um lançamento). */
+export type LedgerEntry = { tx: TxRow; effect: number; covered?: number };
+/** Histórico: o que já foi pago (Recebi/Paguei com valor, acertos e dívidas cobertas por acerto). */
+export type LedgerPaid = {
+  key: string;
+  tx: TxRow;
+  /** Positivo: a pessoa te pagou; negativo: você pagou a ela. */
+  cents: number;
+  how: "recebi" | "acerto" | "coberta";
+  /** Lançamento a apagar para desfazer (o acerto); nulo quando a dívida só foi coberta por um acerto. */
+  undoId: string | null;
+  /** Recebi/Paguei: quanto era devido (para mostrar lucro ou desconto). */
+  owedCents?: number;
+};
+export type LedgerPerson = {
+  personId: string;
+  net: number;
+  /** Só o que ainda está em aberto (com o que falta, se um acerto cobriu parte). */
+  entries: LedgerEntry[];
+  upcoming: number;
+  upcomingCount: number;
+  upcomingEntries: LedgerEntry[];
+  paid: LedgerPaid[];
+};
 
 /**
  * Página Dívidas: o extrato entre quem está vendo e cada pessoa (o que cada lançamento
@@ -243,10 +535,9 @@ export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
   await ensureRecurring(viewer.householdId);
   const db = getDb();
   const rows = await attachSplits(
-    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId))).orderBy(desc(t.date), desc(t.createdAt))) as Omit<TxRow, "splits">[],
+    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId))).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
   );
-  const behaviorOf = new Map(lookups.statuses.map((s) => [s.id, s.behavior as StatusBehavior]));
-  const withBehavior = rows.map((r) => ({ tx: r, input: { ...r, behavior: r.statusId ? behaviorOf.get(r.statusId) ?? null : null } }));
+  const withBehavior = rows.map((r) => ({ tx: r, input: r }));
   const me = viewer.participantId;
   const today = todayIn();
 
@@ -255,17 +546,55 @@ export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
     for (const { tx, input } of withBehavior) {
       for (const [other, effect] of pairEffects(me, input)) {
         if (effect === 0) continue;
-        const p = people.get(other) ?? { personId: other, net: 0, entries: [], upcoming: 0, upcomingCount: 0 };
+        const p = people.get(other) ?? { personId: other, net: 0, entries: [], upcoming: 0, upcomingCount: 0, upcomingEntries: [], paid: [] };
         // Parcelas e meses futuros: aparecem como "a vencer", sem entrar no que já é devido.
         if (tx.date > today) {
           p.upcoming += effect;
           p.upcomingCount += 1;
+          p.upcomingEntries.push({ tx, effect });
         } else {
           p.net += effect;
           p.entries.push({ tx, effect });
         }
         people.set(other, p);
       }
+    }
+  }
+  if (me) {
+    // Pagamentos com "Recebi/Paguei" (acerto ligado ao lançamento): ficam no histórico, com "Desfazer".
+    for (const tx of rows) {
+      if (tx.kind === "transfer" || tx.settlesId || !tx.payerId || tx.date > today) continue;
+      for (const sp of tx.splits) {
+        if (!sp.paidById || sp.participantId === tx.payerId) continue;
+        const iAmPayer = tx.payerId === me;
+        if (!iAmPayer && sp.participantId !== me) continue;
+        const other = iAmPayer ? sp.participantId : tx.payerId;
+        const sign = (tx.kind === "income" ? -1 : 1) * (iAmPayer ? 1 : -1);
+        const p = people.get(other) ?? { personId: other, net: 0, entries: [], upcoming: 0, upcomingCount: 0, upcomingEntries: [], paid: [] };
+        p.paid.push({ key: `r-${tx.id}-${sp.participantId}`, tx, cents: sign * (sp.paidCents ?? sp.amountCents), how: "recebi", undoId: sp.paidById, owedCents: sp.amountCents });
+        people.set(other, p);
+      }
+    }
+    // Acertos avulsos ("Registrar pagamento"): abatem as dívidas mais antigas da pessoa, e as que ficam
+    // cobertas saem do "em aberto" (assim não dá para receber duas vezes a mesma dívida).
+    for (const p of people.values()) {
+      const debts = p.entries.filter((e) => e.tx.kind !== "transfer").sort((a, b) => (a.tx.date < b.tx.date ? -1 : a.tx.date > b.tx.date ? 1 : 0));
+      const transfers = p.entries.filter((e) => e.tx.kind === "transfer");
+      let theyPaid = transfers.filter((e) => e.effect < 0).reduce((a, e) => a - e.effect, 0);
+      let iPaid = transfers.filter((e) => e.effect > 0).reduce((a, e) => a + e.effect, 0);
+      for (const d of debts) {
+        const need = Math.abs(d.effect);
+        const cover = Math.min(need, d.effect > 0 ? theyPaid : iPaid);
+        if (d.effect > 0) theyPaid -= cover;
+        else iPaid -= cover;
+        d.covered = cover;
+      }
+      for (const tr of transfers) p.paid.push({ key: `a-${tr.tx.id}`, tx: tr.tx, cents: -tr.effect, how: "acerto", undoId: tr.tx.id });
+      for (const d of debts) if (d.covered && d.covered >= Math.abs(d.effect)) p.paid.push({ key: `c-${d.tx.id}`, tx: d.tx, cents: d.effect, how: "coberta", undoId: null });
+      // Sobra de acerto (pagou mais do que devia): continua em aberto como crédito, para o saldo bater.
+      const leftover = theyPaid + iPaid > 0;
+      p.entries = [...debts.filter((d) => (d.covered ?? 0) < Math.abs(d.effect)), ...(leftover ? transfers.filter((t2) => (t2.effect < 0 ? theyPaid : iPaid) > 0) : [])];
+      p.paid.sort((a, b) => (a.tx.date < b.tx.date ? 1 : a.tx.date > b.tx.date ? -1 : 0));
     }
   }
   // Dívidas entre as outras pessoas (só quem administra vê a família toda).
@@ -283,9 +612,39 @@ export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
     others.sort((x, y) => y.amountCents - x.amountCents);
   }
   return {
-    people: [...people.values()].filter((p) => p.entries.length > 0 || p.upcomingCount > 0).sort((a, b) => Math.abs(b.net) - Math.abs(a.net)),
+    people: [...people.values()].filter((p) => p.entries.length > 0 || p.upcomingCount > 0 || p.paid.length > 0).sort((a, b) => Math.abs(b.net) - Math.abs(a.net)),
     others,
   };
+}
+
+/**
+ * Os próximos 12 meses (e o atual): quanto de despesa já está em cada um, contando parcelas,
+ * o que já foi lançado com data futura e o que se repete todo mês. Com pessoa no filtro, só a parte dela.
+ */
+export async function getOutlook(viewer: Viewer, f: Filters, months = 12) {
+  await ensureRecurring(viewer.householdId);
+  const first = todayIn().slice(0, 7);
+  const last = addMonthsKey(first, months);
+  // No cartão, a compra é paga até 2 meses depois: olha desde 2 meses antes do primeiro mês.
+  const range = { ...f, period: "custom" as const, month: null, competence: null, from: `${addMonthsKey(first, -2)}-01`, to: endOfMonth(`${last}-01`), status: null };
+  const closing = await closingDays(viewer.householdId);
+  const saved = await attachSplits((await getDb().select(txColumns).from(t).where(whereFor(viewer, range))) as BaseRow[]);
+  const projected = await projectedRecurring(viewer, range, range.from, range.to);
+  // Mesma regra do painel: a parte de quem está sendo visto (a pessoa do filtro, ou você).
+  const focus = f.person ?? (f.everyone ? null : viewer.participantId) ?? null;
+  const share = (r: TxRow) => (focus ? r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0 : r.amountCents);
+  const byMonth = new Map<string, { cents: number; recurringCents: number; count: number }>();
+  for (let k = first; k <= last; k = addMonthsKey(k, 1)) byMonth.set(k, { cents: 0, recurringCents: 0, count: 0 });
+  for (const r of [...saved, ...projected]) {
+    if (r.kind !== "expense") continue;
+    const m = byMonth.get(monthOf(r, closing));
+    if (!m) continue;
+    const v = share(r);
+    m.cents += v;
+    m.count += 1;
+    if (r.seriesKind === "monthly") m.recurringCents += v;
+  }
+  return [...byMonth].map(([key, v]) => ({ key, ...v }));
 }
 
 /** Lançamentos que se repetem todo mês sem data para acabar (ativos). */

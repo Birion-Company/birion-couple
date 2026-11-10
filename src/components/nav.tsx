@@ -32,10 +32,11 @@ export function SideNav({ toIdentify = 0 }: { toIdentify?: number }) {
   const path = usePathname();
   return (
     <nav aria-label="Principal">
-      {items.map(({ href, label, icon: Icon }) => (
+      {/* "Novo lançamento" fica no botão do canto da tela (no celular, no + da barra de baixo). */}
+      {items.filter((x) => !x.add).map(({ href, label, icon: Icon }) => (
         <Link key={href} href={href} aria-current={isActive(path, href) ? "page" : undefined} data-tour={href === "/identificar" ? "nav-identify" : undefined}>
           <Icon size={18} strokeWidth={1.6} />
-          {label === "Novo" ? "Novo lançamento" : label}
+          {label}
           {href === "/identificar" && <Count n={toIdentify} />}
         </Link>
       ))}
@@ -47,8 +48,9 @@ export function BottomNav({ toIdentify = 0 }: { toIdentify?: number }) {
   const path = usePathname();
   return (
     <nav className="bottom-nav" aria-label="Principal">
-      {items.map(({ href, label, icon: Icon, add, short }) => (
-        <Link key={href} href={href} className={add ? "add" : undefined} aria-current={isActive(path, href) ? "page" : undefined} aria-label={add ? "Novo lançamento" : undefined}>
+      {/* O + fica no botão redondo do canto (fora da barra). */}
+      {items.filter((x) => !x.add).map(({ href, label, icon: Icon, add, short }) => (
+        <Link key={href} href={href} className={add ? "add" : undefined} aria-current={isActive(path, href) ? "page" : undefined} aria-label={add ? "Novo lançamento" : undefined} data-tour={href === "/identificar" ? "nav-identify" : undefined}>
           <span className="icon">
             <Icon size={add ? 22 : 20} strokeWidth={add ? 2 : 1.6} />
             {href === "/identificar" && <Count n={toIdentify} />}

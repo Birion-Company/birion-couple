@@ -1,10 +1,12 @@
 "use client";
 
+import { PushSettingsDialog } from "./push-settings";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Bell, BellRing, CalendarClock, CreditCard, X } from "lucide-react";
+import { Bell, BellRing, CalendarClock, CreditCard, Settings, X } from "lucide-react";
 import { markActivitySeen } from "@/app/actions/transactions";
 import { shortDate, type CardAlert } from "@/lib/cards";
 import { formatMoney } from "@/lib/money";
@@ -98,8 +100,9 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
   const [items, setItems] = useState(initial);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  // Configurar notificações abre por cima do painel, na engrenagem.
+  const [settings, setSettings] = useState(false);
   const [seenCards, setSeenCards] = useState<string[] | null>(null);
-  const [browser, setBrowser] = useState<"on" | "off" | "blocked" | "unsupported">("off");
   const known = useRef(new Set(initial.map((i) => i.id)));
   const panel = useRef<HTMLDivElement>(null);
 
@@ -108,10 +111,8 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
     const seen = readSeenCards();
     const unread = initial.filter((i) => i.unread);
     const newCards = cardAlerts.filter((a) => !seen.includes(a.key));
-    const supported = "Notification" in window;
     const t = setTimeout(() => {
       setSeenCards(seen);
-      setBrowser(!supported ? "unsupported" : Notification.permission === "denied" ? "blocked" : browserOptIn() ? "on" : "off");
       if (unread.length > 0) {
         setToast({
           key: "visita",
@@ -225,35 +226,14 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || settings) return;
     panel.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, close]);
-
-  const enableBrowser = async () => {
-    if (!("Notification" in window)) return;
-    const p = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
-    if (p === "granted") {
-      try {
-        localStorage.setItem(BROWSER_OPT, "1");
-      } catch {
-        /* ignora */
-      }
-      setBrowser("on");
-    } else setBrowser(p === "denied" ? "blocked" : "off");
-  };
-  const disableBrowser = () => {
-    try {
-      localStorage.removeItem(BROWSER_OPT);
-    } catch {
-      /* ignora */
-    }
-    setBrowser("off");
-  };
+  }, [open, close, settings]);
 
   const isNewCard = (a: CardAlert) => unreadCards.some((u) => u.key === a.key);
 
@@ -284,9 +264,14 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
             <div ref={panel} tabIndex={-1} className="notif-panel" role="dialog" aria-modal="true" aria-labelledby="notif-title">
               <div className="notif-head">
                 <h2 id="notif-title">Notificações</h2>
-                <button type="button" className="icon-btn" onClick={close} aria-label="Fechar notificações">
-                  <X size={18} />
-                </button>
+                <span className="notif-head-actions">
+                  <button type="button" className="icon-btn" onClick={() => setSettings(true)} aria-label="Configurar notificações" title="Configurar notificações">
+                    <Settings size={18} />
+                  </button>
+                  <button type="button" className="icon-btn" onClick={close} aria-label="Fechar notificações">
+                    <X size={18} />
+                  </button>
+                </span>
               </div>
 
               <div className="notif-scroll">
@@ -321,7 +306,7 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
                 <section aria-labelledby="notif-activity">
                   <h3 id="notif-activity" className="notif-section">Da família</h3>
                   {items.length === 0 ? (
-                    <p className="notif-empty">Nada por aqui ainda. Quando alguém lançar, alterar ou atribuir algo a você, aparece aqui na hora.</p>
+                    <p className="notif-empty">Nada por aqui ainda.</p>
                   ) : (
                     <ul className="notif-list">
                       {items.map((a) => (
@@ -350,26 +335,11 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
                 </section>
               </div>
 
-              <div className="notif-foot">
-                {browser === "on" ? (
-                  <p>
-                    Avisos do navegador ligados.{" "}
-                    <button type="button" className="link-btn" onClick={disableBrowser}>
-                      Desligar
-                    </button>
-                  </p>
-                ) : browser === "off" ? (
-                  <button type="button" className="btn small" onClick={enableBrowser}>
-                    <BellRing size={14} /> Avisar também quando o app estiver em outra aba
-                  </button>
-                ) : browser === "blocked" ? (
-                  <p className="faint">Os avisos do navegador estão bloqueados para este site. Libere nas configurações do navegador.</p>
-                ) : null}
-              </div>
             </div>
           </div>,
           document.body,
         )}
+      {settings && <PushSettingsDialog onClose={() => setSettings(false)} />}
     </>
   );
 }

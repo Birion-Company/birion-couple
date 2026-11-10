@@ -22,7 +22,7 @@ const CardSchema = z.object({
 
 export type CardInput = z.input<typeof CardSchema> & { ownerId?: string | null };
 
-const FULL = `Cada pessoa pode ter até ${CARDS_PER_PERSON_MAX} cartões ativos. Arquive um para cadastrar outro.`;
+const FULL = `Limite de ${CARDS_PER_PERSON_MAX} cartões ativos. Arquive um antes.`;
 
 /** Quantos cartões ativos a pessoa já tem (sem contar `exceptId`). */
 async function activeCards(householdId: string, ownerId: string, exceptId?: string) {
@@ -48,7 +48,7 @@ async function findCard(householdId: string, id: string) {
   return card ?? null;
 }
 
-const NOT_YOUR_CARD = "Esse cartão é de outra pessoa. Só o dono (ou quem administra a família) pode mexer nele.";
+const NOT_YOUR_CARD = "Só o dono do cartão pode mexer nele.";
 
 export async function saveCard(id: string | null, input: CardInput): Promise<ActionResult & { id?: string }> {
   const auth = await requireAuth();

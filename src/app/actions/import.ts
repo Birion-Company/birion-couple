@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
@@ -10,6 +10,9 @@ import { requireAuth } from "@/lib/auth";
 import { applyCsvMapping, guessMapping, readCsvTable } from "@/lib/import/csv";
 import { externalIds, matchCategory } from "@/lib/import/dedupe";
 import { parseOfx } from "@/lib/import/ofx";
+import { merchantKey, parseInstallment } from "@/lib/import/patterns";
+import { daysBetween } from "@/lib/cards";
+import { expandInstallments, learnedByMerchant, PREDICTED } from "@/lib/patterns-server";
 import type { CsvMapping, ParseIssue } from "@/lib/import/types";
 import { splitEqually } from "@/lib/money";
 
@@ -92,13 +95,15 @@ export async function previewImport(input: { fileName: string; text: string; map
     .select({ pattern: schema.categoryRules.pattern, categoryId: schema.categoryRules.categoryId })
     .from(schema.categoryRules)
     .where(eq(schema.categoryRules.householdId, auth.householdId));
+  // Sem regra: a categoria da última compra no mesmo estabelecimento.
+  const learned = await learnedByMerchant(auth.householdId);
   const rows: PreviewRow[] = parsed.rows.map((r, i) => ({
     key: ids[i],
     date: r.date,
     description: r.description,
     amountCents: r.amountCents,
     duplicate: existing.has(ids[i]),
-    categoryId: matchCategory(r.description, rules),
+    categoryId: r.amountCents < 0 ? matchCategory(r.description, rules) ?? learned.get(merchantKey(r.description))?.categoryId ?? null : null,
     billPayment: r.amountCents > 0 && BILL_PAYMENT.test(r.description),
   }));
   const statement = "statement" in parsed ? parsed.statement : undefined;
@@ -122,12 +127,13 @@ const CommitSchema = z.object({
     .max(5000),
   payerId: z.uuid().nullable(),
   splitIds: z.array(z.uuid()).min(1, { error: "Escolha quem divide as despesas." }),
-  statusId: z.uuid().nullable(),
+  /** Ignorado: o status agora é calculado (mantido para quem estiver com a tela antiga aberta). */
+  statusId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable(),
   cardId: z.uuid().nullable().optional(),
 });
 
-export async function commitImport(input: z.input<typeof CommitSchema>): Promise<{ ok: boolean; error?: string; imported?: number; skipped?: number }> {
+export async function commitImport(input: z.input<typeof CommitSchema>): Promise<{ ok: boolean; error?: string; imported?: number; skipped?: number; replaced?: number; learnedSplits?: number; predicted?: number }> {
   const auth = await requireAuth();
   const parsed = CommitSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
@@ -156,9 +162,10 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
       .where(and(eq(schema.creditCards.id, data.cardId), eq(schema.creditCards.householdId, auth.householdId)));
     if (!card) return { ok: false, error: "Cartão inválido." };
     if (!canManageCard(auth, card)) return { ok: false, error: "Você só pode importar para os seus cartões." };
-    if (card.ownerId && card.ownerId !== data.payerId) return { ok: false, error: "Em “Quem pagou”, escolha o dono do cartão." };
+    // No cartão, quem pagou é sempre o dono dele.
+    if (card.ownerId) data.payerId = card.ownerId;
   }
-  for (const [table, id] of [[schema.statuses, data.statusId], [schema.projects, data.projectId], [schema.creditCards, data.cardId ?? null]] as const) {
+  for (const [table, id] of [[schema.projects, data.projectId], [schema.creditCards, data.cardId ?? null]] as const) {
     if (!id) continue;
     const [row] = await db.select({ id: table.id }).from(table).where(and(eq(table.id, id), eq(table.householdId, auth.householdId)));
     if (!row) return { ok: false, error: "Opção inválida." };
@@ -170,23 +177,75 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
       .values({ householdId: auth.householdId, fileName: data.fileName || "arquivo", format: data.format, createdBy: auth.userId })
       .returning({ id: schema.importBatches.id });
     let imported = 0;
+    let replaced = 0;
+    let learnedSplits = 0;
     const items: ActivityItem[] = [];
-    for (let i = 0; i < data.rows.length; i += 200) {
-      const chunk = data.rows.slice(i, i + 200);
+    // O que já se sabe de cada estabelecimento (de quem é a conta), para classificar sozinho.
+    const learned = await learnedByMerchant(auth.householdId, tx);
+    const alive = new Set(
+      (await tx.select({ id: schema.participants.id }).from(schema.participants).where(and(eq(schema.participants.householdId, auth.householdId), eq(schema.participants.archived, false)))).map((x) => x.id),
+    );
+    const splitFor = (description: string, amountCents: number) => {
+      const known = amountCents < 0 ? learned.get(merchantKey(description))?.participantIds.filter((id) => alive.has(id)) : undefined;
+      return known?.length ? known : null;
+    };
+    // Parcela que o app já tinha previsto ("Parcela 4/10" criada pela importação anterior): vira a de verdade.
+    const rest: typeof data.rows = [];
+    for (const r of data.rows) {
+      const inst = r.amountCents < 0 ? parseInstallment(r.description) : null;
+      const candidates = inst
+        ? await tx
+            .select({ id: schema.transactions.id, date: schema.transactions.date })
+            .from(schema.transactions)
+            .where(
+              and(
+                eq(schema.transactions.householdId, auth.householdId),
+                eq(schema.transactions.source, PREDICTED),
+                eq(schema.transactions.seriesIndex, inst.index),
+                eq(schema.transactions.seriesTotal, inst.total),
+                sql`lower(${schema.transactions.description}) = lower(${inst.base})`,
+              ),
+            )
+        : [];
+      const predicted = candidates.find((x) => Math.abs(daysBetween(x.date, r.date)) <= 25);
+      if (predicted) {
+        await tx
+          .update(schema.transactions)
+          .set({ date: r.date, amountCents: Math.abs(r.amountCents), source: data.format, externalId: r.key, importBatchId: batch.id, updatedAt: new Date() })
+          .where(eq(schema.transactions.id, predicted.id));
+        // Valor de verdade pode ter mudado alguns centavos: a divisão acompanha.
+        const old = await tx.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, predicted.id));
+        const parts = splitEqually(Math.abs(r.amountCents), old.length || 1);
+        for (const [k, x] of old.entries()) {
+          await tx
+            .update(schema.transactionSplits)
+            .set({ amountCents: parts[k] })
+            .where(and(eq(schema.transactionSplits.transactionId, x.transactionId), eq(schema.transactionSplits.participantId, x.participantId)));
+        }
+        replaced++;
+        continue;
+      }
+      rest.push(r);
+    }
+    for (let i = 0; i < rest.length; i += 200) {
+      const chunk = rest.slice(i, i + 200);
       const inserted = await tx
         .insert(schema.transactions)
         .values(
           chunk.map((r) => ({
             householdId: auth.householdId,
             date: r.date,
-            description: r.description || "Sem descrição",
+            // "Loja - Parcela 2/3" vira "Loja", com a parcela guardada na série (aparece ao lado: Parcela 2/3).
+            ...installmentFields(r.description, r.amountCents),
+            description: (r.amountCents < 0 ? parseInstallment(r.description)?.base : null) || r.description || "Sem descrição",
             amountCents: Math.abs(r.amountCents),
             kind: r.amountCents < 0 ? "expense" : "income",
             payerId: data.payerId,
-            categoryId: r.categoryId,
+            // Receita não tem categoria.
+            categoryId: r.amountCents < 0 ? r.categoryId : null,
             projectId: data.projectId,
-            statusId: data.statusId,
-            cardId: data.cardId ?? null,
+            // Entrada (receita) não fica em cartão.
+            cardId: r.amountCents < 0 ? data.cardId ?? null : null,
             source: data.format,
             externalId: r.key,
             importBatchId: batch.id,
@@ -196,22 +255,35 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
         .onConflictDoNothing()
         .returning({ id: schema.transactions.id, amountCents: schema.transactions.amountCents, description: schema.transactions.description });
       for (const row of inserted) items.push({ d: row.description, a: involved({ payerId: data.payerId, splits: data.splitIds.map((p) => ({ participantId: p, amountCents: 0 })) }) });
+      const byId = new Map(chunk.map((r) => [(r.amountCents < 0 ? parseInstallment(r.description)?.base : null) || r.description || "Sem descrição", r]));
       const splits = inserted.flatMap((row) => {
-        const parts = splitEqually(row.amountCents, data.splitIds.length);
-        return data.splitIds.map((participantId, k) => ({ transactionId: row.id, participantId, amountCents: parts[k] }));
+        const src = byId.get(row.description);
+        const people = (src && splitFor(src.description, src.amountCents)) ?? data.splitIds;
+        if (people !== data.splitIds) learnedSplits++;
+        const parts = splitEqually(row.amountCents, people.length);
+        return people.map((participantId, k) => ({ transactionId: row.id, participantId, amountCents: parts[k] }));
       });
       if (splits.length) await tx.insert(schema.transactionSplits).values(splits);
       imported += inserted.length;
     }
+    imported += replaced;
     const skipped = data.rows.length - imported;
     await tx.update(schema.importBatches).set({ imported, skipped }).where(eq(schema.importBatches.id, batch.id));
     if (items.length) {
       await logActivity(tx, auth, { action: "imported", data: { fileName: data.fileName || "arquivo", items }, audience: items.flatMap((x) => x.a) });
     }
-    return { imported, skipped };
+    return { imported, skipped, replaced, learnedSplits };
   });
+  // Parcelas novas no extrato: já cria as dos próximos meses.
+  const predicted = await expandInstallments(auth.householdId);
   revalidatePath("/", "layout");
-  return { ok: true, ...result };
+  return { ok: true, ...result, predicted };
+}
+
+/** Parcela do extrato: guarda o número na série; a série em si é criada em expandInstallments. */
+function installmentFields(description: string, amountCents: number) {
+  const inst = amountCents < 0 ? parseInstallment(description) : null;
+  return inst ? { seriesKind: "installment", seriesIndex: inst.index, seriesTotal: inst.total } : {};
 }
 
 export async function savePreset(name: string, mapping: CsvMapping) {
@@ -219,7 +291,7 @@ export async function savePreset(name: string, mapping: CsvMapping) {
   const parsed = z.object({ name: z.string().trim().min(1).max(60), mapping: MappingSchema }).safeParse({ name, mapping });
   if (!parsed.success) return { ok: false, error: "Dê um nome ao modelo." };
   await getDb().insert(schema.csvPresets).values({ householdId: auth.householdId, ...parsed.data });
-  revalidatePath("/importar");
+  revalidatePath("/ajustes/importacao");
   return { ok: true, message: "Modelo salvo. Ele aparece na próxima importação de CSV." };
 }
 

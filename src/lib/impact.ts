@@ -14,7 +14,8 @@ export type ImpactInput = {
   /** Pessoa de quem está vendo (para escrever "você"). */
   me: string | null;
   names: Record<string, string>;
-  statusBehavior: "pending" | "open" | "settled" | null;
+  /** Marcado como "Já acertado". */
+  settled: boolean;
   card: { name: string; closingDay: number; dueDay: number } | null;
   date: string;
   repeat: "once" | "installment" | "monthly";
@@ -26,7 +27,7 @@ export type ImpactInput = {
   today: string;
 };
 
-export type ImpactArea = "debts" | "card" | "panel" | "pending";
+export type ImpactArea = "debts" | "card" | "panel";
 export type Impact = { area: ImpactArea; title: string; lines: string[]; href: string };
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -44,8 +45,8 @@ export function describeImpact(i: ImpactInput): Impact[] {
 
   // ---------- Dívidas ----------
   const debts: string[] = [];
-  if (i.statusBehavior === "settled") {
-    debts.push("Status “acertado”: não gera dívida.");
+  if (i.settled) {
+    debts.push("Marcado como já acertado: não gera dívida.");
   } else if (!i.payerId) {
     debts.push("Sem “quem pagou”: não gera dívida até alguém pagar.");
   } else if (between) {
@@ -70,7 +71,7 @@ export function describeImpact(i: ImpactInput): Impact[] {
         );
       }
       if (others.length > 3) debts.push(`E mais ${others.length - 3} pessoa(s).`);
-      if (series) debts.push("Parcelas e meses futuros só viram dívida no mês de cada um.");
+      if (series) debts.push("Meses futuros só contam quando chegarem.");
     }
   }
   if (debts.length) out.push({ area: "debts", title: "Dívidas", lines: debts, href: "/dividas" });
@@ -79,17 +80,18 @@ export function describeImpact(i: ImpactInput): Impact[] {
   if (i.card && !between && /^\d{4}-\d{2}-\d{2}$/.test(i.date)) {
     const first = invoiceOf(i.date, i.card.closingDay);
     const due = invoiceDates(first, i.card).due;
-    const lines = [`Entra na fatura de ${monthLabel(first)} do ${i.card.name}, que vence ${shortDate(due)}.`];
+    const lines = [`Fatura do ${i.card.name} que vence ${shortDate(due)}.`];
     if (i.repeat === "installment" && n > 1) {
       const last = invoiceOf(addMonthsIso(i.date, n - 1), i.card.closingDay);
-      lines[0] = `Uma parcela de ${money(perMonth(i.amountCents))} em cada fatura do ${i.card.name}, de ${monthLabel(first)} a ${monthLabel(last)}.`;
+      const lastDue = invoiceDates(last, i.card).due;
+      lines[0] = `${money(perMonth(i.amountCents))} por fatura do ${i.card.name}, de ${shortDate(due)} até ${shortDate(lastDue)}${lastDue.slice(0, 4) !== due.slice(0, 4) ? `/${lastDue.slice(2, 4)}` : ""}.`;
     } else if (i.repeat === "monthly") {
-      lines[0] = `Entra em toda fatura do ${i.card.name} a partir de ${monthLabel(first)}.`;
+      lines[0] = `Toda fatura do ${i.card.name}, a partir de ${shortDate(due)}.`;
     }
     const others = i.shares.filter((s) => s.participantId !== i.payerId && s.cents > 0);
     if (others.length && i.kind === "expense") {
       const parts = i.shares.filter((s) => s.cents > 0).map((s) => `${who(s.participantId)} ${money(perMonth(s.cents))}`);
-      lines.push(`Na fatura, a parte de cada um${i.repeat === "installment" ? " por parcela" : ""}: ${parts.join(" · ")}.`);
+      lines.push(`Partes: ${parts.join(" · ")}.`);
     }
     out.push({ area: "card", title: "Fatura do cartão", lines, href: "/cartoes" });
   }
@@ -103,9 +105,5 @@ export function describeImpact(i: ImpactInput): Impact[] {
   if (i.date > i.today) panel.push("A data é futura: só aparece no painel quando o mês chegar.");
   out.push({ area: "panel", title: "Painel", lines: panel, href: "/painel" });
 
-  // ---------- Pendentes ----------
-  if (i.kind === "expense" && i.statusBehavior === "pending") {
-    out.push({ area: "pending", title: "Pendentes", lines: ["Fica em Pendentes (ainda não pagos) no painel até o status mudar para pago ou acertado."], href: "/painel" });
-  }
   return out;
 }

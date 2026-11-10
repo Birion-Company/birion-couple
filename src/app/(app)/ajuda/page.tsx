@@ -13,130 +13,103 @@ const SECTIONS: Section[] = [
     id: "comecar",
     title: "Para começar",
     items: [
-      {
-        term: "O que é uma pessoa",
-        text: "Cada integrante que entra nas contas: quem paga alguma coisa e com quem ela é dividida. As dívidas são sempre entre pessoas. Pessoa não é o mesmo que login: alguém pode ser uma pessoa sem nunca abrir o app; quem entra pelo convite vira uma pessoa ligada à própria conta.",
-      },
-      { term: "1. Cadastre as pessoas", text: <>Em <Link href="/ajustes/pessoas">Ajustes → Pessoas</Link>, cadastre quem divide as contas. Não precisam ter login.</> },
-      { term: "2. Convide quem vai usar", text: <>Em <Link href="/ajustes/membros">Ajustes → Acesso</Link>, gere um link de convite para cada pessoa que vai entrar no app.</> },
-      { term: "3. Lance ou importe", text: <>Registre gastos em <Link href="/transacoes/nova">Novo lançamento</Link> ou traga o extrato do banco em <Link href="/importar">Importar</Link>.</> },
-      { term: "4. Acompanhe", text: <>Veja quem deve para quem em <Link href="/dividas">Dívidas</Link> e as faturas em <Link href="/cartoes">Cartões</Link>.</> },
+      { term: "Pessoa", text: "Quem divide as contas. Não precisa ter login." },
+      { term: "1. Pessoas", text: <>Cadastre em <Link href="/ajustes/pessoas">Ajustes → Pessoas</Link>.</> },
+      { term: "2. Convites", text: <>Gere links em <Link href="/ajustes/membros">Ajustes → Acesso</Link>.</> },
+      { term: "3. Lançamentos", text: <>Use <Link href="/transacoes/nova">Novo lançamento</Link> ou <Link href="/ajustes/importacao">importe o extrato</Link>.</> },
+      { term: "4. Acompanhe", text: <>Saldos em <Link href="/dividas">Dívidas</Link>, faturas em <Link href="/cartoes">Cartões</Link>.</> },
     ],
   },
   {
     id: "secoes",
-    title: "As seções do app",
+    title: "As seções",
     items: [
-      { term: "Painel", text: "Resumo: quem deve para quem, gastos e entradas do período, contas pendentes (ainda não pagas), gastos por categoria e um aviso quando há lançamentos a identificar. Os filtros (período, pessoa, categoria…) mudam tudo, menos o bloco de dívidas." },
-      { term: "Lançamentos", text: "A lista de tudo que foi registrado, agrupada por mês, com busca e filtros. Dá para selecionar vários e mudar status, categoria ou projeto de uma vez. Também mostra o que se repete todo mês." },
-      { term: "Novo lançamento", text: "Onde se registra uma despesa, receita, empréstimo ou acerto, com divisão entre pessoas, cartão e repetição." },
-      { term: "Notificações (sino)", text: "Avisos de fatura perto de fechar ou vencer e tudo que outras pessoas fizeram envolvendo você (lançaram, alteraram, atribuíram uma dívida, marcaram como acertado). Chegam em poucos segundos, com um aviso no canto; o número vermelho some quando você abre o sino." },
-      { term: "A identificar", text: "Lançamentos que ainda não dizem a categoria, quem pagou ou quem deveria pagar (por exemplo, vindos de um extrato). Abra um ou edite vários de uma vez; quando tudo estiver preenchido, ele sai de lá. Não é o mesmo que o status Pendente, que diz se a conta já foi paga." },
-      { term: "Dívidas", text: "Quanto cada pessoa te deve ou você deve, com o extrato do que gerou cada dívida e os botões para registrar pagamento ou marcar como acertado." },
-      { term: "Cartões", text: "Cada cartão com a fatura aberta, o próximo vencimento, as próximas faturas, a parte de cada pessoa e os parcelados em andamento." },
-      { term: "Importar", text: "Traz lançamentos de um arquivo OFX ou CSV do banco, sem repetir o que já foi importado." },
-      { term: "Ajustes", text: "Família, pessoas, categorias, projetos, status, acesso e modelos de importação. Tudo pode ser mudado a qualquer hora." },
-      { term: "Meu perfil", text: "Foto, nome, e-mail e senha. Fica no botão com o seu nome." },
+      { term: "Painel", text: "Um mês por vez (até 12 à frente): gastos, entradas, quem te deve e categorias. Com cartão, o mês é o da fatura." },
+      { term: "Lançamentos", text: "Tudo o que foi registrado, com busca, filtros e edição em lote." },
+      { term: "Dívidas", text: "Quem deve para quem, o que gerou cada dívida e o histórico do que já foi pago." },
+      { term: "Cartões", text: "Faturas, vencimentos, parte de cada pessoa e parcelados." },
+      { term: "Sino", text: "Avisos de fatura e do que outras pessoas fizeram com você. A engrenagem configura o celular." },
+      { term: "Ajustes", text: "Pessoas, categorias, projetos, acesso e importação." },
     ],
   },
   {
     id: "tipos",
     title: "Tipos de lançamento",
     items: [
-      { term: "Despesa", text: "Algo que foi pago. Escolha quem pagou e entre quem dividir: cada pessoa passa a dever a parte dela para quem pagou." },
-      { term: "Receita", text: "Dinheiro que entrou (salário, venda, estorno). Se dividir, quem recebeu fica devendo a parte de cada um." },
-      { term: "Empréstimo", text: "Dinheiro emprestado ou algo pago só para outra pessoa. Quem pegou emprestado fica devendo o valor todo para quem emprestou." },
-      { term: "Acerto", text: "Pagamento de uma dívida entre pessoas. Abate o que uma deve para a outra. O botão “Registrar pagamento” já preenche um acerto." },
-      { term: "Quem pagou × quem deveria pagar", text: "Quem pagou é quem tirou o dinheiro do bolso. Quem deveria pagar é de quem é a conta: uma pessoa só (deve tudo para quem pagou) ou várias, em partes iguais ou com valores diferentes. A diferença entre os dois vira dívida." },
+      { term: "Despesa", text: "Algo pago. Quem tem parte fica devendo para quem pagou." },
+      { term: "Receita", text: "Dinheiro que entrou. Sem categoria e sem cartão." },
+      { term: "Dívida", text: "Alguém fica te devendo. Ex.: Fulano pegou R$ 100 emprestado. Pode ser parcelada." },
+      { term: "Acerto", text: "Dinheiro que passou de uma pessoa para outra. Abate a dívida." },
+      { term: "No cartão", text: "Quem pagou é o dono do cartão; basta escolher o cartão." },
     ],
   },
   {
     id: "repeticao",
     title: "Parcelado e todo mês",
     items: [
-      { term: "Uma vez", text: "Um lançamento só." },
-      { term: "Parcelado", text: "Informe o valor total e o número de parcelas: são criadas as parcelas mês a mês, cada uma com a mesma divisão. Ex.: notebook de R$ 3.500 em 10x." },
-      { term: "Todo mês", text: "Repete o mesmo valor todo mês, sem data para acabar (ou por alguns meses, se preferir). Cada mês é criado quando chega. Para parar, use “Parar de repetir” em Lançamentos." },
-      { term: "Editar uma parcela", text: "Valor, data, divisão e status mudam só naquela. Descrição, categoria, projeto, cartão e quem pagou podem ser levados para as outras. Também dá para excluir aquela e as próximas." },
+      { term: "Parcelado", text: "Valor total e nº de parcelas. Ex.: R$ 1.200 em 12x cria 12 meses de R$ 100." },
+      { term: "Todo mês", text: "Repete o valor sem data para acabar. Para parar: “Parar de repetir”." },
+      { term: "Editar", text: "Dá para mudar nº de parcelas, primeiro mês e valor depois de criado." },
+      { term: "Importados", text: "“Parcela 2/10” no extrato vira etiqueta e as próximas parcelas são criadas." },
     ],
   },
   {
     id: "status",
     title: "Status",
-    intro: "Os nomes podem ser os que a família quiser; o que vale é o significado de cada um.",
+    intro: "Automático: você não escolhe.",
     items: [
-      { term: "Pendente", text: "A conta ainda não foi paga. Aparece em Pendentes no painel. Se alguém já pagou e dividiu, os outros já aparecem devendo." },
-      { term: "Pago, a acertar", text: "Alguém já pagou e os outros vão acertar a parte deles. Conta nas dívidas, mas sai de Pendentes." },
-      { term: "Acertado", text: "Já foi reembolsado ou acertado. Sai das dívidas e de Pendentes." },
+      { term: "Na fatura", text: "Compra no cartão com a fatura ainda aberta. Vira Pago ao marcar a fatura como paga." },
+      { term: "A acertar", text: "Alguém ainda deve a parte dele." },
+      { term: "Pago", text: "Ninguém deve mais nada." },
     ],
   },
   {
     id: "categorias",
     title: "Categorias e projetos",
     items: [
-      { term: "Categoria", text: "Com o que o dinheiro foi gasto (Mercado, Moradia, Saúde…). Alimenta o gráfico “Gastos por categoria” e os filtros." },
-      { term: "Categorização automática", text: "Regras do tipo “se a descrição contém UBER, use Transporte”, aplicadas sozinhas ao importar extratos." },
-      { term: "Projeto", text: "Opcional. Junta lançamentos de um mesmo assunto, como uma viagem ou uma reforma, para ver o custo total." },
+      { term: "Categoria", text: "Mercado, Moradia, Saúde… Arraste para mudar a ordem." },
+      { term: "Regras", text: "Ex.: “descrição contém UBER → Transporte”. Valem para o que já existe e para o que vier." },
+      { term: "Projeto", text: "Opcional. Junta gastos de um assunto, como uma viagem." },
     ],
   },
   {
     id: "cartoes",
-    title: "Cartões de crédito",
+    title: "Cartões",
     items: [
-      { term: "Cartões de cada pessoa", text: "Cada pessoa tem os próprios cartões, até 3 ativos, independentes dos outros. Só o dono vê e mexe nos seus (quem administra vê todos). Ao lançar, o cartão escolhido tem que ser de quem pagou." },
-      { term: "Fechamento e vencimento", text: "Ao cadastrar, informe o dia em que a fatura fecha; o vencimento é sugerido uma semana depois e pode ser ajustado. Compras a partir do dia de fechamento vão para a fatura seguinte." },
-      { term: "Sua parte da fatura", text: "Quando uma compra no cartão é dividida, a fatura mostra quanto é seu e quanto cada pessoa deve daquela fatura." },
-      { term: "Avisos", text: "Perto do fechamento ou do vencimento, o dono do cartão recebe um aviso ao abrir o app. Dá para lembrar no dia seguinte ou não lembrar mais daquela fatura." },
+      { term: "Fechamento", text: "Compras a partir do dia de fechamento vão para a fatura seguinte." },
+      { term: "Mês da fatura", text: "Cada compra conta no mês em que a fatura vence. Ex.: “Fatura de novembro”." },
+      { term: "Fatura paga", text: "Marque em Cartões. As compras viram Pago e os avisos param. Dá para desfazer." },
     ],
   },
   {
     id: "dividas",
     title: "Dívidas",
     items: [
-      { term: "Como se formam", text: "Sempre que alguém paga e divide com outras pessoas, ou registra um empréstimo. Acertos abatem." },
-      { term: "Parcelas futuras", text: "Só contam quando chega o mês delas. Antes disso aparecem como “a vencer”." },
-      {
-        term: "Registrar pagamento",
-        text: "Use quando o dinheiro passou de verdade de uma pessoa para a outra (Pix, dinheiro, transferência). Cria um Acerto com o valor, que diminui ou zera a dívida. Se a pessoa pagou só uma parte, troque o valor antes de salvar. O pagamento fica no histórico.",
-      },
-      {
-        term: "Acertado",
-        text: "Tira um lançamento específico da conta sem registrar dinheiro. Use quando aquilo já foi resolvido de outro jeito: foi pago antes de vocês usarem o app, ou combinaram que não precisa pagar. O lançamento continua no histórico, só deixa de contar como dívida.",
-      },
-      { term: "Qual usar?", text: "O dinheiro passou de mão? Registrar pagamento. Só quer tirar um item da conta? Acertado." },
-    ],
-  },
-  {
-    id: "importar",
-    title: "Importar extratos",
-    items: [
-      { term: "OFX e CSV", text: "OFX é lido direto, inclusive fatura de cartão. No CSV você escolhe qual coluna é a data, a descrição e o valor, e pode salvar como modelo." },
-      { term: "Sem repetir", text: "O que já foi importado é reconhecido e fica desmarcado. O pagamento da fatura também começa desmarcado, porque não é gasto." },
-      { term: "Apagar uma importação", text: "Na lista de importações recentes, a lixeira remove o arquivo e todos os lançamentos que vieram dele." },
+      { term: "Recebi / Paguei", text: "Quita uma dívida específica e pergunta o valor. Pagou a mais? Aparece como lucro." },
+      { term: "Registrar pagamento", text: "Um valor solto que abate as dívidas mais antigas." },
+      { term: "Já pago", text: "Fica no histórico, com “Desfazer”." },
+      { term: "Parcelas futuras", text: "Só contam no mês delas; antes aparecem como “a vencer”." },
+      { term: "Pessoa avulsa", text: "Digite um nome novo ao lançar (ex.: Fulano). Some sozinha quando tudo for pago." },
     ],
   },
   {
     id: "acesso",
-    title: "Quem vê e quem altera",
+    title: "Quem vê o quê",
     items: [
-      { term: "Quem administra", text: "Vê e altera tudo da família, inclusive Ajustes." },
-      { term: "Outros membros", text: "Só veem os lançamentos que criaram, pagaram ou dos quais têm uma parte. Gastos só de outra pessoa ficam privados." },
-      { term: "Alterar e excluir", text: "Só quem lançou (ou quem administra). Os outros veem o lançamento em modo leitura." },
-      { term: "O que mudou", text: "Quando alguém cria, altera, exclui ou importa algo que envolve você, aparece um aviso na sua próxima visita." },
-      { term: "Limites", text: `Até ${FAMILY_PEOPLE_MAX} pessoas ativas por família; o nome da família tem até 20 caracteres.` },
+      { term: "Quem administra", text: "Vê e altera tudo." },
+      { term: "Outros membros", text: "Veem só o que lançaram, pagaram ou têm parte. Só quem lançou altera." },
+      { term: "Limite", text: `Até ${FAMILY_PEOPLE_MAX} integrantes, sem contar você.` },
     ],
   },
 ];
 
 /** Causa → efeitos: como uma ação mexe nas outras partes do app. */
 const CONNECTIONS: { cause: string; effects: string[] }[] = [
-  { cause: "Despesa paga e dividida", effects: ["Dívidas: cada pessoa passa a dever a parte dela para quem pagou", "Painel: soma em Gastos e na categoria", "Pendentes: entra se o status for Pendente"] },
-  { cause: "Compra no cartão", effects: ["Fatura do dono do cartão, no mês certo pelo dia de fechamento", "A fatura mostra a parte de cada pessoa", "Aviso perto do fechamento e do vencimento"] },
-  { cause: "Parcelado ou todo mês", effects: ["Um lançamento por mês", "Uma parcela em cada fatura", "Cada parcela só vira dívida no mês dela"] },
-  { cause: "Empréstimo", effects: ["Dívidas: quem pegou emprestado deve o valor todo", "Não conta como gasto nem entrada"] },
-  { cause: "Registrar pagamento", effects: ["Cria um Acerto que diminui ou zera a dívida", "O pagamento fica no histórico"] },
-  { cause: "Marcar como acertado", effects: ["Sai das Dívidas e de Pendentes", "Nenhum dinheiro é registrado"] },
-  { cause: "Alguém muda algo que te envolve", effects: ["Aviso “O que mudou” na sua próxima visita"] },
+  { cause: "Despesa dividida", effects: ["Quem tem parte passa a dever", "Soma nos gastos do mês"] },
+  { cause: "Compra no cartão", effects: ["Entra na fatura do mês em que vence"] },
+  { cause: "Parcelado / todo mês", effects: ["Um lançamento por mês"] },
+  { cause: "Recebi / Paguei", effects: ["Cria um acerto e tira da dívida"] },
+  { cause: "Fatura paga", effects: ["Compras viram Pago"] },
 ];
 
 export default async function HelpPage() {
@@ -146,12 +119,12 @@ export default async function HelpPage() {
       <div className="page-head">
         <div>
           <h1>Como funciona</h1>
-          <p className="muted">Um guia rápido de cada parte do BIRION FINANCE.</p>
+          <p className="muted">O essencial, em poucas linhas.</p>
         </div>
       </div>
       <section className="card section help-section" aria-labelledby="h-conecta" id="conecta">
         <h2 id="h-conecta">Como tudo se conecta</h2>
-        <p className="faint">Cada ação mexe em outras partes do app. Ao preencher um lançamento, o quadro “O que este lançamento muda” mostra isso antes de salvar.</p>
+        
         <div className="connect">
           {CONNECTIONS.map((c) => (
             <div key={c.cause} className="connect-row">

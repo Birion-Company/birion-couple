@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from "lucide-react";
-import { deleteListItem, saveListItem, setArchived } from "@/app/actions/settings";
+import { useOptimistic, useRef, useState, useTransition } from "react";
+import { squareJpeg } from "./profile-forms";
+import { Archive, ArchiveRestore, Camera, GripVertical, ListOrdered, Pencil, Plus, Trash2 } from "lucide-react";
+import { deleteListItem, reorderCategories, saveListItem, setArchived, setPersonPhoto, sortCategoriesByUse } from "@/app/actions/settings";
 import { CATEGORY_ICONS, suggestIcon } from "@/lib/category-icons";
 import { FAMILY_PEOPLE_MAX, PALETTE, STATUS_BEHAVIORS } from "@/lib/defaults";
 import { toastResult } from "./toaster";
@@ -20,10 +21,61 @@ export type ListItem = {
   isDefault?: boolean;
   isImportDefault?: boolean;
   icon?: string;
+  /** Foto (de quem tem login vem do perfil; de quem não tem, pode ser trocada aqui). */
+  avatarUrl?: string | null;
+  hasLogin?: boolean;
 };
 
+/** Círculo da pessoa: sem login, tocar troca a foto; com login, a foto é a do perfil dela. */
+function PersonPhoto({ item }: { item: ListItem }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [pending, start] = useTransition();
+  if (item.hasLogin) {
+    return (
+      <span title={`Foto do perfil de ${item.name}`}>
+        <Avatar name={item.name} color={item.color} src={item.avatarUrl} />
+      </span>
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className="person-photo-btn"
+        disabled={pending}
+        onClick={() => input.current?.click()}
+        aria-label={item.avatarUrl ? `Trocar a foto de ${item.name}` : `Adicionar foto de ${item.name}`}
+        title={item.avatarUrl ? "Trocar a foto" : "Adicionar foto"}
+      >
+        <Avatar name={item.name} color={item.color} src={item.avatarUrl} />
+        <span className="person-photo-cam" aria-hidden>
+          <Camera size={11} strokeWidth={2.2} />
+        </span>
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (!f) return;
+          start(async () => {
+            try {
+              toastResult(await setPersonPhoto(item.id, await squareJpeg(f)));
+            } catch {
+              toastResult({ ok: false, error: "Não deu para ler essa imagem." });
+            }
+          });
+        }}
+      />
+    </>
+  );
+}
+
 const WORDS: Record<Kind, { one: string; add: string; empty: string }> = {
-  participants: { one: "pessoa", add: "Adicionar pessoa", empty: "Nenhuma pessoa cadastrada." },
+  participants: { one: "pessoa", add: "Adicionar Integrante", empty: "Nenhum integrante cadastrado." },
   categories: { one: "categoria", add: "Nova categoria", empty: "Nenhuma categoria." },
   projects: { one: "projeto", add: "Novo projeto", empty: "Nenhum projeto. Use projetos para separar viagens, reformas, eventos…" },
   statuses: { one: "status", add: "Novo status", empty: "Nenhum status." },
@@ -146,15 +198,60 @@ function ItemForm({ kind, item, onDone, defaultColor }: { kind: Kind; item: List
   );
 }
 
-export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
+/** `hidden`: pessoas ativas que contam no limite mas não aparecem na lista (você mesmo). */
+export function ListEditor({ kind, items, hidden = 0 }: { kind: Kind; items: ListItem[]; hidden?: number }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [pending, start] = useTransition();
   const w = WORDS[kind];
-  const visible = items.filter((i) => showArchived || !i.archived);
+  // Categorias: a ordem daqui é a das listas de escolha. Muda na hora e salva em seguida.
+  const [ordered, setOrdered] = useOptimistic(items);
+  const sortable = kind === "categories";
+  // Arrastando: a ordem muda na tela enquanto você puxa; ao soltar, é salva.
+  const [drag, setDrag] = useState<{ id: string; order: string[]; moved: boolean } | null>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const byId = new Map(ordered.map((x) => [x.id, x]));
+  const shown = drag ? drag.order.map((id) => byId.get(id)!).filter(Boolean) : ordered;
+  const visible = shown.filter((i) => showArchived || !i.archived);
+  const save = (list: ListItem[]) =>
+    start(async () => {
+      setOrdered(list);
+      const r = await reorderCategories(list.map((x) => x.id));
+      if (!r.ok) toastResult(r);
+    });
+  const onDragMove = (clientY: number) => {
+    if (!drag || !rowsRef.current) return;
+    // Onde o dedo/mouse está: depois de todas as linhas cujo meio ficou acima dele.
+    const rows = [...rowsRef.current.querySelectorAll<HTMLElement>("[data-sort-id]")].filter((el) => el.dataset.sortId !== drag.id);
+    const index = rows.filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top + r.height / 2 < clientY;
+    }).length;
+    const others = visible.map((x) => x.id).filter((id) => id !== drag.id);
+    const next = [...others.slice(0, index), drag.id, ...others.slice(index)];
+    const hidden = drag.order.filter((id) => !next.includes(id));
+    const order = [...next, ...hidden];
+    if (order.join() !== drag.order.join()) setDrag({ ...drag, order, moved: true });
+  };
+  const onDragEnd = () => {
+    if (drag?.moved) save(drag.order.map((id) => byId.get(id)!).filter(Boolean));
+    setDrag(null);
+  };
+  const move = (id: string, delta: number) => {
+    const list = [...ordered];
+    const from = list.findIndex((x) => x.id === id);
+    // Pula as arquivadas escondidas: a seta leva para a próxima que aparece.
+    let to = from;
+    do to += delta;
+    while (to >= 0 && to < list.length && !showArchived && list[to].archived);
+    if (to < 0 || to >= list.length) return;
+    const [it] = list.splice(from, 1);
+    list.splice(to, 0, it);
+    save(list);
+  };
   const archivedCount = items.filter((i) => i.archived).length;
   // Pessoas: no máximo FAMILY_PEOPLE_MAX ativas.
-  const activeCount = items.length - archivedCount;
+  const activeCount = items.length - archivedCount + hidden;
   const full = kind === "participants" && activeCount >= FAMILY_PEOPLE_MAX;
   const behaviorLabel = (b?: string) => STATUS_BEHAVIORS.find((x) => x.value === b)?.label;
 
@@ -162,15 +259,53 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
 
   return (
     <div className="card" data-tour={`list-${kind}`}>
+      {sortable && visible.length > 1 && (
+        <div className="order-head">
+          <p className="faint">Arraste pela alça ⋮⋮ para mudar a ordem.</p>
+          <button className="btn small" disabled={pending} onClick={() => act(() => sortCategoriesByUse())}>
+            <ListOrdered size={15} strokeWidth={1.8} /> Mais usadas primeiro
+          </button>
+        </div>
+      )}
       {visible.length === 0 && editing !== "new" && <div className="empty">{w.empty}</div>}
-      <div className="rows">
+      <div className="rows" ref={rowsRef}>
         {visible.map((item) =>
           editing === item.id ? (
             <ItemForm key={item.id} kind={kind} item={item} onDone={() => setEditing(null)} />
           ) : (
-            <div key={item.id} className="row" style={{ opacity: item.archived ? 0.55 : 1 }}>
+            <div
+              key={item.id}
+              className={`row ${sortable ? "sortable-row" : ""} ${drag?.id === item.id ? "dragging" : ""}`}
+              data-sort-id={sortable ? item.id : undefined}
+              style={{ opacity: item.archived ? 0.55 : 1 }}
+            >
+              {sortable && (
+                <button
+                  type="button"
+                  className="drag-handle"
+                  aria-label={`Mover ${item.name}: arraste, ou use as setas para cima e para baixo`}
+                  title="Arraste para mudar a ordem"
+                  disabled={pending && !drag}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    setDrag({ id: item.id, order: ordered.map((x) => x.id), moved: false });
+                  }}
+                  onPointerMove={(e) => onDragMove(e.clientY)}
+                  onPointerUp={onDragEnd}
+                  onPointerCancel={() => setDrag(null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      move(item.id, e.key === "ArrowUp" ? -1 : 1);
+                    }
+                  }}
+                >
+                  <GripVertical size={18} strokeWidth={1.8} />
+                </button>
+              )}
               {kind === "participants" ? (
-                <Avatar name={item.name} color={item.color} />
+                <PersonPhoto item={item} />
               ) : kind === "categories" ? (
                 <CategoryIcon icon={item.icon} color={item.color} />
               ) : (
@@ -229,7 +364,7 @@ export function ListEditor({ kind, items }: { kind: Kind; items: ListItem[] }) {
             </button>
             {kind === "participants" && (
               <span id="limite-pessoas" className={`faint ${full ? "neg" : ""}`}>
-                {activeCount} de {FAMILY_PEOPLE_MAX} pessoas{full ? " · arquive alguém para adicionar outra" : ""}
+                {activeCount} de {FAMILY_PEOPLE_MAX} integrantes, sem contar você{full ? " · arquive alguém para adicionar outra" : ""}
               </span>
             )}
           </div>

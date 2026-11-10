@@ -40,18 +40,15 @@ export function ImportWizard({
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [include, setInclude] = useState<Set<string>>(new Set());
   const [cats, setCats] = useState<Record<string, string>>({});
-  const people = lookups.participants.filter((p) => !p.archived);
+  const people = lookups.participants.filter((p) => !p.archived && !p.temporary);
   const firstPerson = me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "";
   const [payerId, setPayerId] = useState(firstPerson);
   const [splitIds, setSplitIds] = useState<string[]>(firstPerson ? [firstPerson] : []);
-  const [statusId, setStatusId] = useState(
-    lookups.statuses.find((s) => s.isImportDefault && !s.archived)?.id ?? lookups.statuses.find((s) => !s.archived)?.id ?? "",
-  );
   const [projectId, setProjectId] = useState("");
   const activeCards = lookups.cards.filter((c) => !c.archived);
   const [cardId, setCardId] = useState("");
   const [presetName, setPresetName] = useState("");
-  const [done, setDone] = useState<{ imported: number; skipped: number } | null>(null);
+  const [done, setDone] = useState<{ imported: number; skipped: number; replaced: number; learnedSplits: number; predicted: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = (f: { name: string; text: string }, m?: CsvMapping) =>
@@ -109,15 +106,14 @@ export function ImportWizard({
       const r = await commitImport({
         fileName: file?.name ?? "arquivo",
         format: preview.format!,
-        rows: chosen.map((x) => ({ key: x.key, date: x.date, description: x.description, amountCents: x.amountCents, categoryId: cats[x.key] || null })),
+        rows: chosen.map((x) => ({ key: x.key, date: x.date, description: x.description, amountCents: x.amountCents, categoryId: x.amountCents < 0 ? cats[x.key] || null : null })),
         payerId: payerId || null,
         splitIds,
-        statusId: statusId || null,
         projectId: projectId || null,
         cardId: cardId || null,
       });
       if (!r.ok) return toast(r.error ?? "Falha ao importar.", "error");
-      setDone({ imported: r.imported ?? 0, skipped: r.skipped ?? 0 });
+      setDone({ imported: r.imported ?? 0, skipped: r.skipped ?? 0, replaced: r.replaced ?? 0, learnedSplits: r.learnedSplits ?? 0, predicted: r.predicted ?? 0 });
       setPreview(null);
       setFile(null);
     });
@@ -132,6 +128,13 @@ export function ImportWizard({
             {done.imported} {done.imported === 1 ? "lançamento importado" : "lançamentos importados"}
             {done.skipped > 0 ? ` · ${done.skipped} já existiam e foram ignorados` : ""}.
           </p>
+          {(done.replaced > 0 || done.predicted > 0 || done.learnedSplits > 0) && (
+            <ul className="import-learned">
+              {done.predicted > 0 && <li>{done.predicted} {done.predicted === 1 ? "parcela futura criada" : "parcelas futuras criadas"} a partir das compras parceladas.</li>}
+              {done.replaced > 0 && <li>{done.replaced} {done.replaced === 1 ? "parcela prevista foi confirmada" : "parcelas previstas foram confirmadas"} pelo extrato (sem duplicar).</li>}
+              {done.learnedSplits > 0 && <li>{done.learnedSplits} {done.learnedSplits === 1 ? "lançamento dividido" : "lançamentos divididos"} como da última vez no mesmo lugar.</li>}
+            </ul>
+          )}
           <div className="actions" style={{ justifyContent: "center", marginTop: 14 }}>
             <Link className="btn primary" href="/transacoes">Ver lançamentos</Link>
             <button className="btn" onClick={() => setDone(null)}>Importar outro arquivo</button>
@@ -290,7 +293,7 @@ export function ImportWizard({
               </table>
             </div>
             <div className="actions">
-              <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Nome do modelo (ex.: Fatura Nubank)" value={presetName} onChange={(e) => setPresetName(e.target.value)} />
+              <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Nome do modelo (ex.: Fatura do cartão A)" value={presetName} onChange={(e) => setPresetName(e.target.value)} />
               <button
                 type="button"
                 className="btn"
@@ -358,15 +361,7 @@ export function ImportWizard({
                   <Select
                     value={payerId}
                     onChange={setPayerId}
-                    options={[{ value: "", label: "Ninguém ainda" }, ...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
-                  />
-                </label>
-                <label className="field">
-                  <span>Status</span>
-                  <Select
-                    value={statusId}
-                    onChange={setStatusId}
-                    options={lookups.statuses.filter((s) => !s.archived).map((s) => ({ value: s.id, label: s.name, color: s.color }))}
+                    options={[...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
                   />
                 </label>
               </div>
@@ -383,7 +378,7 @@ export function ImportWizard({
                         aria-pressed={on}
                         onClick={() => setSplitIds((s) => (on ? s.filter((x) => x !== p.id) : [...s, p.id]))}
                       >
-                        <Avatar name={p.name} color={p.color} size={22} /> {p.name}
+                        <Avatar name={p.name} color={p.color} size={22} src={p.avatarUrl} /> {p.name}
                       </button>
                     );
                   })}
@@ -442,13 +437,16 @@ export function ImportWizard({
                       {r.duplicate ? " · já importado" : ""}
                       {r.billPayment ? " · pagamento da fatura (não é gasto)" : ""}
                     </p>
-                    <Select
-                      ariaLabel={`Categoria de ${r.description}`}
-                      value={cats[r.key] ?? ""}
-                      onChange={(v) => setCats((c) => ({ ...c, [r.key]: v }))}
-                      options={catOptions}
-                      style={{ minHeight: 32, padding: "4px 10px", fontSize: "0.8rem", marginTop: 6, maxWidth: 220 }}
-                    />
+                    {/* Receita (entrada) não tem categoria. */}
+                    {r.amountCents < 0 && (
+                      <Select
+                        ariaLabel={`Categoria de ${r.description}`}
+                        value={cats[r.key] ?? ""}
+                        onChange={(v) => setCats((c) => ({ ...c, [r.key]: v }))}
+                        options={catOptions}
+                        style={{ minHeight: 32, padding: "4px 10px", fontSize: "0.8rem", marginTop: 6, maxWidth: 220 }}
+                      />
+                    )}
                   </div>
                   <span className={`amount ${r.amountCents > 0 ? "pos" : ""}`}>
                     {r.amountCents > 0 ? "+" : ""}
