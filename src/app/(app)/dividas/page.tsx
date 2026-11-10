@@ -230,31 +230,6 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                 </div>
               </details>
             )}
-            {p.upcomingCount > 0 && (
-              <details className="ledger-upcoming">
-                <summary>
-                  Mais <Money cents={Math.abs(p.upcoming)} currency={cur} /> em {p.upcomingCount} {p.upcomingCount === 1 ? "parcela" : "parcelas"} a vencer
-                </summary>
-                <div className="rows">
-                  {[...p.upcomingEntries]
-                    .sort((a, b) => (a.tx.date < b.tx.date ? -1 : 1))
-                    .map(({ tx, effect }) => (
-                      <Link key={tx.id} href={`/transacoes/${tx.id}`} className="row ledger-row upcoming">
-                        <span className="grow" style={{ minWidth: 0 }}>
-                          <span className="title">{tx.description}</span>
-                          <span className="sub">
-                            vence {formatDate(tx.date, { day: "2-digit", month: "short", year: "numeric" })}
-                            {seriesLabel(tx.seriesKind, tx.seriesIndex, tx.seriesTotal) ? ` · ${seriesLabel(tx.seriesKind, tx.seriesIndex, tx.seriesTotal)}` : ""}
-                          </span>
-                        </span>
-                        <span className={`amount ${effect > 0 ? "pos" : "neg"}`}>
-                          <Money cents={effect} currency={cur} signed />
-                        </span>
-                      </Link>
-                    ))}
-                </div>
-              </details>
-            )}
           </details>
         );
       })}

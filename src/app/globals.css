@@ -2418,6 +2418,17 @@ button.user-menu-item {
 .ledger-row {
   flex-wrap: wrap;
 }
+/* Linha fina de borda a borda do card, separando o cabeçalho da lista de dívidas */
+details.ledger > .rows {
+  margin-inline: -16px;
+  padding-inline: 16px;
+  padding-block: 6px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+details.ledger > .rows + .ledger-upcoming {
+  margin-top: 14px;
+}
 .ledger-row .sub {
   white-space: normal;
 }
@@ -4775,7 +4786,7 @@ details.ledger .ledger-net {
 .ledger-actions {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 6px;
+  margin-bottom: 14px;
 }
 @media (max-width: 520px) {
   details.ledger > summary {
