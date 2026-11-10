@@ -156,15 +156,18 @@ const serverSlot = () => null;
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-/** Seletor de mês e ano: um ano por vez, com os meses fora do período bloqueados. */
-function MonthPicker({
+/** Seletor de mês e ano: um ano por vez, com os meses fora do período bloqueados.
+ * `strict`: meses fora do período ficam desligados (sem o aviso), como na exportação. */
+export function MonthPicker({
   value,
   current,
   min,
   max,
   onPick,
   onClose,
-  total,
+  total = null,
+  strict = false,
+  note = "Do mês em que você começou a usar o app até o último mês com algo lançado (ex.: a última parcela).",
 }: {
   value: string;
   current: string;
@@ -172,7 +175,9 @@ function MonthPicker({
   max: string;
   onPick: (key: string) => void;
   onClose: () => void;
-  total: { summary: string; onPick: () => void } | null;
+  total?: { summary: string; onPick: () => void } | null;
+  strict?: boolean;
+  note?: string;
 }) {
   const [year, setYear] = useState(Number((value || current).slice(0, 4)));
   const box = useRef<HTMLDivElement>(null);
@@ -195,11 +200,11 @@ function MonthPicker({
   return (
     <div ref={box} className="month-picker" role="dialog" aria-label="Escolher mês">
       <div className="mp-head">
-        <button type="button" className="icon-btn" onClick={() => (year <= minYear ? onPick(`${year - 1}-12`) : setYear((y) => y - 1))} aria-label="Ano anterior">
+        <button type="button" className="icon-btn" disabled={strict && year <= minYear} onClick={() => (year <= minYear ? onPick(`${year - 1}-12`) : setYear((y) => y - 1))} aria-label="Ano anterior">
           <ChevronLeft size={18} />
         </button>
         <strong className="num">{year}</strong>
-        <button type="button" className="icon-btn" onClick={() => (year >= maxYear ? onPick(`${year + 1}-01`) : setYear((y) => y + 1))} aria-label="Próximo ano">
+        <button type="button" className="icon-btn" disabled={strict && year >= maxYear} onClick={() => (year >= maxYear ? onPick(`${year + 1}-01`) : setYear((y) => y + 1))} aria-label="Próximo ano">
           <ChevronRight size={18} />
         </button>
       </div>
@@ -214,6 +219,7 @@ function MonthPicker({
               type="button"
               className={`mp-month ${key === value ? "on" : ""} ${key === current ? "now" : ""} ${before || after ? "before" : ""}`}
               aria-current={key === value ? "true" : undefined}
+              disabled={strict && (before || after)}
               title={before ? "Antes disso você ainda não usava o app" : after ? "Ainda não há nada lançado para esse mês" : undefined}
               onClick={() => onPick(key)}
             >
@@ -222,7 +228,7 @@ function MonthPicker({
           );
         })}
       </div>
-      <p className="faint mp-note">Do mês em que você começou a usar o app até o último mês com algo lançado (ex.: a última parcela).</p>
+      <p className="faint mp-note">{note}</p>
       {/* Todos os meses de uma vez, com o valor à vista antes de abrir. */}
       {total && (
         <button type="button" className="mp-total" onClick={total.onPick}>

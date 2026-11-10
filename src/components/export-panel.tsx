@@ -1,20 +1,47 @@
 "use client";
 
 import { useState } from "react";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { CalendarDays, ChevronDown, FileSpreadsheet, FileText } from "lucide-react";
 import { longMonth } from "@/lib/cards";
-import { Select } from "./select";
+import { MonthPicker } from "./month-nav";
 
 /** Ajustes → Exportação: escolhe o mês e baixa a planilha ou abre o extrato em PDF. */
-export function ExportPanel({ months, initial }: { months: string[]; initial: string }) {
+export function ExportPanel({ min, max, initial, current }: { min: string; max: string; initial: string; current: string }) {
   const [month, setMonth] = useState(initial);
-  const label = (k: string) => longMonth(k);
+  const [picking, setPicking] = useState(false);
   return (
     <section className="card section export-panel">
-      <label className="field" style={{ maxWidth: 320 }}>
-        <span>Mês</span>
-        <Select value={month} onChange={setMonth} options={months.map((k) => ({ value: k, label: label(k) }))} ariaLabel="Mês para exportar" />
-      </label>
+      {/* Mesmo calendário do seletor de mês da barra de cima: um ano por vez, meses sem dados desligados. */}
+      <div className="field export-month">
+        <span id="export-month-label">Mês</span>
+        <button
+          type="button"
+          className="input month-pick-btn export-month-btn"
+          aria-labelledby="export-month-label"
+          aria-expanded={picking}
+          aria-haspopup="dialog"
+          onClick={() => setPicking((o) => !o)}
+        >
+          <CalendarDays size={16} strokeWidth={1.9} aria-hidden />
+          <span className="grow">{longMonth(month)}</span>
+          <ChevronDown size={16} strokeWidth={2.2} aria-hidden />
+        </button>
+        {picking && (
+          <MonthPicker
+            value={month}
+            current={current}
+            min={min}
+            max={max}
+            strict
+            note="Do mês em que você começou a usar o app até o último mês com algo lançado."
+            onPick={(k) => {
+              setMonth(k);
+              setPicking(false);
+            }}
+            onClose={() => setPicking(false)}
+          />
+        )}
+      </div>
       <p className="faint">
         Com cartão, o mês é o da fatura que vence nele (igual ao painel). Vai tudo: resumo, faturas, gastos por categoria, dívidas e cada lançamento.
       </p>

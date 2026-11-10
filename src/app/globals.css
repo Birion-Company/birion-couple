@@ -7442,3 +7442,26 @@ s.was {
   margin-top: 8px;
   font-size: 0.8rem;
 }
+
+/* Exportação: mês escolhido no mesmo calendário do seletor da barra de cima. */
+.export-month {
+  position: relative;
+  max-width: 320px;
+}
+.month-pick-btn.export-month-btn {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--field-edge);
+  border-radius: 12px;
+  background: var(--field-bg);
+}
+.export-month-btn .grow {
+  flex: 1;
+}
+.export-month .month-picker {
+  left: 0;
+  transform: none;
+}
