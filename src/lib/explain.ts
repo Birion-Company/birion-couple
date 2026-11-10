@@ -9,7 +9,7 @@ export type ExplainInput = {
   kind: string;
   amountCents: number;
   payerId: string | null;
-  splits: { participantId: string; amountCents: number; paidById?: string | null }[];
+  splits: { participantId: string; amountCents: number; paidById?: string | null; paidCents?: number | null; partCents?: number; pendingPayId?: string | null }[];
   cardName: string | null;
   /** Marcado como acertado no modelo antigo. */
   settled: boolean;
@@ -50,6 +50,39 @@ export function explainTx(i: ExplainInput): string {
   const head = i.cardName ? `${cap(who(i.payerId))} comprou no cartão ${i.cardName}` : `Pago por ${who(i.payerId)}`;
   if (others.length === 0) return `${head} · só de ${who(i.payerId)}, ninguém precisa reembolsar`;
   return `${head}${open.length ? ` · falta ${who(i.payerId)} receber de: ${list(open)}` : ""}${done}`;
+}
+
+/** Quem era para pagar cada parte, para mostrar em selos: pagou, deve, esperando confirmar. */
+export type WhoPays = { participantId: string; cents: number; state: "own" | "open" | "paid" | "pending"; paidCents?: number | null; partCents?: number };
+
+/**
+ * A linha embaixo do lançamento em duas partes: o começo ("Você comprou no cartão Nubank") e um selo
+ * por pessoa que tinha que pagar, todos no mesmo formato ("Você pagou R$ 45,00", "Fulano deve R$ 45,00").
+ */
+export function explainParts(i: ExplainInput): { head: string; who: WhoPays[] } {
+  const w = (id: string | null | undefined) => (!id ? "alguém" : id === i.me ? "você" : i.names[id] ?? "alguém");
+  // Acerto: quem pagou, no mesmo selo ("Fulano pagou R$ 45,00"), e para quem.
+  if (i.kind === "transfer") {
+    const to = i.splits[0]?.participantId;
+    if (!i.payerId) return { head: explainTx(i), who: [] };
+    return { head: `Acerto para ${w(to)}`, who: [{ participantId: i.payerId, cents: i.amountCents, state: "paid" }] };
+  }
+  const parts = i.splits.filter((s) => s.amountCents > 0);
+  const who: WhoPays[] = parts.map((s) => ({
+    participantId: s.participantId,
+    cents: s.amountCents,
+    state: s.participantId === i.payerId ? "own" : i.settled || s.paidById ? "paid" : s.pendingPayId && !s.partCents ? "pending" : "open",
+    paidCents: s.paidCents ?? null,
+    partCents: s.partCents ?? 0,
+  }));
+  // Dono primeiro (quem pagou), depois os outros.
+  who.sort((a, b) => (a.state === "own" ? -1 : b.state === "own" ? 1 : 0));
+  let head: string;
+  if (i.kind === "loan") head = `Emprestado por ${w(i.payerId)}`;
+  else if (i.kind === "income") head = i.payerId ? `Recebido por ${w(i.payerId)}` : "Falta dizer quem recebeu";
+  else if (!i.payerId) head = "Falta dizer quem pagou";
+  else head = i.cardName ? `${cap(w(i.payerId))} comprou no cartão ${i.cardName}` : `Pago por ${w(i.payerId)}`;
+  return { head, who: i.payerId ? who : who.map((x) => ({ ...x, state: "open" as const })) };
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

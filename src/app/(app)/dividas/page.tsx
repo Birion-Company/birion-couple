@@ -192,6 +192,15 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                       </p>
                     </Link>
                     <span className={`amount ${left > 0 ? "pos" : "neg"}`}>
+                      {/* Já pagou uma parte: o que já foi pago riscado, ao lado do que falta. */}
+                      {(() => {
+                        const sp = tx.splits.find((x) => (x.participantId === p.personId || x.participantId === auth.participantId) && x.participantId !== tx.payerId && x.partCents);
+                        return sp ? (
+                          <s className="was" title="Já pagou">
+                            <Money cents={sp.partCents!} currency={cur} />
+                          </s>
+                        ) : null;
+                      })()}{" "}
                       <Money cents={left} currency={cur} signed />
                       {covered ? <span className="sub" style={{ display: "block" }}>falta, de <Money cents={Math.abs(effect)} currency={cur} /></span> : null}
                     </span>
@@ -230,7 +239,7 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                       <span className="amount">
                         <Money cents={Math.abs(x.cents)} currency={cur} />
                         {x.owedCents !== undefined && Math.abs(x.cents) !== x.owedCents ? (
-                          <ProfitBadge paidCents={Math.abs(x.cents)} owedCents={x.owedCents} restCents={x.restCents} currency={cur} />
+                          <ProfitBadge paidCents={Math.abs(x.cents)} owedCents={x.owedCents} restCents={x.leftCents} currency={cur} />
                         ) : null}
                       </span>
                       {x.undoId && <UndoButton payId={x.undoId} />}

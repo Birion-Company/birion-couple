@@ -1,13 +1,13 @@
 import { ApprovalBadge } from "./approval";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, CircleDashed, Clock } from "lucide-react";
 import { seriesLabel } from "@/lib/cards";
-import { explainTx } from "@/lib/explain";
+import { explainParts, explainTx } from "@/lib/explain";
 import { formatMoney } from "@/lib/money";
 import { ProfitBadge } from "./debt-payments";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { STATE_INFO, stateLabel, txState } from "@/lib/tx-state";
-import { CategoryIcon, Money, formatDate } from "./ui";
+import { Avatar, CategoryIcon, Money, formatDate } from "./ui";
 
 const KIND_LOOK: Record<string, { icon: string; color: string; name: string }> = {
   income: { icon: "money", color: "#3BAA7F", name: "Receita" },
@@ -48,16 +48,15 @@ export function txExplain(tx: TxRow, lookups: Lookups, me: string | null, curren
   });
 }
 
-const SETTLED = " · já acertado";
 
 /**
  * Lucro do lançamento: no acerto que pagou uma dívida, o que veio a mais do que era devido;
- * no lançamento original, a soma do que as pessoas pagaram a mais. Negativo = desconto.
+ * no lançamento original, a soma do que as pessoas pagaram a mais.
  */
 export function txProfit(tx: TxRow): number {
-  if (tx.settles) return tx.amountCents - tx.settles.owedCents;
+  if (tx.settles) return tx.settles.closes ? Math.max(0, tx.amountCents - (tx.settles.owedCents - tx.settles.otherPaidCents)) : 0;
   if (tx.kind === "transfer") return 0;
-  return tx.splits.reduce((a, s) => a + (s.paidById && s.paidCents !== null ? s.paidCents + (s.restCents ?? 0) - s.amountCents : 0), 0);
+  return tx.splits.reduce((a, s) => a + (s.paidById && s.paidCents !== null ? s.paidCents - s.amountCents : 0), 0);
 }
 
 /** Lucro em destaque embaixo do valor. */
@@ -69,37 +68,86 @@ export function ProfitAmount({ tx, currency }: { tx: TxRow; currency: string }) 
 
 /**
  * Frase explicativa do lançamento, com selos:
- * - "Fulano pagou R$ 30,00" (verde) para cada parte já paga, e o lucro ou desconto do pagamento;
- * - no acerto que pagou uma dívida, o lucro ou desconto em relação ao que era devido.
+ * - um selo por pessoa que tinha que pagar ("Fulano pagou R$ 30,00", "Fulano deve R$ 60,00");
+ * - no acerto que pagou uma dívida, o lucro ou o que ainda falta.
  */
+/** Num acerto ligado: parcial ("falta R$ 60,00") ou o lucro/desconto de quem quitou. */
+export function SettlesBadge({ tx, currency }: { tx: TxRow; currency: string }) {
+  const s = tx.settles;
+  if (!s) return null;
+  const left = s.owedCents - s.otherPaidCents - tx.amountCents;
+  if (!s.closes) return <ProfitBadge paidCents={tx.amountCents} owedCents={tx.amountCents + Math.max(0, left)} restCents={Math.max(0, left)} currency={currency} />;
+  return <ProfitBadge paidCents={tx.amountCents} owedCents={s.owedCents - s.otherPaidCents} currency={currency} />;
+}
+
+/** Foto (ou iniciais) de quem tinha que pagar, dentro do selo. */
+function WhoFace({ id, lookups }: { id: string; lookups: Lookups }) {
+  const p = lookups.participants.find((x) => x.id === id);
+  return <Avatar name={p?.name ?? "?"} color={p?.color ?? "#94A3B8"} size={18} src={p?.avatarUrl ?? null} />;
+}
+
 export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | null; currency: string }) {
   const { tx, lookups, me, currency } = props;
-  const full = txExplain(tx, lookups, me, currency);
-  const settled = full.endsWith(SETTLED);
+  const { head, who } = explainParts({
+    kind: tx.kind,
+    amountCents: tx.amountCents,
+    payerId: tx.payerId,
+    splits: tx.splits,
+    cardName: tx.cardId ? lookups.cards.find((c) => c.id === tx.cardId)?.name ?? "de outra pessoa" : null,
+    settled: tx.settled && tx.kind !== "transfer",
+    me,
+    names: Object.fromEntries(lookups.participants.map((p) => [p.id, p.name])),
+    currency,
+  });
   const name = (id: string) => (id === me ? "Você" : lookups.participants.find((p) => p.id === id)?.name ?? "Alguém");
-  const paid = tx.kind === "transfer" ? [] : tx.splits.filter((s) => s.paidById && s.participantId !== tx.payerId);
+  const money = (c: number) => formatMoney(c, currency);
   const income = tx.kind === "income";
+  // Mesmo formato para todo mundo que tinha que pagar: nome, o que aconteceu e o valor.
+  const say = (x: (typeof who)[number]) => {
+    const n = name(x.participantId);
+    if (income) {
+      if (x.state === "open") return `Repassar para ${n}`;
+      if (x.state === "own") return `${n === "Você" ? "Sua parte" : `Parte de ${n}`} ${money(x.cents)}`;
+      if (x.state === "paid") return `Repassado para ${n} ${money(x.paidCents ?? x.cents)}`;
+      return `Repassar para ${n} ${money(x.cents)}`;
+    }
+    if (x.state === "own") return `${n} pagou ${money(x.cents)}`;
+    if (x.state === "paid") return `${n} pagou ${money(x.paidCents ?? x.cents)}`;
+    if (x.state === "pending") return `${n} pagou ${money(x.cents)} · confirmando`;
+    return `${n} deve`;
+  };
+  // Pagou parte: o que já pagou riscado e, ao lado, o que falta (~~R$ 500,00~~ R$ 60,00).
+  const owedNow = (x: (typeof who)[number]) =>
+    x.state === "open" && x.partCents ? (
+      <>
+        {" "}
+        <s className="was" title={`Já pagou ${money(x.partCents)} de ${money(x.cents)}`}>{money(x.partCents)}</s> {money(x.cents - x.partCents)}
+      </>
+    ) : x.state === "open" ? (
+      <> {money(x.cents)}</>
+    ) : null;
   return (
     <p className="sub tx-explain">
-      {settled ? full.slice(0, -SETTLED.length) : full}
-      {settled && (
-        <span className="settled-badge">
-          <Check size={12} strokeWidth={2.6} aria-hidden /> Já acertado
+      {head}
+      {who.length > 0 && (
+        <span className="who-pays">
+          {who.map((x) => (
+            <span key={x.participantId} className="tx-paid">
+              <span className={`who-badge ${x.state}`}>
+                <WhoFace id={x.participantId} lookups={lookups} />
+                {say(x)}
+                {owedNow(x)}
+                {x.state === "paid" || x.state === "own" ? <Check size={12} strokeWidth={2.8} aria-hidden /> : x.state === "pending" ? <Clock size={12} strokeWidth={2.4} aria-hidden /> : <CircleDashed size={12} strokeWidth={2.4} aria-hidden />}
+              </span>
+              {x.state === "paid" && x.paidCents != null && <ProfitBadge paidCents={x.paidCents} owedCents={x.cents} currency={currency} />}
+            </span>
+          ))}
         </span>
       )}
-      {paid.map((s) => (
-        <span key={s.participantId} className="tx-paid">
-          <span className="settled-badge">
-            <Check size={12} strokeWidth={2.6} aria-hidden />{" "}
-            {income ? `Repassado para ${name(s.participantId)}` : `${name(s.participantId)} pagou`} {formatMoney(s.paidCents ?? s.amountCents, currency)}
-          </span>
-          {s.paidCents !== null && <ProfitBadge paidCents={s.paidCents} owedCents={s.amountCents} restCents={s.restCents} currency={currency} />}
-        </span>
-      ))}
       {tx.settles && (
         <>
-          <span className="tx-settles-ref"> · paga “{tx.settles.description}”, que era de {formatMoney(tx.settles.owedCents, currency)}</span>
-          <ProfitBadge paidCents={tx.amountCents} owedCents={tx.settles.owedCents} restCents={tx.settles.restCents} currency={currency} />
+          <span className="tx-settles-ref">Paga “{tx.settles.description}”, que era de {formatMoney(tx.settles.owedCents, currency)} </span>
+          <SettlesBadge tx={tx} currency={currency} />
         </>
       )}
     </p>

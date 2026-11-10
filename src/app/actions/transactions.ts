@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, gte, inArray, isNotNull, lte } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
@@ -450,11 +450,29 @@ export async function deleteTransactions(ids: string[]): Promise<ActionResult> {
   if (notAllowed) return { ok: false, error: notAllowed };
   const db = getDb();
   const snaps = await snapshots(db, auth.householdId, list.data);
+  // Pagamentos ligados que vão sumir: depois, a dívida que eles pagavam pode precisar reabrir.
+  const origs = [
+    ...new Set(
+      (await db.select({ s: schema.transactions.settlesId }).from(schema.transactions).where(inArray(schema.transactions.id, list.data)))
+        .map((x) => x.s)
+        .filter((x): x is string => !!x && !list.data.includes(x)),
+    ),
+  ];
   await db.transaction(async (tx) => {
-    await deleteRests(tx, auth.householdId, list.data);
     await tx
       .delete(schema.transactions)
       .where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, list.data)));
+    // Desfez um pagamento parcial de uma parte já quitada: se o que sobrou não cobre a parte, ela reabre.
+    for (const orig of origs.length ? await loadDebtTx(auth.householdId, origs) : []) {
+      for (const sp of orig.splits) {
+        if (!sp.paidById) continue;
+        const [closing] = await tx.select({ amountCents: schema.transactions.amountCents }).from(schema.transactions).where(eq(schema.transactions.id, sp.paidById));
+        const total = (closing?.amountCents ?? 0) + (await partialPaid(tx, orig, sp.participantId));
+        if (total < sp.amountCents) {
+          await tx.update(schema.transactionSplits).set({ paidById: null }).where(and(eq(schema.transactionSplits.transactionId, orig.id), eq(schema.transactionSplits.participantId, sp.participantId)));
+        }
+      }
+    }
     if (snaps.size === 1) {
       const [[tid, snap]] = [...snaps];
       await logActivity(tx, auth, { action: "deleted", transactionId: tid, data: { tx: snap }, audience: involved(snap) });
@@ -475,7 +493,7 @@ type DebtTx = { id: string; description: string; kind: string; payerId: string |
  * fica ligado ao lançamento. Se o valor pago for maior que o devido, a diferença é lucro.
  * Despesa e empréstimo: a pessoa paga para quem pagou. Receita: quem recebeu repassa para a pessoa.
  */
-async function createPayment(tx: Conn, auth: AuthContext, orig: DebtTx, participantId: string, amountCents: number, date: string) {
+async function createPayment(tx: Conn, auth: AuthContext, orig: DebtTx, participantId: string, amountCents: number, date: string, closes = true) {
   const income = orig.kind === "income";
   const from = income ? orig.payerId! : participantId;
   const to = income ? participantId : orig.payerId!;
@@ -494,11 +512,29 @@ async function createPayment(tx: Conn, auth: AuthContext, orig: DebtTx, particip
     })
     .returning({ id: schema.transactions.id });
   await tx.insert(schema.transactionSplits).values({ transactionId: row.id, participantId: to, amountCents });
-  await tx
-    .update(schema.transactionSplits)
-    .set({ paidById: row.id })
-    .where(and(eq(schema.transactionSplits.transactionId, orig.id), eq(schema.transactionSplits.participantId, participantId)));
+  // Parcial: a parte continua aberta, só com menos para pagar. Quitou: a parte sai das dívidas.
+  if (closes) {
+    await tx
+      .update(schema.transactionSplits)
+      .set({ paidById: row.id })
+      .where(and(eq(schema.transactionSplits.transactionId, orig.id), eq(schema.transactionSplits.participantId, participantId)));
+  }
   return row.id;
+}
+
+/** Quanto já foi pago em pagamentos parciais de uma parte (acertos ligados que não a quitaram). */
+async function partialPaid(conn: Conn | ReturnType<typeof getDb>, orig: DebtTx, participantId: string) {
+  const t = schema.transactions;
+  const pays = await conn.select({ id: t.id, amountCents: t.amountCents, payerId: t.payerId }).from(t).where(eq(t.settlesId, orig.id));
+  if (pays.length === 0) return 0;
+  const closing = new Set(
+    (await conn.select({ paidById: schema.transactionSplits.paidById }).from(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, orig.id)))
+      .map((x) => x.paidById)
+      .filter(Boolean),
+  );
+  const paySplits = await conn.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, pays.map((p) => p.id)));
+  const ofPerson = (p: { id: string; payerId: string | null }) => (orig.kind === "income" ? paySplits.find((x) => x.transactionId === p.id)?.participantId : p.payerId);
+  return pays.filter((p) => !closing.has(p.id) && ofPerson(p) === participantId).reduce((a, p) => a + p.amountCents, 0);
 }
 
 async function loadDebtTx(householdId: string, ids: string[]) {
@@ -516,31 +552,12 @@ const PaySchema = z.object({
   participantId: uuid,
   amountCents: z.number().int().positive({ error: "O valor pago precisa ser maior que zero." }).max(1_000_000_000),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  /** Pagou menos que o devido: "owe" = a diferença continua como dívida; "discount" = perdoa a diferença. */
-  rest: z.enum(["owe", "discount"]).optional(),
 });
-
-/** externalId da dívida com o que faltou de um pagamento: liga as duas para desfazer juntas. */
-const restKey = (payId: string) => `rest:${payId}`;
-
-/**
- * Apaga as dívidas "o que faltou" ligadas aos lançamentos que estão sendo apagados: o próprio pagamento
- * ou o lançamento original (cujos pagamentos somem junto).
- */
-async function deleteRests(tx: Conn, householdId: string, ids: string[]) {
-  if (ids.length === 0) return;
-  const pays = await tx
-    .select({ id: schema.transactionSplits.paidById })
-    .from(schema.transactionSplits)
-    .where(and(inArray(schema.transactionSplits.transactionId, ids), isNotNull(schema.transactionSplits.paidById)));
-  const keys = [...ids, ...pays.map((p) => p.id!)].map(restKey);
-  await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, householdId), inArray(schema.transactions.externalId, keys)));
-}
 
 /**
  * Marca como paga a parte de uma pessoa num lançamento, com o valor que ela pagou de verdade.
- * Pagou a mais: a diferença é lucro. Pagou a menos: por padrão o que faltou continua como dívida
- * (um lançamento "Falta: …" ligado ao pagamento); ou, se escolhido, vira desconto.
+ * Pagou a mais: a diferença é lucro. Pagou a menos: é um pagamento parcial, e o mesmo lançamento
+ * continua em aberto com o que falta (não vira lançamento novo nem desconto).
  */
 export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionResult> {
   const auth = await requireAuth();
@@ -557,42 +574,24 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
   if (!canEditTx(auth, orig.createdBy) && !involvedHere) return { ok: false, error: NOT_YOURS };
   const db = getDb();
   const date = d.date ?? todayIn();
-  const restCents = d.rest === "discount" ? 0 : Math.max(0, split.amountCents - d.amountCents);
+  // Já pagou parte antes: o que falta é o valor da parte menos os parciais.
+  const before = await partialPaid(getDb(), orig, d.participantId);
+  const left = split.amountCents - before;
+  const closes = d.amountCents >= left;
+  const restCents = closes ? 0 : left - d.amountCents;
   await db.transaction(async (tx) => {
-    const payId = await createPayment(tx, auth, orig, d.participantId, d.amountCents, date);
-    if (restCents > 0) {
-      // O que faltou continua devido, como uma dívida nova de quem deve para quem recebe.
-      const income = orig.kind === "income";
-      const debtor = income ? orig.payerId! : d.participantId;
-      const creditor = income ? d.participantId : orig.payerId!;
-      const [rest] = await tx
-        .insert(schema.transactions)
-        .values({
-          householdId: auth.householdId,
-          date,
-          description: `Falta: ${orig.description}`.slice(0, 200),
-          amountCents: restCents,
-          kind: "loan",
-          payerId: creditor,
-          notes: `Pagou ${formatMoney(d.amountCents, auth.currency)} de ${formatMoney(split.amountCents, auth.currency)}.`,
-          source: "manual",
-          externalId: restKey(payId),
-          createdBy: auth.userId,
-        })
-        .returning({ id: schema.transactions.id });
-      await tx.insert(schema.transactionSplits).values({ transactionId: rest.id, participantId: debtor, amountCents: restCents });
-    }
+    const payId = await createPayment(tx, auth, orig, d.participantId, d.amountCents, date, closes);
     const audience = [orig.payerId!, d.participantId];
     await logActivity(tx, auth, {
       action: "status",
       transactionId: orig.id,
-      data: { settled: true, paidCents: d.amountCents, owedCents: split.amountCents - restCents, restCents, items: [{ d: orig.description, a: audience }], changes: [] },
+      data: { settled: closes, paidCents: d.amountCents, owedCents: closes ? left : d.amountCents, restCents, items: [{ d: orig.description, a: audience }], changes: [] },
       audience,
     });
     return payId;
   });
   revalidatePath("/", "layout");
-  const diff = d.amountCents - split.amountCents;
+  const diff = d.amountCents - left;
   const money = (c: number) => formatMoney(c, auth.currency);
   // A outra pessoa tem login: o pagamento só vale depois que ela confirmar.
   const other = auth.participantId === orig.payerId ? d.participantId : orig.payerId!;
@@ -600,14 +599,7 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
   const wait = other !== auth.participantId && ctx.members.has(other) ? " Falta a outra pessoa confirmar em “Para confirmar”." : "";
   const result: ActionResult = {
     ok: true,
-    message:
-      restCents > 0
-        ? `Pagou ${money(d.amountCents)}. Falta ${money(restCents)}: continua como dívida.`
-        : diff > 0
-          ? `Pago, com ${money(diff)} de lucro.`
-          : diff < 0
-            ? `Pago, com ${money(-diff)} de desconto.`
-            : "Marcado como pago.",
+    message: restCents > 0 ? `Pagou ${money(d.amountCents)}. Ainda falta ${money(restCents)}.` : diff > 0 ? `Pago, com ${money(diff)} de lucro.` : "Pago. Dívida quitada.",
   };
   if (wait) result.message += wait;
   return result;
@@ -633,12 +625,13 @@ export async function setTransactionsSettled(ids: string[], settled: boolean): P
       const owed = r.splits.filter((x) => x.participantId !== r.payerId && x.amountCents > 0);
       if (settled) {
         const open = owed.filter((x) => !x.paidById);
-        for (const x of open) await createPayment(tx, auth, r, x.participantId, x.amountCents, today);
+        // Quita o que falta de cada parte (descontando pagamentos parciais).
+        for (const x of open) await createPayment(tx, auth, r, x.participantId, Math.max(1, x.amountCents - (await partialPaid(tx, r, x.participantId))), today);
         if (open.length) items.push({ d: r.description, a: [r.payerId!, ...open.map((x) => x.participantId)] });
         n += open.length ? 1 : 0;
       } else {
-        const payIds = owed.map((x) => x.paidById).filter((x): x is string => !!x);
-        await deleteRests(tx, auth.householdId, payIds);
+        // Desfaz todos os pagamentos ligados (os que quitaram e os parciais).
+        const payIds = (await tx.select({ id: schema.transactions.id }).from(schema.transactions).where(eq(schema.transactions.settlesId, r.id))).map((x) => x.id);
         if (payIds.length) await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, payIds)));
         // Modelo antigo: "Já acertado" sem acerto.
         await tx.update(schema.transactions).set({ settled: false }).where(eq(schema.transactions.id, r.id));

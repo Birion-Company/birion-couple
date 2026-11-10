@@ -12,8 +12,11 @@ export type BalanceInput = {
   /** Esperando um membro aceitar (ou recusado): ainda não vale nas dívidas. */
   blocked?: boolean;
   /** paidById: parte já paga com um acerto, fica fora das dívidas. */
-  splits: { participantId: string; amountCents: number; paidById?: string | null }[];
+  splits: { participantId: string; amountCents: number; paidById?: string | null; partCents?: number }[];
 };
+
+/** O que ainda falta de uma parte: o valor menos os pagamentos parciais. */
+const owedOf = (s: BalanceInput["splits"][number]) => s.amountCents - (s.partCents ?? 0);
 
 /** Lançamentos que não mexem em dívida nenhuma. */
 const outOfDebts = (t: BalanceInput) => t.settled || !t.payerId || !!t.settlesId || !!t.blocked;
@@ -34,8 +37,8 @@ export function computeBalances(rows: BalanceInput[]): Map<string, number> {
     const sign = t.kind === "income" ? -1 : 1;
     for (const s of t.splits) {
       if (s.participantId === t.payerId || s.paidById) continue;
-      add(t.payerId!, sign * s.amountCents);
-      add(s.participantId, -sign * s.amountCents);
+      add(t.payerId!, sign * owedOf(s));
+      add(s.participantId, -sign * owedOf(s));
     }
   }
   return net;
@@ -84,9 +87,9 @@ export function pairEffects(me: string, t: BalanceInput): Map<string, number> {
   const add = (id: string, v: number) => out.set(id, (out.get(id) ?? 0) + v);
   const sign = t.kind === "income" ? -1 : 1;
   if (t.payerId === me) {
-    for (const s of t.splits) if (s.participantId !== me && !s.paidById) add(s.participantId, sign * s.amountCents);
+    for (const s of t.splits) if (s.participantId !== me && !s.paidById) add(s.participantId, sign * owedOf(s));
   } else {
-    for (const s of t.splits) if (s.participantId === me && !s.paidById) add(t.payerId!, -sign * s.amountCents);
+    for (const s of t.splits) if (s.participantId === me && !s.paidById) add(t.payerId!, -sign * owedOf(s));
   }
   return out;
 }

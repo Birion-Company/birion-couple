@@ -1,7 +1,8 @@
 "use client";
 
 import { STATE_INFO, stateLabel, txState } from "@/lib/tx-state";
-import { DebtPayments, ProfitBadge } from "./debt-payments";
+import { DebtPayments } from "./debt-payments";
+import { SettlesBadge } from "./tx-row";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
@@ -665,7 +666,7 @@ export function TxForm({
               <p className="tx-settles">
                 Pagamento da dívida em <Link href={`/transacoes/${initial.settles.txId}`} className="pos">{initial.settles.description}</Link>, que era de{" "}
                 {formatMoney(initial.settles.owedCents, currency)}.{" "}
-                <ProfitBadge paidCents={cents || initial.amountCents} owedCents={initial.settles.owedCents} restCents={initial.settles.restCents} currency={currency} />
+                <SettlesBadge tx={{ ...initial, amountCents: cents || initial.amountCents }} currency={currency} />
                 <span className="faint" style={{ display: "block" }}>Mude se o valor pago foi outro.</span>
               </p>
             )}

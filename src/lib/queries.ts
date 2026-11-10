@@ -157,7 +157,8 @@ export type TxRow = {
   /** Acerto que paga a dívida de outro lançamento. */
   settlesId: string | null;
   /** Para acertos ligados: o lançamento pago e quanto era devido (o resto é lucro ou desconto). */
-  settles: { txId: string; description: string; owedCents: number; restCents: number } | null;
+  /** owedCents: a parte toda; otherPaidCents: o que já tinha sido pago antes; closes: este pagamento quitou a parte. */
+  settles: { txId: string; description: string; owedCents: number; otherPaidCents: number; closes: boolean } | null;
   notes: string | null;
   source: string;
   cardId: string | null;
@@ -177,10 +178,19 @@ export type TxRow = {
   recurring?: boolean;
   /**
    * paidById/paidCents: o acerto que pagou esta parte e quanto foi pago nele.
-   * restCents: pagou a menos e o que faltou continua como dívida (não é desconto).
-   * pendingPayId: pagamento registrado que a outra pessoa ainda não confirmou (a parte continua devida).
+   * partCents: já pago em pagamentos parciais (a parte continua aberta com o que falta).
+   * partials: os pagamentos parciais (para o histórico e para desfazer).
+   * pendingPayId: pagamento registrado que a outra pessoa ainda não confirmou (não conta até ela aceitar).
    */
-  splits: { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null; restCents: number; pendingPayId?: string | null }[];
+  splits: {
+    participantId: string;
+    amountCents: number;
+    paidById: string | null;
+    paidCents: number | null;
+    partCents?: number;
+    partials?: { id: string; cents: number; pending: boolean }[];
+    pendingPayId?: string | null;
+  }[];
 };
 
 type BaseRow = Omit<TxRow, "splits" | "settles" | "approval" | "blocked">;
@@ -198,58 +208,91 @@ async function attachSplits(rows: BaseRow[]): Promise<TxRow[]> {
         .where(inArray(schema.transactionSplits.transactionId, ids.slice(i, i + 500)))),
     );
   }
-  // Quanto foi pago em cada acerto que quitou uma parte.
-  const payIds = [...new Set(splits.map((s) => s.paidById).filter((x): x is string => !!x))];
-  const paid = new Map<string, number>();
-  for (let i = 0; i < payIds.length; i += 500) {
-    for (const p of await db.select({ id: t.id, amountCents: t.amountCents }).from(t).where(inArray(t.id, payIds.slice(i, i + 500)))) paid.set(p.id, p.amountCents);
+  // Pagamentos ligados a estes lançamentos ("Recebi/Paguei"): o que quitou uma parte e os parciais.
+  const linked: { id: string; settlesId: string | null; seriesId: string | null; kind: string; payerId: string | null; amountCents: number; createdBy: string | null; createdAt: Date }[] = [];
+  for (let i = 0; i < ids.length; i += 500) {
+    linked.push(
+      ...(await db
+        .select({ id: t.id, settlesId: t.settlesId, seriesId: t.seriesId, kind: t.kind, payerId: t.payerId, amountCents: t.amountCents, createdBy: t.createdBy, createdAt: t.createdAt })
+        .from(t)
+        .where(inArray(t.settlesId, ids.slice(i, i + 500)))),
+    );
   }
-  // O que faltou de cada pagamento a menos (dívida "Falta: …" ligada pelo externalId "rest:<pagamento>").
-  const restIds = [...new Set([...payIds, ...rows.filter((r) => r.settlesId).map((r) => r.id)])];
-  const rest = new Map<string, number>();
-  // Mesma família dos lançamentos: usa o índice (householdId, externalId).
-  const household = db.select({ h: t.householdId }).from(t).where(eq(t.id, rows[0].id));
-  for (let i = 0; i < restIds.length; i += 500) {
-    const keys = restIds.slice(i, i + 500).map((id) => `rest:${id}`);
-    for (const r of await db.select({ key: t.externalId, amountCents: t.amountCents }).from(t).where(and(eq(t.householdId, household), inArray(t.externalId, keys)))) rest.set(r.key!.slice(5), r.amountCents);
+  // Lançamentos que estes acertos pagam (quando a lista tem o acerto e não o original).
+  const origIds = [...new Set(rows.map((r) => r.settlesId).filter((x): x is string => !!x))];
+  const origs: { id: string; description: string; kind: string; payerId: string | null }[] = [];
+  const origSplits: typeof splits = [];
+  const siblings: typeof linked = [];
+  for (let i = 0; i < origIds.length; i += 500) {
+    const part = origIds.slice(i, i + 500);
+    origs.push(...(await db.select({ id: t.id, description: t.description, kind: t.kind, payerId: t.payerId }).from(t).where(inArray(t.id, part))));
+    origSplits.push(...(await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, part))));
+    siblings.push(
+      ...(await db
+        .select({ id: t.id, settlesId: t.settlesId, seriesId: t.seriesId, kind: t.kind, payerId: t.payerId, amountCents: t.amountCents, createdBy: t.createdBy, createdAt: t.createdAt })
+        .from(t)
+        .where(inArray(t.settlesId, part))),
+    );
   }
-  // Acertos ligados: o que pagaram e quanto era devido.
-  const acertoIds = rows.filter((r) => r.settlesId).map((r) => r.id);
-  const settles = new Map<string, NonNullable<TxRow["settles"]>>();
-  for (let i = 0; i < acertoIds.length; i += 500) {
-    const found = await db
-      .select({ paidById: schema.transactionSplits.paidById, owedCents: schema.transactionSplits.amountCents, txId: t.id, description: t.description })
-      .from(schema.transactionSplits)
-      .innerJoin(t, eq(t.id, schema.transactionSplits.transactionId))
-      .where(inArray(schema.transactionSplits.paidById, acertoIds.slice(i, i + 500)));
-    for (const f of found) settles.set(f.paidById!, { txId: f.txId, description: f.description, owedCents: f.owedCents, restCents: rest.get(f.paidById!) ?? 0 });
+  const payIdsAll = [...new Set([...linked, ...siblings].map((x) => x.id))];
+  const paySplits: typeof splits = [];
+  for (let i = 0; i < payIdsAll.length; i += 500) {
+    paySplits.push(...(await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, payIdsAll.slice(i, i + 500)))));
   }
+  const allSplits = [...splits, ...origSplits, ...paySplits];
+  const kindOf = new Map([...rows, ...origs].map((r) => [r.id, r.kind]));
+  // De quem é a parte que um pagamento paga: quem pagou (despesa/dívida) ou quem recebe o repasse (receita).
+  const partOf = (p: { id: string; settlesId: string | null; payerId: string | null }) =>
+    kindOf.get(p.settlesId ?? "") === "income" ? allSplits.find((x) => x.transactionId === p.id)?.participantId ?? null : p.payerId;
+
   // Confirmação dos membros: dos lançamentos e dos pagamentos ligados a eles (que podem não estar na lista).
   const householdId = rows[0].householdId;
-  const splitsOf = (id: string) => splits.filter((x) => x.transactionId === id);
-  const inputs: ApprovalInput[] = rows.map((r) => ({ ...r, splits: splitsOf(r.id) }));
-  const missingPays = payIds.filter((id) => !rows.some((r) => r.id === id));
-  for (let i = 0; i < missingPays.length; i += 500) {
-    const part = missingPays.slice(i, i + 500);
-    const [payRows, paySplits] = await Promise.all([
-      db.select({ id: t.id, seriesId: t.seriesId, kind: t.kind, payerId: t.payerId, amountCents: t.amountCents, createdBy: t.createdBy, createdAt: t.createdAt }).from(t).where(inArray(t.id, part)),
-      db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, part)),
-    ]);
-    for (const p of payRows) inputs.push({ ...p, splits: paySplits.filter((x) => x.transactionId === p.id) });
+  const inputs: ApprovalInput[] = rows.map((r) => ({ ...r, splits: splits.filter((x) => x.transactionId === r.id) }));
+  for (const p of [...linked, ...siblings]) {
+    if (!rows.some((r) => r.id === p.id)) inputs.push({ ...p, splits: paySplits.filter((x) => x.transactionId === p.id) });
   }
   const approvals = await approvalStates(householdId, inputs);
+
+  // Por parte (lançamento + pessoa): pagamentos parciais e o que quitou.
+  const closing = new Set(allSplits.map((x) => x.paidById).filter((x): x is string => !!x));
+  const payments = new Map<string, { id: string; cents: number; pending: boolean; closes: boolean }[]>();
+  for (const p of [...linked, ...siblings]) {
+    const key = `${p.settlesId}:${partOf(p)}`;
+    const list = payments.get(key) ?? [];
+    if (!list.some((x) => x.id === p.id)) list.push({ id: p.id, cents: p.amountCents, pending: approvals.has(p.id), closes: closing.has(p.id) });
+    payments.set(key, list);
+  }
+
+  // Acertos ligados (na lista): o que pagam e quanto era devido.
+  const settles = new Map<string, NonNullable<TxRow["settles"]>>();
+  for (const r of rows) {
+    if (!r.settlesId) continue;
+    const o = origs.find((x) => x.id === r.settlesId);
+    const who = partOf(r);
+    const owed = origSplits.find((x) => x.transactionId === r.settlesId && x.participantId === who)?.amountCents;
+    if (!o || owed === undefined) continue;
+    const others = (payments.get(`${r.settlesId}:${who}`) ?? []).filter((x) => x.id !== r.id && !x.pending).reduce((a, x) => a + x.cents, 0);
+    settles.set(r.id, { txId: o.id, description: o.description, owedCents: owed, otherPaidCents: others, closes: closing.has(r.id) });
+  }
+
   const by = new Map<string, TxRow["splits"]>();
   for (const s of splits) {
     const list = by.get(s.transactionId) ?? [];
-    // Pagamento que a outra pessoa ainda não confirmou: a parte continua devida até ela aceitar.
-    const payPending = !!s.paidById && approvals.has(s.paidById);
+    const pays = payments.get(`${s.transactionId}:${s.participantId}`) ?? [];
+    // Pagamento que a outra pessoa ainda não confirmou não conta até ela aceitar.
+    const closePending = !!s.paidById && approvals.has(s.paidById);
+    const partials = pays.filter((x) => !x.closes);
+    const partCents = partials.filter((x) => !x.pending).reduce((a, x) => a + x.cents, 0);
+    const closeCents = pays.find((x) => x.id === s.paidById)?.cents ?? 0;
     list.push({
       participantId: s.participantId,
       amountCents: s.amountCents,
-      paidById: payPending ? null : s.paidById,
-      paidCents: s.paidById && !payPending ? paid.get(s.paidById) ?? null : null,
-      restCents: s.paidById && !payPending ? rest.get(s.paidById) ?? 0 : 0,
-      pendingPayId: payPending ? s.paidById : null,
+      paidById: closePending ? null : s.paidById,
+      // Quitada: tudo o que foi pago por esta parte (parciais + o último).
+      paidCents: s.paidById && !closePending ? closeCents + partCents : null,
+      partCents: s.paidById && !closePending ? 0 : partCents,
+      partials: partials.map((x) => ({ id: x.id, cents: x.cents, pending: x.pending })),
+      pendingPayId: closePending ? s.paidById : partials.find((x) => x.pending)?.id ?? null,
     });
     by.set(s.transactionId, list);
   }
@@ -460,7 +503,7 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         createdAt: new Date(),
         approval: null,
         blocked: false,
-        splits: splits.map((x) => ({ ...x, paidById: null, paidCents: null, restCents: 0 })),
+        splits: splits.map((x) => ({ ...x, paidById: null, paidCents: null })),
       });
     }
   }
@@ -618,8 +661,8 @@ export type LedgerPaid = {
   undoId: string | null;
   /** Recebi/Paguei: quanto era devido (para mostrar lucro ou desconto). */
   owedCents?: number;
-  /** Recebi/Paguei a menos: o que faltou e continua como dívida. */
-  restCents?: number;
+  /** Pagamento parcial: quanto ainda falta depois dele. */
+  leftCents?: number;
 };
 export type LedgerPerson = {
   personId: string;
@@ -670,13 +713,24 @@ export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
     for (const tx of rows) {
       if (tx.kind === "transfer" || tx.settlesId || !tx.payerId || tx.date > today) continue;
       for (const sp of tx.splits) {
-        if (!sp.paidById || sp.participantId === tx.payerId) continue;
+        const parts = (sp.partials ?? []).filter((x) => !x.pending);
+        if ((!sp.paidById && parts.length === 0) || sp.participantId === tx.payerId) continue;
         const iAmPayer = tx.payerId === me;
         if (!iAmPayer && sp.participantId !== me) continue;
         const other = iAmPayer ? sp.participantId : tx.payerId;
         const sign = (tx.kind === "income" ? -1 : 1) * (iAmPayer ? 1 : -1);
         const p = people.get(other) ?? { personId: other, net: 0, entries: [], upcoming: 0, upcomingCount: 0, upcomingEntries: [], paid: [] };
-        p.paid.push({ key: `r-${tx.id}-${sp.participantId}`, tx, cents: sign * (sp.paidCents ?? sp.amountCents), how: "recebi", undoId: sp.paidById, owedCents: sp.amountCents, restCents: sp.restCents });
+        // Cada pagamento é uma linha: os parciais ("faltou R$ 60,00") e o que quitou.
+        let left = sp.amountCents;
+        for (const x of parts) {
+          left -= x.cents;
+          p.paid.push({ key: `r-${x.id}`, tx, cents: sign * x.cents, how: "recebi", undoId: x.id, owedCents: x.cents + Math.max(0, left), leftCents: Math.max(0, left) });
+        }
+        if (sp.paidById) {
+          const partSum = parts.reduce((a, x) => a + x.cents, 0);
+          const last = (sp.paidCents ?? sp.amountCents) - partSum;
+          p.paid.push({ key: `r-${tx.id}-${sp.participantId}`, tx, cents: sign * last, how: "recebi", undoId: sp.paidById, owedCents: sp.amountCents - partSum });
+        }
         people.set(other, p);
       }
     }
