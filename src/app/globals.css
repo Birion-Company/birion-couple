@@ -7616,3 +7616,26 @@ s.was {
   color: var(--brand-strong);
   font-weight: 600;
 }
+
+/* Cartões: pessoas da fatura em selos compactos, numa linha própria embaixo do título. */
+.invoice-link {
+  flex-wrap: wrap;
+}
+.invoice-shares {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.invoice-shares:empty {
+  display: none;
+}
+.invoice-shares .who-pays {
+  margin-top: -4px;
+}
+.card-shares.compact .who-badge {
+  padding: 1px 8px 1px 2px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.card-shares.compact .who-badge.more {
+  padding-left: 8px;
+}

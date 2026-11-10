@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, ChevronRight, CreditCard, Repeat } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, CircleDashed, CreditCard, Repeat } from "lucide-react";
 import { ArchivedCard, CardPanel, NewCard } from "@/components/card-forms";
 import { InvoicePayButton } from "@/components/invoice-pay";
-import { Money } from "@/components/ui";
+import { Avatar, Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { getCardOverview } from "@/lib/card-queries";
 import { invoiceDates, longMonth, monthLabel, shortDate } from "@/lib/cards";
@@ -22,36 +22,61 @@ function inDays(n: number) {
 
 const STATE = { closed: "Fechada", open: "Aberta", future: "Próxima" } as const;
 
-type Share = { participantId: string; cents: number };
+type Share = { participantId: string; cents: number; owedCents: number };
 type Invoice = { key: string; from: string; to: string; due: string; totalCents: number; state: keyof typeof STATE; shares: Share[]; paid: boolean };
 type Names = Map<string, string>;
+type Faces = Map<string, { name: string; color: string; avatarUrl: string | null }>;
+
+/** Quantos selos de pessoa aparecem por fatura; o resto vira "+N" (formato compacto). */
+const SHARES_SHOWN = 2;
 
 /**
- * "Sua parte R$ X · Fulano R$ Y": quanto da fatura é de cada pessoa.
- * Só aparece quando a fatura tem compras divididas com mais alguém.
+ * Quanto da fatura é de cada pessoa, em selos compactos como os de Lançamentos: primeiro quem ainda
+ * deve (o que importa), depois a sua parte e quem já pagou; passando de 2, o resto vira "+N pessoas".
  */
-function SharesLine({ shares, me, names, currency, strong = false }: { shares: Share[]; me: string | null; names: Names; currency: string; strong?: boolean }) {
+function SharesLine({ shares, me, faces, currency, strong = false }: { shares: Share[]; me: string | null; faces: Faces; currency: string; strong?: boolean }) {
   if (shares.length === 0 || (shares.length === 1 && shares[0].participantId === me)) return null;
-  const mine = shares.find((x) => x.participantId === me);
-  const others = shares.filter((x) => x.participantId !== me);
+  const face = (id: string) => faces.get(id) ?? { name: "Alguém", color: "#94A3B8", avatarUrl: null };
+  const money = (c: number) => (c / 100).toLocaleString("pt-BR", { style: "currency", currency });
+  const owing = shares.filter((x) => x.participantId !== me && x.owedCents > 0).sort((a, b) => b.owedCents - a.owedCents);
+  const mine = shares.filter((x) => x.participantId === me);
+  const paid = shares.filter((x) => x.participantId !== me && x.owedCents === 0);
+  const ordered = [...owing, ...mine, ...paid];
+  const visible = ordered.length > SHARES_SHOWN + 1 ? ordered.slice(0, SHARES_SHOWN) : ordered;
+  const rest = ordered.slice(visible.length);
+  const restOwing = rest.filter((x) => x.participantId !== me && x.owedCents > 0).reduce((a, x) => a + x.owedCents, 0);
+  const label = (x: Share) =>
+    x.participantId === me ? `Sua parte ${money(x.cents)}` : x.owedCents > 0 ? `${face(x.participantId).name} deve ${money(x.owedCents)}` : `${face(x.participantId).name} pagou ${money(x.cents)}`;
   return (
-    <span className={`card-shares ${strong ? "strong" : ""}`}>
-      {mine && (
-        <>
-          sua parte <Money cents={mine.cents} currency={currency} />
-        </>
-      )}
-      {others.map((o, i) => (
-        <span key={o.participantId}>
-          {mine || i > 0 ? " · " : ""}
-          {names.get(o.participantId) ?? "Alguém"} <Money cents={o.cents} currency={currency} />
+    <span className={`who-pays card-shares compact ${strong ? "strong" : ""}`}>
+      {visible.map((x) => {
+        const f = face(x.participantId);
+        const isMe = x.participantId === me;
+        const owes = !isMe && x.owedCents > 0;
+        return (
+          <span
+            key={x.participantId}
+            className={`who-badge ${isMe ? "own" : owes ? "open" : "paid"}`}
+            style={owes ? ({ "--pc": f.color } as React.CSSProperties) : undefined}
+            title={owes && x.owedCents !== x.cents ? `Parte na fatura: ${money(x.cents)}` : undefined}
+          >
+            <Avatar name={f.name} color={f.color} size={16} src={f.avatarUrl} />
+            {isMe ? "Sua parte" : `${f.name} ${owes ? "deve" : "pagou"}`} <Money cents={isMe ? x.cents : owes ? x.owedCents : x.cents} currency={currency} />
+            {owes ? <CircleDashed size={11} strokeWidth={2.4} aria-hidden /> : !isMe ? <Check size={11} strokeWidth={2.8} aria-hidden /> : null}
+          </span>
+        );
+      })}
+      {rest.length > 0 && (
+        <span className="who-badge more" title={rest.map(label).join("\n")}>
+          +{rest.length} {rest.length === 1 ? "pessoa" : "pessoas"}
+          {restOwing > 0 ? ` · devem ${money(restOwing)}` : ""}
         </span>
-      ))}
+      )}
     </span>
   );
 }
 
-function InvoiceRows({ invoices, cardId, currency, me, names, canPay }: { invoices: Invoice[]; cardId: string; currency: string; me: string | null; names: Names; canPay: boolean }) {
+function InvoiceRows({ invoices, cardId, currency, me, faces, canPay }: { invoices: Invoice[]; cardId: string; currency: string; me: string | null; faces: Faces; canPay: boolean }) {
   return (
     <div className="rows">
       {invoices.map((inv) => (
@@ -63,15 +88,16 @@ function InvoiceRows({ invoices, cardId, currency, me, names, canPay }: { invoic
                 Fatura de {longMonth(inv.due.slice(0, 7)).replace(` de ${new Date().getFullYear()}`, "").toLowerCase()} · vence {shortDate(inv.due)}
               </p>
               <p className="sub">compras de {shortDate(inv.from)} a {shortDate(inv.to)}</p>
-              <p className="sub">
-                <SharesLine shares={inv.shares} me={me} names={names} currency={currency} />
-              </p>
             </div>
             <span className={`badge ${inv.paid ? "invoice-paid-badge" : `invoice-${inv.state}`}`}>{inv.paid ? "Paga" : STATE[inv.state]}</span>
             <span className="amount">
               <Money cents={inv.totalCents} currency={currency} />
             </span>
             <ChevronRight size={16} strokeWidth={1.6} className="faint" aria-hidden />
+            {/* Pessoas da fatura numa linha própria (largura toda), para não espremer o título no celular. */}
+            <span className="invoice-shares">
+              <SharesLine shares={inv.shares} me={me} faces={faces} currency={currency} />
+            </span>
           </Link>
           {canPay && inv.totalCents > 0 && inv.state !== "future" && (
             <InvoicePayButton cardId={cardId} invoice={inv.key} paid={inv.paid} label={`que vence ${shortDate(inv.due)}`} />
@@ -87,6 +113,7 @@ export default async function CardsPage() {
   const [overview, lookups] = await Promise.all([getCardOverview(auth), getLookupsFor(auth)]);
   const me = auth.participantId;
   const names: Names = new Map(lookups.participants.map((p) => [p.id, p.id === me ? "você" : p.name]));
+  const faces: Faces = new Map(lookups.participants.map((p) => [p.id, { name: p.name, color: p.color, avatarUrl: p.avatarUrl ?? null }]));
   const cur = auth.currency;
   const active = overview.cards.filter((c) => !c.card.archived);
   const archived = overview.cards.filter((c) => c.card.archived);
@@ -163,7 +190,7 @@ export default async function CardsPage() {
             <div className={`card-stat ${s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "warn" : ""}`}>
               <p className="label">{s.dueInvoice === s.open ? "Vencimento desta fatura" : "Próxima fatura a pagar"}</p>
               <p className="value"><Money cents={dueTotal} currency={cur} /></p>
-              <SharesLine shares={dueShares} me={me} names={names} currency={cur} strong />
+              <SharesLine shares={dueShares} me={me} faces={faces} currency={cur} strong />
               <p className="hint">
                 <CalendarClock size={13} strokeWidth={1.8} style={{ verticalAlign: -2 }} aria-hidden /> vence {shortDate(s.dueDate)}, {inDays(s.daysToDue)}
                 {s.dueInvoice !== s.open ? " · já fechou" : ""}
@@ -173,17 +200,17 @@ export default async function CardsPage() {
             <div className="card-stat">
               <p className="label">Fatura aberta · vence {shortDate(invoiceDates(s.open, card).due)}</p>
               <p className="value"><Money cents={openTotal} currency={cur} /></p>
-              <SharesLine shares={openShares} me={me} names={names} currency={cur} strong />
+              <SharesLine shares={openShares} me={me} faces={faces} currency={cur} strong />
               <p className="hint">fecha {shortDate(s.closingDate)}, {inDays(s.daysToClosing)}</p>
             </div>
           </div>
 
           <h3 className="card-subhead">Faturas</h3>
-          <InvoiceRows invoices={invoices.slice(0, 4)} cardId={card.id} currency={cur} me={me} names={names} canPay={admin || card.ownerId === me} />
+          <InvoiceRows invoices={invoices.slice(0, 4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
           {invoices.length > 4 && (
             <details className="more-invoices">
               <summary>Mais {invoices.length - 4} {invoices.length - 4 === 1 ? "fatura" : "faturas"} com parcelas lançadas</summary>
-              <InvoiceRows invoices={invoices.slice(4)} cardId={card.id} currency={cur} me={me} names={names} canPay={admin || card.ownerId === me} />
+              <InvoiceRows invoices={invoices.slice(4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
             </details>
           )}
           {series.length > 0 && (

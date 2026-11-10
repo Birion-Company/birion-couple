@@ -20,7 +20,7 @@ export type CardTx = {
   seriesIndex: number | null;
   seriesTotal: number | null;
   invoicePaid: boolean;
-  splits: { participantId: string; amountCents: number }[];
+  splits: { participantId: string; amountCents: number; paidById?: string | null }[];
 };
 
 /** Despesas somam na fatura; receitas no cartão (estornos) abatem; acertos não entram. */
@@ -54,12 +54,12 @@ const loadCards = cache(async (viewer: Viewer, since: string) => {
   ]);
   // Divisão de cada compra: é o que diz quanto de cada fatura é de cada pessoa.
   const ids = rows.map((r) => r.id);
-  const splits: { transactionId: string; participantId: string; amountCents: number }[] = [];
+  const splits: { transactionId: string; participantId: string; amountCents: number; paidById: string | null }[] = [];
   for (let i = 0; i < ids.length; i += 500) {
     splits.push(...(await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, ids.slice(i, i + 500)))));
   }
   const by = new Map<string, CardTx["splits"]>();
-  for (const x of splits) by.set(x.transactionId, [...(by.get(x.transactionId) ?? []), { participantId: x.participantId, amountCents: x.amountCents }]);
+  for (const x of splits) by.set(x.transactionId, [...(by.get(x.transactionId) ?? []), { participantId: x.participantId, amountCents: x.amountCents, paidById: x.paidById }]);
   return { cards, rows: rows.map((r) => ({ ...r, splits: by.get(r.id) ?? [] })) as CardTx[] };
 });
 
@@ -77,8 +77,24 @@ export function sharesByInvoice(rows: CardTx[], closingDay: number) {
   return out;
 }
 
-const sharesList = (m: Map<string, number> | undefined) =>
-  [...(m ?? new Map<string, number>())].filter(([, v]) => v !== 0).map(([participantId, cents]) => ({ participantId, cents })).sort((a, b) => b.cents - a.cents);
+/** Quanto de cada fatura cada pessoa ainda deve (as partes que ela ainda não pagou a quem tem o cartão). */
+export function owedByInvoice(rows: CardTx[], closingDay: number) {
+  const out = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    if (r.kind !== "expense") continue;
+    const key = invoiceOf(r.date, closingDay);
+    const m = out.get(key) ?? new Map<string, number>();
+    for (const x of r.splits) if (!x.paidById) m.set(x.participantId, (m.get(x.participantId) ?? 0) + x.amountCents);
+    out.set(key, m);
+  }
+  return out;
+}
+
+const sharesList = (m: Map<string, number> | undefined, owed?: Map<string, number>) =>
+  [...(m ?? new Map<string, number>())]
+    .filter(([, v]) => v !== 0)
+    .map(([participantId, cents]) => ({ participantId, cents, owedCents: Math.max(0, Math.min(cents, owed?.get(participantId) ?? 0)) }))
+    .sort((a, b) => b.cents - a.cents);
 
 export function totalsByInvoice(rows: CardTx[], closingDay: number) {
   const totals = new Map<string, number>();
@@ -104,6 +120,7 @@ export async function getCardOverview(viewer: Viewer) {
       const mine = rows.filter((r) => r.cardId === card.id);
       const totals = totalsByInvoice(mine, card.closingDay);
       const shares = sharesByInvoice(mine, card.closingDay);
+      const owed = owedByInvoice(mine, card.closingDay);
       const s = cardSchedule(card, today);
       // Faturas: a que vai vencer (se já fechou), a aberta e as próximas com parcelas lançadas.
       const lastWithData = [...totals.keys()].sort().pop() ?? s.open;
@@ -122,7 +139,7 @@ export async function getCardOverview(viewer: Viewer) {
         ...invoiceDates(key, card),
         ...invoiceRange(key, card.closingDay),
         totalCents: totals.get(key) ?? 0,
-        shares: sharesList(shares.get(key)),
+        shares: sharesList(shares.get(key), owed.get(key)),
         state: key < s.open ? ("closed" as const) : key === s.open ? ("open" as const) : ("future" as const),
         paid: paidOf(key),
       }));
@@ -145,8 +162,8 @@ export async function getCardOverview(viewer: Viewer) {
         schedule: s,
         openTotal: totals.get(s.open) ?? 0,
         dueTotal: totals.get(s.dueInvoice) ?? 0,
-        openShares: sharesList(shares.get(s.open)),
-        dueShares: sharesList(shares.get(s.dueInvoice)),
+        openShares: sharesList(shares.get(s.open), owed.get(s.open)),
+        dueShares: sharesList(shares.get(s.dueInvoice), owed.get(s.dueInvoice)),
         invoices,
         series: [...series.values()],
       };
