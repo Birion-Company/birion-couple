@@ -7229,3 +7229,49 @@ s.was {
     transform: translateX(-50%);
   }
 }
+/* Seletor de mês com tamanho fixo: setas e "voltar" ficam sempre no mesmo ponto. */
+.month-nav.compact .month-today.idle {
+  visibility: hidden;
+}
+.month-nav.compact .month-pick-btn {
+  justify-content: center;
+  width: 15.5em;
+}
+@media (max-width: 640px) {
+  .month-nav.compact .month-pick-btn {
+    width: 7.6em;
+  }
+}
+@media (max-width: 640px) {
+  .month-nav.compact {
+    flex: none;
+  }
+  .month-nav.compact .month-pick-btn {
+    flex: none;
+    width: 5.4em;
+  }
+  .month-state {
+    display: grid;
+  }
+}
+/* PC: cabe "Fatura de setembro de 2027" inteiro. */
+@media (min-width: 641px) {
+  .month-nav.compact .month-pick-btn {
+    width: 18.5em;
+  }
+}
+/* Item "Tutorial" do menu da conta: só nas telas em que o botão sai da barra. */
+.user-menu-tour {
+  display: none !important;
+}
+@media (max-width: 380px) {
+  .user-menu-tour {
+    display: flex !important;
+  }
+  .topbar .tutorial-btn {
+    display: none;
+  }
+  .month-nav.compact .month-today {
+    display: none;
+  }
+}

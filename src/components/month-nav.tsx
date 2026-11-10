@@ -87,12 +87,8 @@ export function MonthNav({
         ? { cls: "future", text: diff === 1 ? "Próxima · previsão" : `Daqui a ${diff} meses · previsão` }
         : { cls: "past", text: diff === -1 ? "Anterior" : `Há ${-diff} meses` };
 
-  // Versão curta para o celular: "Fatura nov" / "Nov 26".
-  const short = isTotal
-    ? "Todos"
-    : hasCards
-      ? `Fatura ${MONTHS[Number(shown.slice(5, 7)) - 1]}${shown.slice(0, 4) !== String(new Date().getFullYear()) ? `/${shown.slice(2, 4)}` : ""}`
-      : `${MONTHS[Number(shown.slice(5, 7)) - 1]}/${shown.slice(2, 4)}`;
+  // Versão curta para o celular, sempre do mesmo tamanho: "Nov/26" (o ícone diz se é fatura atual ou previsão).
+  const short = isTotal ? "Todos" : `${MONTHS[Number(shown.slice(5, 7)) - 1]}/${shown.slice(2, 4)}`;
   const tip = [badge.text, detail && !isTotal ? detail : null].filter(Boolean).join(" · ");
 
   const body = (
@@ -136,17 +132,19 @@ export function MonthNav({
       <button type="button" className="month-arrow" onClick={() => go(addMonthsKey(shown, 1))} aria-label={`Ver ${longMonth(addMonthsKey(shown, 1))}`}>
         <ChevronRight size={18} strokeWidth={2.2} />
       </button>
-      {(isTotal || diff !== 0) && (
-        <button
-          type="button"
-          className="month-today"
-          onClick={() => go(current)}
-          title={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
-          aria-label={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
-        >
-          <Undo2 size={15} strokeWidth={2.2} />
-        </button>
-      )}
+      {/* Sempre no mesmo lugar (invisível no mês atual): a caixa não muda de tamanho entre um clique e outro. */}
+      <button
+        type="button"
+        className={`month-today ${isTotal || diff !== 0 ? "" : "idle"}`}
+        onClick={() => go(current)}
+        disabled={!isTotal && diff === 0}
+        aria-hidden={!isTotal && diff === 0}
+        tabIndex={!isTotal && diff === 0 ? -1 : undefined}
+        title={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
+        aria-label={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
+      >
+        <Undo2 size={15} strokeWidth={2.2} />
+      </button>
     </section>
   );
   // Fica no centro da barra de cima (que estava vazia), em vez de ocupar um bloco grande na página.

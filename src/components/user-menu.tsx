@@ -121,6 +121,19 @@ export function UserMenu({
                 <span className="bf-select-option-label">{label}</span>
               </Link>
             ))}
+            {/* Em telas bem estreitas o botão Tutorial sai da barra de cima e fica aqui. */}
+            <button
+              type="button"
+              role="menuitem"
+              className="bf-select-option user-menu-item user-menu-tour"
+              onClick={() => {
+                setOpen(false);
+                window.dispatchEvent(new Event("bf-open-tour"));
+              }}
+            >
+              <CircleHelp size={17} strokeWidth={1.7} />
+              <span className="bf-select-option-label">Tutorial</span>
+            </button>
             <div className="user-menu-sep" role="separator" />
             <form action={logout}>
               <button type="submit" role="menuitem" className="bf-select-option user-menu-item danger">
