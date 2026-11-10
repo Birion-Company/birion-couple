@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, CreditCard, HandCoins, LayoutGrid, Plus, ScanSearch } from "lucide-react";
+import { ArrowLeftRight, CreditCard, HandCoins, LayoutGrid, Plus, ScanSearch, UserCheck } from "lucide-react";
 
 const items = [
   { href: "/painel", label: "Painel", icon: LayoutGrid },
@@ -11,6 +11,7 @@ const items = [
   { href: "/identificar", label: "A identificar", icon: ScanSearch, short: "Identificar" },
   { href: "/dividas", label: "Dívidas", icon: HandCoins },
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
+  { href: "/confirmar", label: "Para confirmar", icon: UserCheck, short: "Confirmar" },
 ];
 
 function isActive(path: string, href: string) {
@@ -18,17 +19,17 @@ function isActive(path: string, href: string) {
   return path === href || path.startsWith(href + "/");
 }
 
-/** Contador ao lado de "A identificar". */
-function Count({ n }: { n: number }) {
+/** Contador ao lado de "A identificar" e de "Para confirmar". */
+function Count({ n, what = "a identificar" }: { n: number; what?: string }) {
   if (n <= 0) return null;
   return (
-    <span className="nav-count" aria-label={`${n} a identificar`}>
+    <span className="nav-count" aria-label={`${n} ${what}`}>
       {n > 99 ? "99+" : n}
     </span>
   );
 }
 
-export function SideNav({ toIdentify = 0 }: { toIdentify?: number }) {
+export function SideNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number; toConfirm?: number }) {
   const path = usePathname();
   return (
     <nav aria-label="Principal">
@@ -38,22 +39,26 @@ export function SideNav({ toIdentify = 0 }: { toIdentify?: number }) {
           <Icon size={18} strokeWidth={1.6} />
           {label}
           {href === "/identificar" && <Count n={toIdentify} />}
+          {href === "/confirmar" && <Count n={toConfirm} what="para confirmar" />}
         </Link>
       ))}
     </nav>
   );
 }
 
-export function BottomNav({ toIdentify = 0 }: { toIdentify?: number }) {
+export function BottomNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number; toConfirm?: number }) {
   const path = usePathname();
+  // No celular, "Confirmar" só entra na barra quando há algo esperando (ou quando você está nela).
+  const shown = items.filter((x) => !x.add && (x.href !== "/confirmar" || toConfirm > 0 || isActive(path, x.href)));
   return (
     <nav className="bottom-nav" aria-label="Principal">
       {/* O + fica no botão redondo do canto (fora da barra). */}
-      {items.filter((x) => !x.add).map(({ href, label, icon: Icon, add, short }) => (
+      {shown.map(({ href, label, icon: Icon, add, short }) => (
         <Link key={href} href={href} className={add ? "add" : undefined} aria-current={isActive(path, href) ? "page" : undefined} aria-label={add ? "Novo lançamento" : undefined} data-tour={href === "/identificar" ? "nav-identify" : undefined}>
           <span className="icon">
             <Icon size={add ? 22 : 20} strokeWidth={add ? 2 : 1.6} />
             {href === "/identificar" && <Count n={toIdentify} />}
+            {href === "/confirmar" && <Count n={toConfirm} what="para confirmar" />}
           </span>
           <span className="label">{short ?? label}</span>
         </Link>

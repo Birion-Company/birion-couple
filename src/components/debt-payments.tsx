@@ -8,7 +8,7 @@ import { deleteTransactions, payDebt, setTransactionsSettled } from "@/app/actio
 import { centsToInput, formatMoney, parseAmountToCents } from "@/lib/money";
 import { toast, toastResult } from "./toaster";
 
-type Split = { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null; restCents?: number };
+type Split = { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null; restCents?: number; pendingPayId?: string | null };
 
 /**
  * Selo de um pagamento de dívida: lucro (pagou a mais), desconto (pagou a menos e perdoou)
@@ -185,6 +185,14 @@ export function DebtPayments({
               </p>
               <Link className="btn small ghost" href={`/transacoes/${s.paidById}`}>Ver acerto</Link>
               {canPay && <UndoButton payId={s.paidById} />}
+            </>
+          ) : s.pendingPayId ? (
+            <>
+              <p className="grow">
+                {who(s.participantId)} deve {formatMoney(s.amountCents, currency)} para {creditor(s)}
+                <span className="faint"> · pagamento registrado, esperando confirmação</span>
+              </p>
+              <Link className="btn small ghost" href={`/transacoes/${s.pendingPayId}`}>Ver pagamento</Link>
             </>
           ) : (
             <>

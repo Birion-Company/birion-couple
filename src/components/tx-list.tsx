@@ -1,5 +1,6 @@
 "use client";
 
+import { ApprovalBadge } from "./approval";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -124,6 +125,7 @@ export function TxList({
                         <p className="title tx-title">
                           <span className="tx-desc" title={tx.description}>{tx.description}</span>
                           {series && <span className="tx-series">{series}</span>}
+                          <ApprovalBadge approval={tx.approval} me={viewer.participantId} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} />
                           {tx.source === "previsto" && (
                             <span className="tx-tag predicted" title="Parcela prevista: o extrato confirma sem duplicar.">
                               prevista

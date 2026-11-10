@@ -5,7 +5,7 @@ import { DebtPayments, ProfitBadge } from "./debt-payments";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
+import { ArrowRight, CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
 import { deleteSeries, deleteTransactions, saveTransaction } from "@/app/actions/transactions";
 import { addMonthsIso, invoiceDates, invoiceOf, monthLabel, shortDate } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
@@ -15,13 +15,13 @@ import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { ImpactBox } from "./impact-box";
 import { Avatar } from "./ui";
-import { ContactAdder, type NewContact } from "./contact-adder";
+import { PeopleMenu, type NewContact } from "./contact-adder";
+import { PeoplePicker, type PickPerson } from "./people-picker";
+import { ApprovalButtons } from "./approval";
+import { roleSentence } from "@/lib/approval-text";
 
 type Kind = "expense" | "income" | "loan" | "transfer";
 type Repeat = "once" | "installment" | "monthly";
-
-/** Na divisão aparecem os membros e só os contatos usados por último (o resto num "Mostrar mais"). */
-const RECENT_CONTACTS = 8;
 
 /** O que cada tipo significa, mostrado embaixo da escolha. */
 const KIND_HELP: Record<Kind, string> = {
@@ -38,12 +38,70 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** "Para confirmar" dentro do lançamento: aceitar/recusar, ou quem ainda falta aceitar. */
+function ApprovalNotice({ tx, me, names, currency }: { tx: TxRow; me: string | null; names: Record<string, string>; currency: string }) {
+  const a = tx.approval!;
+  const name = (id: string | null) => (id === me ? "você" : (id && names[id]) || "alguém");
+  const creator = name(a.creatorId);
+  const myRefusal = a.refused.find((r) => r.id === me);
+  if (me && a.waiting.includes(me)) {
+    return (
+      <div className="notice approval-notice" role="note">
+        <p>
+          <strong>{creator.replace(/^./, (c) => c.toUpperCase())}</strong> colocou isso no seu nome: {roleSentence(tx, me, name, currency)}.
+          <span className="faint"> Só vale nas dívidas depois que você aceitar.</span>
+        </p>
+        <ApprovalButtons txId={tx.id} series={!!tx.seriesId} />
+      </div>
+    );
+  }
+  if (myRefusal) {
+    return (
+      <div className="notice approval-notice refused" role="note">
+        <p>
+          Você recusou{myRefusal.reason ? `: “${myRefusal.reason}”` : ""}. Não vale nas dívidas.
+        </p>
+        <ApprovalButtons txId={tx.id} refused />
+      </div>
+    );
+  }
+  return (
+    <div className={`notice approval-notice ${a.refused.length ? "refused" : ""}`} role="note">
+      {a.refused.map((r) => (
+        <p key={r.id}>
+          <strong>{name(r.id).replace(/^./, (c) => c.toUpperCase())}</strong> recusou{r.reason ? `: “${r.reason}”` : ""}. Corrija (volta a pedir confirmação) ou exclua.
+        </p>
+      ))}
+      {a.waiting.length > 0 && (
+        <p>
+          Esperando <strong>{a.waiting.map(name).join(", ")}</strong> aceitar. Até lá, não mexe nas dívidas.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Dois lados de um lançamento com a seta de para onde o dinheiro vai (no celular, um embaixo do outro). */
+function PeopleFlow({ left, right, caption, direction }: { kind: Kind; left: React.ReactNode; right: React.ReactNode; caption: string; direction: "left" | "right" | "none" }) {
+  return (
+    <div className={`flow flow-${direction}`}>
+      <div className="flow-side">{left}</div>
+      <div className="flow-arrow">
+        {direction !== "none" && <ArrowRight size={20} strokeWidth={2} aria-hidden />}
+        {caption && <span>{caption}</span>}
+      </div>
+      <div className="flow-side">{right}</div>
+    </div>
+  );
+}
+
 export function TxForm({
   lookups,
   currency,
   initial,
   prefill,
   me,
+  canInvite = false,
   readOnly = false,
   createdByName,
   returnTo,
@@ -54,6 +112,8 @@ export function TxForm({
   initial: TxRow | null;
   prefill?: TxPrefill;
   me: string | null;
+  /** Pode convidar gente para o app (quem administra a família). */
+  canInvite?: boolean;
   /** Lançamento de outra pessoa: só para ver. */
   readOnly?: boolean;
   createdByName?: string | null;
@@ -71,7 +131,6 @@ export function TxForm({
   const [pending, start] = useTransition();
   // Pessoas: membros (com login) + contatos ativos, mais quem está neste lançamento ou acabou de ser adicionado.
   const [extra, setExtra] = useState<NewContact[]>([]);
-  const [allContacts, setAllContacts] = useState(false);
   const inThisTx = new Set(
     [initial?.payerId, ...(initial?.splits.map((s) => s.participantId) ?? []), prefill?.payerId, prefill?.toId, ...extra.map((x) => x.id)].filter(Boolean) as string[],
   );
@@ -88,6 +147,8 @@ export function TxForm({
   const firstPerson = me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "";
 
   const [kind, setKind] = useState<Kind>(initial?.kind ?? prefill?.kind ?? "expense");
+  // Receita antiga lançada no nome de outra pessoa continua editável; as novas são sempre de quem lança.
+  const incomeIsMine = !initial || initial.kind !== "income" || initial.payerId === me;
   // Empréstimo e acerto são de uma pessoa para outra: sem categoria, cartão nem repetição.
   const between = kind === "transfer" || kind === "loan";
   const [amount, setAmount] = useState(
@@ -95,7 +156,7 @@ export function TxForm({
   );
   const [description, setDescription] = useState(initial?.description ?? prefill?.description ?? "");
   const [date, setDate] = useState(initial?.date ?? today());
-  const [payerId, setPayerId] = useState(initial?.payerId ?? prefill?.payerId ?? firstPerson);
+  const [payerId, setPayerId] = useState(initial?.payerId ?? (prefill?.kind === "income" ? me : null) ?? prefill?.payerId ?? firstPerson);
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
@@ -148,9 +209,6 @@ export function TxForm({
   const cents = parseAmountToCents(amount, ",") ?? 0;
   const customSum = splitIds.reduce((a, id) => a + (parseAmountToCents(custom[id] ?? "", ",") ?? 0), 0);
   const equalParts = splitEqually(Math.max(0, cents), splitIds.length);
-
-  const toggleSplit = (id: string) =>
-    setSplitIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : people.map((p) => p.id).filter((x) => x === id || s.includes(x))));
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,8 +280,91 @@ export function TxForm({
     });
   };
 
-  const payerLabel =
-    kind === "income" ? "Quem recebeu" : kind === "transfer" ? "Quem pagou o acerto" : kind === "loan" ? "Quem vai receber" : "Quem pagou";
+  // ---------- Quem paga e quem deve, lado a lado com uma seta ----------
+  const pick: PickPerson[] = people.map((p) => ({
+    id: p.id,
+    name: p.name,
+    color: p.color,
+    avatarUrl: "avatarUrl" in p ? (p.avatarUrl as string | null) : null,
+    hasLogin: "hasLogin" in p ? !!p.hasLogin : false,
+  }));
+  const one = (label: string, value: string, onPick: (id: string) => void, list = pick, tour?: string) => (
+    <div className="field" data-tour={tour}>
+      <span className="label-text">{label}</span>
+      <PeoplePicker people={list} value={value ? [value] : []} onChange={(ids) => onPick(ids[0] ?? "")} ariaLabel={label} me={me} disabled={readOnly} />
+    </div>
+  );
+  const onlyPayer = splitIds.length > 0 && splitIds.every((id) => id === payerId);
+  let leftSide: React.ReactNode;
+  let rightSide: React.ReactNode;
+  let flowCaption = "";
+  // Para onde o dinheiro vai ter que ir: "left" = da direita para a esquerda.
+  let flowDirection: "left" | "right" | "none" = "none";
+  if (kind === "expense") {
+    leftSide = (
+      <>
+        {showMethod && (
+          <label className="field" data-tour="tx-card">
+            <span>Como foi pago</span>
+            <Select
+              value={cardId}
+              onChange={(v) => {
+                setCardId(v);
+                // No cartão, quem pagou é sempre o dono dele: a fatura é dele.
+                const c = cards.find((x) => x.id === v);
+                if (c?.ownerId) setPayerId(c.ownerId);
+              }}
+              options={[
+                { value: "", label: "Sem cartão (Pix, dinheiro…)" },
+                ...visibleCards.map((c) => ({ value: c.id, label: cardLabel(c), color: c.color })),
+              ]}
+            />
+          </label>
+        )}
+        {!payerFromCard && one("Quem pagou", payerId, setPayerId, pick, "tx-payer")}
+      </>
+    );
+    rightSide = (
+      <div className="field" data-tour="tx-split">
+        <span className="label-text">Quem deveria pagar</span>
+        <PeoplePicker people={pick} value={splitIds} onChange={setSplitIds} multiple ariaLabel="Quem deveria pagar" me={me} disabled={readOnly} />
+      </div>
+    );
+    flowCaption = splitIds.length === 0 ? "" : onlyPayer ? "conta só de quem pagou" : "recebe a parte de";
+    flowDirection = splitIds.length === 0 || onlyPayer ? "none" : "left";
+  } else if (kind === "income") {
+    leftSide = incomeIsMine && me ? (
+      <div className="field">
+        <span className="label-text">Quem recebeu</span>
+        <p className="flow-fixed">
+          <Avatar name={people.find((p) => p.id === me)?.name ?? "Você"} color={people.find((p) => p.id === me)?.color ?? "#94A3B8"} size={22} /> Você
+        </p>
+      </div>
+    ) : (
+      one("Quem recebeu", payerId, setPayerId)
+    );
+    rightSide = (
+      <div className="field" data-tour="tx-split">
+        <span className="label-text">De quem é esse dinheiro</span>
+        <PeoplePicker people={pick} value={splitIds} onChange={setSplitIds} multiple ariaLabel="De quem é esse dinheiro" me={me} disabled={readOnly} />
+      </div>
+    );
+    flowCaption = splitIds.length === 0 ? "" : onlyPayer ? "é todo seu" : "repassa a parte para";
+    flowDirection = splitIds.length === 0 || onlyPayer ? "none" : "right";
+  } else {
+    const loan = kind === "loan";
+    leftSide = one(loan ? "Quem vai receber" : "Quem pagou o acerto", payerId, setPayerId, pick, "tx-payer");
+    rightSide = one(
+      loan ? "Quem deve" : "Para quem",
+      splitIds[0] ?? "",
+      (v) => setSplitIds(v ? [v] : []),
+      pick.filter((p) => p.id !== payerId),
+      "tx-split",
+    );
+    flowCaption = loan ? "vai receber de" : "pagou para";
+    flowDirection = loan ? "left" : "right";
+  }
+
   const amountLabel = isSeries ? (repeat === "installment" ? (kind === "loan" ? "Valor total da dívida" : "Valor total da compra") : "Valor por mês") : "Valor";
   const monthly = initial?.seriesKind === "monthly";
   const endless = monthly && !initial?.seriesTotal;
@@ -289,6 +430,7 @@ export function TxForm({
           administra a família) pode alterar ou excluir.
         </div>
       )}
+      {initial?.approval && <ApprovalNotice tx={initial} me={me} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} currency={currency} />}
       <fieldset className="tx-fieldset" disabled={readOnly}>
       <div className="tx-cols">
         <div className="tx-col" role="group" aria-label="O lançamento">
@@ -305,6 +447,8 @@ export function TxForm({
                 aria-pressed={kind === v}
                 onClick={() => {
                   setKind(v);
+                  // Receita é dinheiro que entrou para você: não dá para lançar entrada no nome de outra pessoa.
+                  if (v === "income" && me && incomeIsMine) setPayerId(me);
                   if (v === "transfer" || v === "loan") {
                     setSplitIds((s) => s.filter((x) => x !== payerId).slice(0, 1));
                     setRepeat("once");
@@ -342,65 +486,10 @@ export function TxForm({
             />
           </label>
 
-          <div className="field-row">
-            <label className="field">
-              <span>{isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
-              <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-            </label>
-            {showMethod && (
-              <label className="field" data-tour="tx-card">
-                <span>Como foi pago</span>
-                <Select
-                  value={cardId}
-                  onChange={(v) => {
-                    setCardId(v);
-                    // No cartão, quem pagou é sempre o dono dele: a fatura é dele.
-                    const c = cards.find((x) => x.id === v);
-                    if (c?.ownerId) setPayerId(c.ownerId);
-                  }}
-                  options={[
-                    { value: "", label: "Sem cartão (Pix, dinheiro, débito…)" },
-                    ...visibleCards.map((c) => ({ value: c.id, label: cardLabel(c), color: c.color })),
-                  ]}
-                />
-              </label>
-            )}
-            {!payerFromCard && (
-              <label className="field" data-tour="tx-payer">
-                <span>{payerLabel}</span>
-                <Select
-                  value={payerId}
-                  onChange={setPayerId}
-                  options={[...people.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
-                  placeholder="Escolha"
-                />
-              </label>
-            )}
-          </div>
-
-          {payerFromCard && card && (
-            <p className="faint card-paid-hint">
-              <CreditCard size={15} strokeWidth={1.7} aria-hidden />
-              <span>
-                {card.ownerId === me ? (
-                  <>
-                    {repeat === "installment" ? "A 1ª parcela entra" : "Entra"} na sua <strong>{bill?.label}</strong> do {card.name}. Quem tem parte fica te devendo.
-                  </>
-                ) : (
-                  <>
-                    {repeat === "installment" ? "A 1ª parcela entra" : "Entra"} na <strong>{bill?.label}</strong> do {card.name} de {payerName ?? "outra pessoa"}.
-                  </>
-                )}
-                {bill && <span className="card-paid-dates"> Fecha {shortDate(bill.closing)} · vence {shortDate(bill.due)}.</span>}
-              </span>
-            </p>
-          )}
-          {!between && kind === "expense" && visibleCards.length === 0 && !readOnly && (
-            <p className="faint card-cta">
-              <CreditCard size={15} strokeWidth={1.7} aria-hidden />
-              Usa cartão? <Link href="/cartoes" className="pos">Cadastre o seu cartão</Link>.
-            </p>
-          )}
+          <label className="field">
+            <span>{isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
+            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          </label>
 
           <ImpactBox impact={impact} />
 
@@ -466,42 +555,33 @@ export function TxForm({
 
         </div>
         <div className="tx-col" role="group" aria-label="Divisão e detalhes">
-          {between ? (
-            <div className="field">
-              <span className="label-text" id="destino-label">{kind === "loan" ? "Quem deve" : "Para quem"}</span>
-              <Select
-                value={splitIds[0] ?? ""}
-                onChange={(v) => setSplitIds(v ? [v] : [])}
-                options={people.filter((p) => p.id !== payerId).map((p) => ({ value: p.id, label: p.name, color: p.color }))}
-                placeholder="Escolha"
-                ariaLabel={kind === "loan" ? "Quem deve" : "Para quem"}
-              />
-              {!readOnly && (
-                <ContactAdder
-                  suggestions={contactNames}
-                  onAdd={(p) => {
-                    setExtra((x) => [...x.filter((y) => y.id !== p.id), p]);
-                    setSplitIds([p.id]);
-                  }}
-                />
-              )}
-              <span className="faint">
-                {kind === "loan"
-                  ? "Quem fica devendo o valor para quem vai receber."
-                  : "Um acerto abate o que uma pessoa deve para a outra."}
+          <PeopleFlow
+            kind={kind}
+            left={leftSide}
+            right={rightSide}
+            caption={flowCaption}
+            direction={flowDirection}
+          />
+          {payerFromCard && card && (
+            <p className="faint card-paid-hint">
+              <CreditCard size={15} strokeWidth={1.7} aria-hidden />
+              <span>
+                {repeat === "installment" ? "A 1ª parcela entra" : "Entra"} na {card.ownerId === me ? "sua " : ""}
+                <strong className="bill-name">{bill?.label}</strong> do {card.name}
+                {card.ownerId !== me ? ` de ${payerName ?? "outra pessoa"}` : ""}.
+                {bill && <span className="card-paid-dates">Fecha {shortDate(bill.closing)} · vence {shortDate(bill.due)}.</span>}
               </span>
-            </div>
-          ) : (
-            <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }} data-tour="tx-split">
-              <legend className="label-text" style={{ marginBottom: 6 }}>
-                {kind === "income" ? "De quem é esse dinheiro" : "Quem deveria pagar"}
-              </legend>
-              <span className="faint" style={{ marginTop: -2, marginBottom: 6, display: "block" }}>
-                {kind === "income"
-                  ? "Quem recebeu repassa a parte dos outros."
-                  : "Uma pessoa = conta toda dela. Várias = dividir."}
-              </span>
-              <div className="segmented" role="group" aria-label="Como dividir" style={{ marginBottom: 6 }}>
+            </p>
+          )}
+          {!between && kind === "expense" && visibleCards.length === 0 && !readOnly && (
+            <p className="faint card-cta">
+              <CreditCard size={15} strokeWidth={1.7} aria-hidden />
+              Usa cartão? <Link href="/cartoes" className="pos">Cadastre o seu cartão</Link>.
+            </p>
+          )}
+          {!between && splitIds.length > 0 && (
+            <div className="field split-amounts">
+              <div className="segmented" role="group" aria-label="Como dividir">
                 <button type="button" aria-pressed={mode === "equal"} onClick={() => setMode("equal")}>Partes iguais</button>
                 <button
                   type="button"
@@ -520,48 +600,31 @@ export function TxForm({
                   Valores diferentes
                 </button>
               </div>
-              {people.filter((p) => allContacts || !contacts.slice(RECENT_CONTACTS).some((c) => c.id === p.id) || splitIds.includes(p.id)).map((p, i) => {
-                const on = splitIds.includes(p.id);
-                const idx = splitIds.indexOf(p.id);
+              {splitIds.map((id, idx) => {
+                const p = people.find((x) => x.id === id);
+                if (!p) return null;
                 return (
-                  <div key={p.id} className="split-row">
-                    <label className="check">
-                      <input type="checkbox" checked={on} onChange={() => toggleSplit(p.id)} />
-                      <Avatar name={p.name} color={p.color} size={26} src={"avatarUrl" in p ? (p.avatarUrl as string | null) : null} />
-                      <span>{p.name}</span>
-                    </label>
-                    {on &&
-                      (mode === "equal" ? (
-                        <span className="faint num" style={{ textAlign: "right" }}>{formatMoney(equalParts[idx] ?? 0, currency)}</span>
-                      ) : (
-                        <input
-                          className="input num"
-                          inputMode="decimal"
-                          aria-label={`Parte de ${p.name}`}
-                          value={custom[p.id] ?? ""}
-                          onChange={(e) => setCustom((c) => ({ ...c, [p.id]: e.target.value.replace(/[^\d,.]/g, "") }))}
-                          placeholder="0,00"
-                          style={{ minHeight: 38, textAlign: "right" }}
-                          data-index={i}
-                        />
-                      ))}
+                  <div key={id} className="split-row">
+                    <span className="check">
+                      <Avatar name={p.name} color={p.color} size={24} src={"avatarUrl" in p ? (p.avatarUrl as string | null) : null} />
+                      <span>{p.id === me ? "Você" : p.name}</span>
+                    </span>
+                    {mode === "equal" ? (
+                      <span className="faint num" style={{ textAlign: "right" }}>{formatMoney(equalParts[idx] ?? 0, currency)}</span>
+                    ) : (
+                      <input
+                        className="input num"
+                        inputMode="decimal"
+                        aria-label={`Parte de ${p.name}`}
+                        value={custom[p.id] ?? ""}
+                        onChange={(e) => setCustom((c) => ({ ...c, [p.id]: e.target.value.replace(/[^\d,.]/g, "") }))}
+                        placeholder="0,00"
+                        style={{ minHeight: 38, textAlign: "right" }}
+                      />
+                    )}
                   </div>
                 );
               })}
-              {!allContacts && contacts.length > RECENT_CONTACTS && (
-                <button type="button" className="btn small ghost" onClick={() => setAllContacts(true)}>
-                  Mostrar mais {contacts.length - RECENT_CONTACTS} {contacts.length - RECENT_CONTACTS === 1 ? "contato" : "contatos"}
-                </button>
-              )}
-              {!readOnly && (
-                <ContactAdder
-                  suggestions={contactNames}
-                  onAdd={(p) => {
-                    setExtra((x) => [...x.filter((y) => y.id !== p.id), p]);
-                    setSplitIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));
-                  }}
-                />
-              )}
               {mode === "custom" && (
                 <p className={`faint ${customSum !== cents ? "neg" : ""}`}>
                   {customSum === cents
@@ -571,7 +634,7 @@ export function TxForm({
                       : `Passou ${formatMoney(customSum - cents, currency)} do total de ${formatMoney(cents, currency)}`}
                 </p>
               )}
-            </fieldset>
+            </div>
           )}
 
           <div className="field-row">
@@ -658,6 +721,9 @@ export function TxForm({
         </label>
       )}
       <div className="actions" style={{ justifyContent: "space-between" }}>
+        {/* Canto inferior esquerdo: cadastrar ou convidar pessoas (vale para qualquer campo de pessoa). */}
+        <div className="actions">
+        <PeopleMenu suggestions={contactNames} canInvite={canInvite} onAdd={(p) => setExtra((x) => [...x.filter((y) => y.id !== p.id), p])} />
         {initial ? (
           <div className="delete-wrap">
             <button
@@ -689,9 +755,8 @@ export function TxForm({
               </div>
             )}
           </div>
-        ) : (
-          <span />
-        )}
+        ) : null}
+        </div>
         <div className="actions">
           <button type="button" className="btn ghost" onClick={() => (onDone ? onDone() : router.back())} disabled={pending}>Cancelar</button>
           <button className="btn primary" disabled={pending}>{pending ? "Salvando…" : "Salvar"}</button>

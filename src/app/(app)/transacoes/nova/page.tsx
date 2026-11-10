@@ -40,7 +40,7 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
         <h1>{prefill?.kind === "transfer" ? "Registrar pagamento" : prefill?.kind === "loan" ? "Registrar dívida" : "Novo lançamento"}</h1>
       </div>
       <div className="card">
-        <TxForm lookups={lookups} currency={auth.currency} initial={null} prefill={prefill} me={auth.participantId} />
+        <TxForm lookups={lookups} currency={auth.currency} initial={null} prefill={prefill} me={auth.participantId} canInvite={auth.role === "owner"} />
       </div>
     </div>
   );

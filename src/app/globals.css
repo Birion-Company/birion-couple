@@ -3855,6 +3855,14 @@ button.user-menu-item {
   align-items: flex-start;
   margin: -4px 0 12px;
 }
+.card-paid-hint .bill-name {
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+.card-paid-dates {
+  display: block;
+  margin-top: 2px;
+}
 .card-paid-hint svg {
   flex: none;
   margin-top: 2px;
@@ -4977,25 +4985,6 @@ input[type="checkbox"].switch:checked::after {
 }
 
 /* Pessoa avulsa (só para um lançamento). */
-.temp-person-btn {
-  justify-self: start;
-  margin-top: 4px;
-}
-.temp-person {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-}
-.temp-person .input {
-  flex: 1 1 180px;
-  min-width: 0;
-}
-.temp-person-hint {
-  flex-basis: 100%;
-  font-size: 0.8rem;
-}
 .tag-temp {
   margin-left: 6px;
   padding: 1px 7px;
@@ -5393,4 +5382,346 @@ body.modal-open {
 .ledger-row .pay-form {
   flex-basis: 100%;
   justify-content: flex-end;
+}
+
+/* ---------- Formulário: quem paga e quem deve, lado a lado com a seta ---------- */
+.flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+.flow-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 78px;
+  min-height: 44px;
+  margin-top: 24px;
+  color: var(--brand-strong);
+  text-align: center;
+}
+.flow-arrow span {
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--text-3);
+}
+.flow-left .flow-arrow svg {
+  transform: rotate(180deg);
+}
+.flow-none .flow-arrow {
+  color: var(--text-3);
+}
+.flow-fixed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px dashed var(--field-edge);
+  border-radius: 12px;
+  font-weight: 600;
+}
+/* Celular: um embaixo do outro, a seta aponta para cima ou para baixo. */
+@media (max-width: 560px) {
+  .flow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .flow-arrow {
+    flex-direction: row;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    gap: 6px;
+  }
+  .flow-right .flow-arrow svg {
+    transform: rotate(90deg);
+  }
+  .flow-left .flow-arrow svg {
+    transform: rotate(-90deg);
+  }
+}
+.split-amounts {
+  gap: 8px;
+}
+
+/* Seletor de pessoas com pesquisa */
+.people-pick {
+  justify-content: space-between;
+}
+.people-pick-chosen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  flex: 1;
+}
+.people-pick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+.people-pick-more {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.people-panel {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  box-shadow: 0 14px 40px rgba(3, 10, 20, 0.22), 0 0 0 1px rgba(26, 196, 219, 0.06);
+  animation: bf-select-in 0.12s ease-out;
+}
+.people-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px;
+  padding: 0 10px;
+  min-height: 40px;
+  border: 1px solid var(--field-edge);
+  border-radius: 10px;
+  background: var(--field-bg);
+  color: var(--text-3);
+}
+.people-search:focus-within {
+  border-color: var(--brand);
+}
+.people-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.people-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 6px 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+.people-group {
+  display: block;
+  padding: 8px 10px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.people-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.people-option.active {
+  background: var(--tile-bg);
+}
+.people-option.on {
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+.people-box {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--field-edge);
+  border-radius: 6px;
+}
+.people-box.on {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #031018;
+}
+.people-empty {
+  padding: 14px 10px;
+  font-size: 0.85rem;
+  color: var(--text-3);
+}
+.people-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* Botão "Pessoas" no canto do formulário */
+.people-menu {
+  position: relative;
+}
+.people-menu-panel {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  display: grid;
+  gap: 4px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  box-shadow: 0 14px 40px rgba(3, 10, 20, 0.25);
+  animation: bf-select-in 0.12s ease-out;
+}
+.people-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 4px;
+}
+.people-menu-sec {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.people-menu-sec .faint {
+  font-size: 0.8rem;
+}
+.people-menu-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.people-menu-add {
+  display: flex;
+  gap: 8px;
+}
+.people-menu-add .input {
+  flex: 1;
+  min-width: 0;
+}
+.people-menu-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  color: var(--text);
+}
+.people-menu-link:hover {
+  background: var(--tile-bg);
+}
+.people-menu-link svg {
+  margin-top: 3px;
+  flex: none;
+}
+.people-menu-link > span {
+  display: grid;
+  gap: 2px;
+}
+.people-menu-link .faint {
+  font-size: 0.8rem;
+}
+
+/* ---------- Para confirmar ---------- */
+.approval-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.approval-badge.mine {
+  color: var(--brand-strong);
+  border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+}
+.approval-badge.refused {
+  color: var(--neg);
+  border-color: color-mix(in srgb, var(--neg) 40%, transparent);
+  background: color-mix(in srgb, var(--neg) 10%, transparent);
+}
+.approval-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  border: 1px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+}
+.approval-notice p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+.approval-notice p + p {
+  margin-top: 4px;
+}
+.approval-notice.refused {
+  border-color: color-mix(in srgb, var(--neg) 40%, transparent);
+  background: color-mix(in srgb, var(--neg) 7%, transparent);
+}
+.approval-actions,
+.approval-refuse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.approval-refuse .input {
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 36px;
+}
+.approval-row {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.approval-say {
+  margin: 2px 0;
+  font-weight: 600;
+}
+@media (max-width: 560px) {
+  .approval-row .approval-actions,
+  .approval-row .approval-refuse {
+    flex-basis: 100%;
+  }
 }

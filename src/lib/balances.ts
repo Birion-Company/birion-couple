@@ -9,12 +9,14 @@ export type BalanceInput = {
   settled: boolean;
   /** Acerto ligado a uma dívida: quem paga já foi tirado da dívida pela própria parte (paidById). */
   settlesId?: string | null;
+  /** Esperando um membro aceitar (ou recusado): ainda não vale nas dívidas. */
+  blocked?: boolean;
   /** paidById: parte já paga com um acerto, fica fora das dívidas. */
   splits: { participantId: string; amountCents: number; paidById?: string | null }[];
 };
 
 /** Lançamentos que não mexem em dívida nenhuma. */
-const outOfDebts = (t: BalanceInput) => t.settled || !t.payerId || !!t.settlesId;
+const outOfDebts = (t: BalanceInput) => t.settled || !t.payerId || !!t.settlesId || !!t.blocked;
 
 /**
  * Saldo de cada pessoa: positivo = tem a receber, negativo = deve.

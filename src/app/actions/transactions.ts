@@ -10,6 +10,7 @@ import { diff, involved, logActivity, snapshots, type TxSnapshot } from "@/lib/a
 import { requireAuth, type AuthContext } from "@/lib/auth";
 import { buildSeries, invoiceDates, invoiceOf, invoiceRange, monthLabel, shortDate, todayIn } from "@/lib/cards";
 import { materializeRecurring } from "@/lib/recurring-server";
+import { approvalContext } from "@/lib/approvals";
 import { ruleCategory } from "@/lib/rules-server";
 import { reviveContacts } from "@/lib/contacts";
 import { PREDICTED } from "@/lib/patterns-server";
@@ -115,6 +116,10 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   // Como estava antes (ao editar): o que não vem do formulário continua igual.
   const existing = id ? await loadExisting(auth.householdId, id) : null;
   if (id && !existing) return { ok: false, error: "Lançamento não encontrado." };
+  // Receita é dinheiro que entrou para quem lança. Entrada no nome de outra pessoa só como acerto.
+  if (data.kind === "income" && auth.participantId && data.payerId !== auth.participantId && existing?.payerId !== data.payerId) {
+    return { ok: false, error: "Receita é sempre sua. Se alguém te pagou uma dívida, lance como Acerto." };
+  }
   if (existing?.settlesId) {
     // Acerto que paga uma dívida: só o valor, a data e o texto mudam (quem pagou e para quem ficam).
     data.kind = "transfer";
@@ -158,6 +163,10 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   // Sem categoria escolhida: usa as regras de Ajustes → Categorias ("uber" → Transporte).
   data.categoryId = await ruleCategory(auth.householdId, data.kind, data.description, data.categoryId);
 
+  // Membros (com login) no lançamento, além de quem lança: precisam aceitar antes de valer nas dívidas.
+  const actx = await approvalContext(auth.householdId);
+  const toConfirm = [...new Set([data.payerId, ...splits.map((x) => x.participantId)])].filter((p): p is string => !!p && p !== auth.participantId && actx.members.has(p));
+  const askNote = !id && toConfirm.length ? ` ${toConfirm.length === 1 ? "A outra pessoa precisa" : `${toConfirm.length} pessoas precisam`} aceitar para valer nas dívidas.` : "";
   const db = getDb();
   const snapshot: TxSnapshot = {
     description: data.description,
@@ -215,7 +224,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     return {
       ok: true,
       id: first?.id,
-      message: first ? "Salvo. Ele se repete todo mês até você parar." : `Salvo. Começa em ${monthLabel(data.date.slice(0, 7))} e se repete todo mês.`,
+      message: (first ? "Salvo. Ele se repete todo mês até você parar." : `Salvo. Começa em ${monthLabel(data.date.slice(0, 7))} e se repete todo mês.`) + askNote,
     };
   }
 
@@ -257,7 +266,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     });
     revalidatePath("/", "layout");
     const what = series.kind === "installment" ? `${series.count} parcelas lançadas.` : `Lançado para ${series.count} meses.`;
-    return { ok: true, id: firstId, message: what };
+    return { ok: true, id: firstId, message: what + askNote };
   }
 
   const before = id ? (await snapshots(db, auth.householdId, [id])).get(id) : undefined;
@@ -323,7 +332,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   return {
     ok: true,
     id: savedId,
-    message: id ? (data.applyToSeries ? "Parcela atualizada e alterações levadas para as outras." : "Lançamento atualizado.") : "Lançamento salvo.",
+    message: id ? (data.applyToSeries ? "Parcela atualizada e alterações levadas para as outras." : "Lançamento atualizado.") : "Lançamento salvo." + askNote,
   };
 }
 
@@ -585,7 +594,11 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
   revalidatePath("/", "layout");
   const diff = d.amountCents - split.amountCents;
   const money = (c: number) => formatMoney(c, auth.currency);
-  return {
+  // A outra pessoa tem login: o pagamento só vale depois que ela confirmar.
+  const other = auth.participantId === orig.payerId ? d.participantId : orig.payerId!;
+  const ctx = await approvalContext(auth.householdId);
+  const wait = other !== auth.participantId && ctx.members.has(other) ? " Falta a outra pessoa confirmar em “Para confirmar”." : "";
+  const result: ActionResult = {
     ok: true,
     message:
       restCents > 0
@@ -596,6 +609,8 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
             ? `Pago, com ${money(-diff)} de desconto.`
             : "Marcado como pago.",
   };
+  if (wait) result.message += wait;
+  return result;
 }
 
 /**

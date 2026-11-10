@@ -1,3 +1,4 @@
+import { ApprovalBadge } from "./approval";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { seriesLabel } from "@/lib/cards";
@@ -127,6 +128,7 @@ export function TxRowLink({ tx, lookups, currency, me = null }: { tx: TxRow; loo
         <p className="title tx-title">
           <span className="tx-desc" title={tx.description}>{tx.description}</span>
           {series && <span className="tx-series">{series}</span>}
+          <ApprovalBadge approval={tx.approval} me={me} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} />
         </p>
         <p className="sub tx-meta">{[formatDate(tx.date), look.name].join(" · ")}</p>
         <TxExplain tx={tx} lookups={lookups} me={me} currency={currency} />

@@ -159,12 +159,7 @@ export default async function CardsPage() {
           }
         >
           <div className="card-stats" data-tour="cards-stats">
-            <div className="card-stat">
-              <p className="label">Fatura aberta · vence {shortDate(invoiceDates(s.open, card).due)}</p>
-              <p className="value"><Money cents={openTotal} currency={cur} /></p>
-              <SharesLine shares={openShares} me={me} names={names} currency={cur} strong />
-              <p className="hint">fecha {shortDate(s.closingDate)}, {inDays(s.daysToClosing)}</p>
-            </div>
+            {/* A pagar à esquerda (a anterior), a aberta à direita (a que vem). */}
             <div className={`card-stat ${s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "warn" : ""}`}>
               <p className="label">{s.dueInvoice === s.open ? "Vencimento desta fatura" : "Próxima fatura a pagar"}</p>
               <p className="value"><Money cents={dueTotal} currency={cur} /></p>
@@ -174,6 +169,12 @@ export default async function CardsPage() {
                 {s.dueInvoice !== s.open ? " · já fechou" : ""}
                 {invoices.find((i) => i.key === s.dueInvoice)?.paid && <strong className="pos"> · paga</strong>}
               </p>
+            </div>
+            <div className="card-stat">
+              <p className="label">Fatura aberta · vence {shortDate(invoiceDates(s.open, card).due)}</p>
+              <p className="value"><Money cents={openTotal} currency={cur} /></p>
+              <SharesLine shares={openShares} me={me} names={names} currency={cur} strong />
+              <p className="hint">fecha {shortDate(s.closingDate)}, {inDays(s.daysToClosing)}</p>
             </div>
           </div>
 

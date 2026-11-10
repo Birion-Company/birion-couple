@@ -8,7 +8,7 @@ import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
 import { getActivityFeed } from "@/lib/activity";
 import { getCardAlerts } from "@/lib/card-queries";
-import { countUnidentified, getLookups, getLookupsFor } from "@/lib/queries";
+import { countUnidentified, getApprovalInbox, getLookups, getLookupsFor } from "@/lib/queries";
 import { TxModalHost } from "@/components/tx-modal";
 
 function Brand() {
@@ -28,12 +28,18 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
   const [lookups, myLookups] = await Promise.all([getLookups(auth.householdId), getLookupsFor(auth)]);
-  const [alerts, activity, toIdentify] = await Promise.all([getCardAlerts(auth), getActivityFeed(auth, lookups, auth.currency, { all: true }), countUnidentified(auth)]);
+  const [alerts, activity, toIdentify, inbox] = await Promise.all([
+    getCardAlerts(auth),
+    getActivityFeed(auth, lookups, auth.currency, { all: true }),
+    countUnidentified(auth),
+    getApprovalInbox(auth),
+  ]);
+  const toConfirm = inbox.toMe.length;
   return (
     <div className="shell">
       <aside className="sidebar">
         <Brand />
-        <SideNav toIdentify={toIdentify} />
+        <SideNav toIdentify={toIdentify} toConfirm={toConfirm} />
         <div className="side-foot">
           <UserMenu name={auth.userName} household={auth.householdName} avatarUrl={avatarUrl} />
         </div>
@@ -54,7 +60,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="main">{children}</main>
       </div>
-      <BottomNav toIdentify={toIdentify} />
+      <BottomNav toIdentify={toIdentify} toConfirm={toConfirm} />
       {/* Novo lançamento sempre à mão: botão no canto inferior direito (no celular, é o + da barra de baixo). */}
       <Link href="/transacoes/nova" className="new-fab" aria-label="Novo lançamento" data-tour="new-fab">
         <Plus size={20} strokeWidth={2.2} aria-hidden /> <span>Novo lançamento</span>

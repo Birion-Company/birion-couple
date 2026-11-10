@@ -61,7 +61,7 @@ type Snap = { description: string; amountCents: number; kind: string; payerId: s
 type Entry = {
   action: string;
   transactionId?: string | null;
-  data: { tx?: Snap; items?: { d: string; a: string[] }[]; paidCents?: number; owedCents?: number; restCents?: number; settled?: boolean; fileName?: string; fields?: string[] };
+  data: { tx?: Snap; items?: { d: string; a: string[] }[]; paidCents?: number; owedCents?: number; restCents?: number; decision?: string; reason?: string | null; changes?: { field: string }[]; settled?: boolean; fileName?: string; fields?: string[] };
   audience: string[];
 };
 
@@ -111,7 +111,18 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
         msg = { title: "Te devem", body: `${who} lançou “${tx.description}”: ${others.map((o) => `${nameOf.get(o.participantId) ?? "alguém"} ${money(o.amountCents)}`).join(", ")}.` };
       } else msg = { title: "Novo lançamento com você", body: `${who} lançou “${tx.description}” (${money(tx.amountCents)}).` };
     } else if (entry.action === "updated" && tx) {
-      msg = { title: "Lançamento alterado", body: `${who} alterou “${tx.description}”. Confira o que mudou.` };
+      // Mudou valor, tipo, quem pagou ou a divisão: precisa confirmar de novo.
+      const again = (entry.data.changes ?? []).some((c) => ["amount", "kind", "payer", "splits"].includes(c.field));
+      msg = again
+        ? { title: "Confirme de novo", body: `${who} mudou “${tx.description}”. Aceite ou recuse.` }
+        : { title: "Lançamento alterado", body: `${who} alterou “${tx.description}”. Confira o que mudou.` };
+    } else if (entry.action === "approval") {
+      kind = "pagamento";
+      const d = items[0]?.d ?? "um lançamento";
+      msg =
+        entry.data.decision === "accepted"
+          ? { title: "Aceito", body: `${who} aceitou “${d}”. Já vale nas dívidas.` }
+          : { title: "Recusado", body: `${who} recusou “${d}”${entry.data.reason ? `: ${entry.data.reason}` : ""}. Corrija ou exclua.` };
     } else if (entry.action === "deleted") {
       const d = tx?.description ?? items[0]?.d;
       msg = { title: "Lançamento excluído", body: items.length > 1 ? `${who} excluiu ${items.length} lançamentos com você.` : `${who} excluiu “${d}”.` };
@@ -132,6 +143,8 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
       kind = "importacao";
       msg = { title: "Lançamentos com você", body: `${who} ${entry.action === "batch" ? "lançou" : "mudou"} ${items.length} ${items.length === 1 ? "lançamento" : "lançamentos"} com você.` };
     }
+    // Quem foi colocado num lançamento novo precisa aceitar ou recusar.
+    if (msg && entry.action === "created") msg = { ...msg, body: `${msg.body} Aceite ou recuse.` };
     if (msg && wants(prefsOf.get(t.userId), kind)) await sendPush([t.userId], { ...msg, url });
   }
 }

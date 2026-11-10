@@ -36,7 +36,7 @@ export default async function EditTransactionPage({ params, searchParams }: Page
       </div>
       {series && <SeriesEditor txId={tx.id} items={series} total={tx.seriesTotal!} currency={auth.currency} monthly={tx.seriesKind === "monthly"} />}
       <div className="card">
-        <TxForm key={`${tx.date}-${tx.amountCents}-${tx.seriesTotal ?? 0}`} lookups={lookups} currency={auth.currency} initial={tx} me={auth.participantId} readOnly={!canEdit} createdByName={createdByName} returnTo={returnTo} />
+        <TxForm key={`${tx.date}-${tx.amountCents}-${tx.seriesTotal ?? 0}`} lookups={lookups} currency={auth.currency} initial={tx} me={auth.participantId} canInvite={auth.role === "owner"} readOnly={!canEdit} createdByName={createdByName} returnTo={returnTo} />
       </div>
     </div>
   );

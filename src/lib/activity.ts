@@ -50,6 +50,9 @@ export type ActivityData = {
   items?: ActivityItem[];
   /** Edição em lote: nomes dos campos alterados ("quem pagou", "divisão"…). */
   fields?: string[];
+  /** Confirmação: aceitou ou recusou, e por quê. */
+  decision?: "accepted" | "refused";
+  reason?: string | null;
 };
 
 export type ActivityAction =
@@ -62,7 +65,9 @@ export type ActivityAction =
   | "stopped"
   | "imported"
   | "import_deleted"
-  | "batch";
+  | "batch"
+  /** Um membro aceitou ou recusou um lançamento que alguém colocou no nome dele. */
+  | "approval";
 
 /** Pessoas envolvidas num lançamento: quem pagou e quem tem parte. */
 export function involved(...snaps: (Pick<TxSnapshot, "payerId" | "splits"> | null | undefined)[]): string[] {
@@ -341,6 +346,13 @@ export async function getActivityFeed(viewer: Viewer, lookups: Lookups, currency
         }
         detail = items.length > 1 ? items.slice(0, 4).map((i) => i.d).join(", ") + (items.length > 4 ? "…" : "") : (d.changes ?? []).map(describeChange).join(" · ") || null;
         href = items.length === 1 ? href : null;
+        break;
+      }
+      case "approval": {
+        const items = visibleItems(d.items);
+        if (items.length === 0) continue;
+        text = `${actor} ${d.decision === "accepted" ? "aceitou" : "recusou"} "${items[0].d}"`;
+        detail = d.decision === "refused" ? (d.reason ? `motivo: ${d.reason}` : "não vale nas dívidas até você corrigir") : "já vale nas dívidas";
         break;
       }
       case "batch": {

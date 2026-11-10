@@ -485,3 +485,26 @@ describe("mês da compra = mês em que é paga", () => {
     expect(invoiceMonth("2026-11", cartaoA)).toBe("2026-11");
   });
 });
+
+describe("confirmação de membros", () => {
+  const base = { amountCents: 100_00, kind: "expense" as const, payerId: "a", settled: false, splits: [{ participantId: "a", amountCents: 50_00 }, { participantId: "b", amountCents: 50_00 }] };
+  test("esperando aceitar não mexe nas dívidas", () => {
+    expect(computeBalances([{ ...base, blocked: true }]).size).toBe(0);
+    expect(pairwiseFor("a", [{ ...base, blocked: true }]).size).toBe(0);
+  });
+  test("depois de aceito, vale normalmente", () => {
+    const net = computeBalances([{ ...base, blocked: false }]);
+    expect(net.get("a")).toBe(50_00);
+    expect(net.get("b")).toBe(-50_00);
+  });
+});
+
+describe("frase do que foi imposto", () => {
+  const names = (id: string | null) => ({ a: "Ana", b: "Bia" })[id as "a"] ?? "alguém";
+  test("despesa dividida e dívida", async () => {
+    const { roleSentence } = await import("@/lib/approval-text");
+    expect(roleSentence({ kind: "expense", amountCents: 80_00, payerId: "a", splits: [{ participantId: "a", amountCents: 40_00 }, { participantId: "b", amountCents: 40_00 }] }, "b", names, "BRL")).toMatch(/Você deve R\$\s?40,00 para Ana/);
+    expect(roleSentence({ kind: "loan", amountCents: 560_00, payerId: "a", splits: [{ participantId: "b", amountCents: 560_00 }] }, "b", names, "BRL")).toMatch(/Você deve R\$\s?560,00 para Ana/);
+    expect(roleSentence({ kind: "transfer", amountCents: 40_00, payerId: "b", splits: [{ participantId: "a", amountCents: 40_00 }] }, "a", names, "BRL")).toMatch(/Bia te pagou/);
+  });
+});

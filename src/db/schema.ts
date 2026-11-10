@@ -22,6 +22,11 @@ export const households = pgTable("households", {
   name: text().notNull(),
   currency: text().notNull().default("BRL"),
   locale: text().notNull().default("pt-BR"),
+  /**
+   * Desde quando lançamentos que envolvem outro membro precisam ser aceitos por ele.
+   * Os anteriores (de antes de existir a confirmação) valem como já aceitos.
+   */
+  approvalsFrom: timestamp({ withTimezone: true }).notNull().defaultNow(),
   createdAt: createdAt(),
 });
 
@@ -376,4 +381,28 @@ export const pushSent = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
+
+/**
+ * Confirmação de um membro sobre um lançamento que outra pessoa colocou no nome dele
+ * ("Para confirmar"). Enquanto ele não aceita, o lançamento não mexe nas dívidas.
+ * key = seriesId (parcelas e meses valem juntos) ou o id do lançamento.
+ * fingerprint = o que foi aceito (tipo, valor, quem pagou, divisão): se mudar, pede de novo.
+ */
+export const txApprovals = pgTable(
+  "tx_approvals",
+  {
+    householdId: uuid()
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    key: uuid().notNull(),
+    participantId: uuid()
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    status: text().notNull(), // accepted | refused
+    fingerprint: text().notNull(),
+    reason: text(),
+    decidedAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.key, t.participantId] }), index("tx_approvals_household_idx").on(t.householdId)],
 );

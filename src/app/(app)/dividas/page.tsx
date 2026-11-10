@@ -195,7 +195,11 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                       <Money cents={left} currency={cur} signed />
                       {covered ? <span className="sub" style={{ display: "block" }}>falta, de <Money cents={Math.abs(effect)} currency={cur} /></span> : null}
                     </span>
-                    {tx.kind !== "transfer" && (
+                    {tx.kind !== "transfer" && tx.splits.some((x) => x.pendingPayId && (x.participantId === p.personId || x.participantId === auth.participantId)) ? (
+                      <Link className="btn small ghost" href={`/transacoes/${tx.splits.find((x) => x.pendingPayId)!.pendingPayId}`}>
+                        Esperando confirmar
+                      </Link>
+                    ) : tx.kind !== "transfer" && (
                       <PayButton
                         txId={tx.id}
                         participantId={tx.payerId === auth.participantId ? p.personId : auth.participantId!}

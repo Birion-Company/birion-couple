@@ -1,7 +1,9 @@
 import "server-only";
+import { cache } from "react";
 import { and, asc, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { cardsFor, isAdmin, txScope, type Viewer } from "./access";
+import { approvalContext, approvalKey, approvalStates, type ApprovalInput, type ApprovalState } from "./approvals";
 import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type TransactionKind } from "./balances";
 import { stateFromParam } from "./tx-state";
 import type { Filters } from "./filters";
@@ -165,16 +167,23 @@ export type TxRow = {
   seriesTotal: number | null;
   /** Quem criou (usuário); só essa pessoa ou quem administra pode alterar. */
   createdBy: string | null;
+  householdId: string;
+  createdAt: Date;
+  /** Membros que ainda não aceitaram ou recusaram (ver lib/approvals.ts); nulo = valendo. */
+  approval: ApprovalState | null;
+  /** Esperando confirmação ou recusado: ainda não mexe nas dívidas. */
+  blocked: boolean;
   /** Compra recorrente: o mesmo estabelecimento aparece em meses diferentes (só na lista de lançamentos). */
   recurring?: boolean;
   /**
    * paidById/paidCents: o acerto que pagou esta parte e quanto foi pago nele.
    * restCents: pagou a menos e o que faltou continua como dívida (não é desconto).
+   * pendingPayId: pagamento registrado que a outra pessoa ainda não confirmou (a parte continua devida).
    */
-  splits: { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null; restCents: number }[];
+  splits: { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null; restCents: number; pendingPayId?: string | null }[];
 };
 
-type BaseRow = Omit<TxRow, "splits" | "settles">;
+type BaseRow = Omit<TxRow, "splits" | "settles" | "approval" | "blocked">;
 
 async function attachSplits(rows: BaseRow[]): Promise<TxRow[]> {
   if (rows.length === 0) return [];
@@ -215,13 +224,39 @@ async function attachSplits(rows: BaseRow[]): Promise<TxRow[]> {
       .where(inArray(schema.transactionSplits.paidById, acertoIds.slice(i, i + 500)));
     for (const f of found) settles.set(f.paidById!, { txId: f.txId, description: f.description, owedCents: f.owedCents, restCents: rest.get(f.paidById!) ?? 0 });
   }
+  // Confirmação dos membros: dos lançamentos e dos pagamentos ligados a eles (que podem não estar na lista).
+  const householdId = rows[0].householdId;
+  const splitsOf = (id: string) => splits.filter((x) => x.transactionId === id);
+  const inputs: ApprovalInput[] = rows.map((r) => ({ ...r, splits: splitsOf(r.id) }));
+  const missingPays = payIds.filter((id) => !rows.some((r) => r.id === id));
+  for (let i = 0; i < missingPays.length; i += 500) {
+    const part = missingPays.slice(i, i + 500);
+    const [payRows, paySplits] = await Promise.all([
+      db.select({ id: t.id, seriesId: t.seriesId, kind: t.kind, payerId: t.payerId, amountCents: t.amountCents, createdBy: t.createdBy, createdAt: t.createdAt }).from(t).where(inArray(t.id, part)),
+      db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, part)),
+    ]);
+    for (const p of payRows) inputs.push({ ...p, splits: paySplits.filter((x) => x.transactionId === p.id) });
+  }
+  const approvals = await approvalStates(householdId, inputs);
   const by = new Map<string, TxRow["splits"]>();
   for (const s of splits) {
     const list = by.get(s.transactionId) ?? [];
-    list.push({ participantId: s.participantId, amountCents: s.amountCents, paidById: s.paidById, paidCents: s.paidById ? paid.get(s.paidById) ?? null : null, restCents: s.paidById ? rest.get(s.paidById) ?? 0 : 0 });
+    // Pagamento que a outra pessoa ainda não confirmou: a parte continua devida até ela aceitar.
+    const payPending = !!s.paidById && approvals.has(s.paidById);
+    list.push({
+      participantId: s.participantId,
+      amountCents: s.amountCents,
+      paidById: payPending ? null : s.paidById,
+      paidCents: s.paidById && !payPending ? paid.get(s.paidById) ?? null : null,
+      restCents: s.paidById && !payPending ? rest.get(s.paidById) ?? 0 : 0,
+      pendingPayId: payPending ? s.paidById : null,
+    });
     by.set(s.transactionId, list);
   }
-  return rows.map((r) => ({ ...r, splits: by.get(r.id) ?? [], settles: settles.get(r.id) ?? null }));
+  return rows.map((r) => {
+    const approval = approvals.get(r.id) ?? null;
+    return { ...r, splits: by.get(r.id) ?? [], settles: settles.get(r.id) ?? null, approval, blocked: !!approval };
+  });
 }
 
 const txColumns = {
@@ -245,6 +280,8 @@ const txColumns = {
   seriesIndex: t.seriesIndex,
   seriesTotal: t.seriesTotal,
   createdBy: t.createdBy,
+  householdId: t.householdId,
+  createdAt: t.createdAt,
 };
 
 export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, offset = 0) {
@@ -308,6 +345,51 @@ export async function countUnidentified(viewer: Viewer): Promise<number> {
   const [{ n }] = await getDb().select({ n: sql<number>`count(*)::int` }).from(t).where(unidentifiedWhere(viewer));
   return n;
 }
+
+/** Um item de "Para confirmar": o lançamento (numa série, a primeira parcela em aberto) e quantos são. */
+export type ApprovalItem = { tx: TxRow; count: number };
+
+/**
+ * "Para confirmar": o que outras pessoas colocaram no seu nome e você ainda não aceitou (ou recusou),
+ * e o que você lançou e está esperando alguém. Parcelas e meses de uma série aparecem uma vez só.
+ */
+export const getApprovalInbox = cache(async (viewer: Viewer) => {
+  const me = viewer.participantId;
+  const empty = { toMe: [] as ApprovalItem[], refusedByMe: [] as ApprovalItem[], fromMe: [] as ApprovalItem[] };
+  if (!me) return empty;
+  const ctx = await approvalContext(viewer.householdId);
+  const rows = await getDb()
+    .select(txColumns)
+    .from(t)
+    .where(
+      and(
+        eq(t.householdId, viewer.householdId),
+        gte(t.createdAt, ctx.from),
+        or(
+          eq(t.createdBy, viewer.userId),
+          eq(t.payerId, me),
+          sql`exists (select 1 from "transaction_splits" s where s."transactionId" = ${t.id} and s."participantId" = ${me})`,
+        ),
+      ),
+    )
+    .orderBy(asc(t.date), asc(t.createdAt));
+  const full = (await attachSplits(rows as BaseRow[])).filter((r) => r.approval);
+  const group = (list: TxRow[]) => {
+    const by = new Map<string, ApprovalItem>();
+    for (const r of list) {
+      const k = approvalKey(r);
+      const cur = by.get(k);
+      if (cur) cur.count++;
+      else by.set(k, { tx: r, count: 1 });
+    }
+    return [...by.values()];
+  };
+  return {
+    toMe: group(full.filter((r) => r.approval!.waiting.includes(me))),
+    refusedByMe: group(full.filter((r) => r.approval!.refused.some((x) => x.id === me))),
+    fromMe: group(full.filter((r) => r.createdBy === viewer.userId)),
+  };
+});
 
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
@@ -374,6 +456,10 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         seriesIndex: o.index,
         seriesTotal: null,
         createdBy: s.createdBy,
+        householdId: viewer.householdId,
+        createdAt: new Date(),
+        approval: null,
+        blocked: false,
         splits: splits.map((x) => ({ ...x, paidById: null, paidCents: null, restCents: 0 })),
       });
     }
