@@ -24,7 +24,7 @@ const emptyRow = (date: string): Row => ({ key: ++seq, date, description: "", am
 export function BatchForm({ lookups, currency, me }: { lookups: Lookups; currency: string; me: string | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const people = lookups.participants.filter((p) => !p.archived && !p.temporary);
+  const people = lookups.participants.filter((p) => !p.archived);
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [payerId, setPayerId] = useState(me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "");
   const [splitIds, setSplitIds] = useState<string[]>(payerId ? [payerId] : []);

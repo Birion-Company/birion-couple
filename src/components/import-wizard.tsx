@@ -40,7 +40,7 @@ export function ImportWizard({
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [include, setInclude] = useState<Set<string>>(new Set());
   const [cats, setCats] = useState<Record<string, string>>({});
-  const people = lookups.participants.filter((p) => !p.archived && !p.temporary);
+  const people = lookups.participants.filter((p) => !p.archived);
   const firstPerson = me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "";
   const [payerId, setPayerId] = useState(firstPerson);
   const [splitIds, setSplitIds] = useState<string[]>(firstPerson ? [firstPerson] : []);

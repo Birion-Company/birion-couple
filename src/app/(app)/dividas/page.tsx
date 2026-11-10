@@ -152,7 +152,6 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
               <div className="grow" style={{ minWidth: 0 }}>
                 <h2 id={`dv-${p.personId}`}>
                   {person?.name ?? "Alguém"}
-                  {person?.temporary && <span className="tag-temp" title="Pessoa avulsa: criada só para um lançamento">avulsa</span>}
                 </h2>
                 <p className="faint ledger-count">
                   {p.entries.length} {p.entries.length === 1 ? "lançamento em aberto" : "lançamentos em aberto"}

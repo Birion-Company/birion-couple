@@ -3,9 +3,20 @@
 /** Máximo de cartões ativos por pessoa (arquivados não contam). */
 export const CARDS_PER_PERSON_MAX = 3;
 
-/** Máximo de pessoas ativas numa família (arquivadas não contam). */
-export const FAMILY_PEOPLE_MAX = 10;
-export const FAMILY_FULL_MESSAGE = `A família já tem ${FAMILY_PEOPLE_MAX} pessoas, o máximo. Arquive alguém para abrir espaço.`;
+/**
+ * Pessoas de uma família:
+ * - Membros: têm login (entram no app). Limite do plano família, contando você.
+ * - Contatos: sem login (quem só divide conta, como Fulano). Limite de ativos (os que aparecem nas listas)
+ *   e um teto do total guardado, para as listas e os cálculos de dívida não crescerem sem fim.
+ */
+export const MEMBERS_MAX = 10;
+export const CONTACTS_ACTIVE_MAX = 30;
+export const CONTACTS_TOTAL_MAX = 200;
+/** Contato sem dívida e sem lançamento há esse tempo sai das listas sozinho (volta ao digitar o nome). */
+export const CONTACT_IDLE_DAYS = 90;
+export const MEMBERS_FULL_MESSAGE = `A família já tem ${MEMBERS_MAX} pessoas com login, o máximo do plano.`;
+export const CONTACTS_FULL_MESSAGE = `Já há ${CONTACTS_ACTIVE_MAX} contatos ativos. Esconda um que não usa mais, em Ajustes → Pessoas.`;
+export const CONTACTS_TOTAL_MESSAGE = `A família chegou a ${CONTACTS_TOTAL_MAX} contatos guardados. Exclua alguns que não usa mais.`;
 
 /** Tamanho máximo do nome da família (aparece no menu lateral, abaixo da marca). */
 export const HOUSEHOLD_NAME_MAX = 20;

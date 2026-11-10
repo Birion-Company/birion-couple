@@ -15,10 +15,13 @@ import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { ImpactBox } from "./impact-box";
 import { Avatar } from "./ui";
-import { TempPersonAdder, type TempPerson } from "./temp-person";
+import { ContactAdder, type NewContact } from "./contact-adder";
 
 type Kind = "expense" | "income" | "loan" | "transfer";
 type Repeat = "once" | "installment" | "monthly";
+
+/** Na divisão aparecem os membros e só os contatos usados por último (o resto num "Mostrar mais"). */
+const RECENT_CONTACTS = 8;
 
 /** O que cada tipo significa, mostrado embaixo da escolha. */
 const KIND_HELP: Record<Kind, string> = {
@@ -66,16 +69,22 @@ export function TxForm({
   };
   const router = useRouter();
   const [pending, start] = useTransition();
-  // Pessoas da família (ativas) + as avulsas que estão neste lançamento ou que acabaram de ser adicionadas.
-  const [extra, setExtra] = useState<TempPerson[]>([]);
+  // Pessoas: membros (com login) + contatos ativos, mais quem está neste lançamento ou acabou de ser adicionado.
+  const [extra, setExtra] = useState<NewContact[]>([]);
+  const [allContacts, setAllContacts] = useState(false);
   const inThisTx = new Set(
     [initial?.payerId, ...(initial?.splits.map((s) => s.participantId) ?? []), prefill?.payerId, prefill?.toId, ...extra.map((x) => x.id)].filter(Boolean) as string[],
   );
-  const people = [
-    ...lookups.participants.filter((p) => (!p.archived && !p.temporary) || inThisTx.has(p.id)),
-    ...extra.filter((x) => !lookups.participants.some((p) => p.id === x.id && ((!p.archived && !p.temporary) || inThisTx.has(p.id)))),
+  const shown = (p: { id: string; archived: boolean }) => !p.archived || inThisTx.has(p.id);
+  // Membros primeiro (na ordem da família); depois os contatos usados por último.
+  const members = lookups.participants.filter((p) => p.hasLogin && shown(p));
+  const contacts = [
+    ...lookups.participants.filter((p) => !p.hasLogin && shown(p)).sort((a, b) => (b.lastUsed ?? "").localeCompare(a.lastUsed ?? "")),
+    ...extra.filter((x) => !lookups.participants.some((p) => p.id === x.id && shown(p))),
   ];
-  const tempNames = lookups.participants.filter((p) => p.temporary).map((p) => p.name);
+  const people = [...members, ...contacts];
+  // Nomes de todos os contatos (inclusive escondidos) para o "Adicionar pessoa" sugerir.
+  const contactNames = lookups.participants.filter((p) => !p.hasLogin).map((p) => p.name);
   const firstPerson = me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "";
 
   const [kind, setKind] = useState<Kind>(initial?.kind ?? prefill?.kind ?? "expense");
@@ -453,8 +462,8 @@ export function TxForm({
                 ariaLabel={kind === "loan" ? "Quem deve" : "Para quem"}
               />
               {!readOnly && (
-                <TempPersonAdder
-                  suggestions={tempNames}
+                <ContactAdder
+                  suggestions={contactNames}
                   onAdd={(p) => {
                     setExtra((x) => [...x.filter((y) => y.id !== p.id), p]);
                     setSplitIds([p.id]);
@@ -496,7 +505,7 @@ export function TxForm({
                   Valores diferentes
                 </button>
               </div>
-              {people.map((p, i) => {
+              {people.filter((p) => allContacts || !contacts.slice(RECENT_CONTACTS).some((c) => c.id === p.id) || splitIds.includes(p.id)).map((p, i) => {
                 const on = splitIds.includes(p.id);
                 const idx = splitIds.indexOf(p.id);
                 return (
@@ -524,9 +533,14 @@ export function TxForm({
                   </div>
                 );
               })}
+              {!allContacts && contacts.length > RECENT_CONTACTS && (
+                <button type="button" className="btn small ghost" onClick={() => setAllContacts(true)}>
+                  Mostrar mais {contacts.length - RECENT_CONTACTS} {contacts.length - RECENT_CONTACTS === 1 ? "contato" : "contatos"}
+                </button>
+              )}
               {!readOnly && (
-                <TempPersonAdder
-                  suggestions={tempNames}
+                <ContactAdder
+                  suggestions={contactNames}
                   onAdd={(p) => {
                     setExtra((x) => [...x.filter((y) => y.id !== p.id), p]);
                     setSplitIds((ids) => (ids.includes(p.id) ? ids : [...ids, p.id]));

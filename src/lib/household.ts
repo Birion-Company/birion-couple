@@ -1,37 +1,33 @@
 import "server-only";
-import { and, count, eq, isNotNull, notInArray } from "drizzle-orm";
+import { and, count, eq, isNotNull, notInArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { DEFAULT_CATEGORIES, DEFAULT_STATUSES, FAMILY_PEOPLE_MAX, HOUSEHOLD_NAME_MAX } from "./defaults";
+import { DEFAULT_CATEGORIES, DEFAULT_STATUSES, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "./defaults";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Db = ReturnType<typeof getDb> | Tx;
 
-/**
- * Quantas pessoas ativas contam no limite da família. Não contam: quem administra (você), as arquivadas
- * e as avulsas.
- */
-export async function activePeopleCount(db: Db, householdId: string) {
-  const owners = db
-    .select({ id: schema.memberships.participantId })
-    .from(schema.memberships)
-    .where(and(eq(schema.memberships.householdId, householdId), eq(schema.memberships.role, "owner"), isNotNull(schema.memberships.participantId)));
-  const [{ n }] = await db
-    .select({ n: count() })
-    .from(schema.participants)
-    .where(
-      and(
-        eq(schema.participants.householdId, householdId),
-        eq(schema.participants.archived, false),
-        eq(schema.participants.temporary, false),
-        notInArray(schema.participants.id, owners),
-      ),
-    );
+/** Pessoas com login na família (membros), contando você. */
+export async function membersCount(db: Db, householdId: string) {
+  const [{ n }] = await db.select({ n: count() }).from(schema.memberships).where(eq(schema.memberships.householdId, householdId));
   return n;
 }
 
-/** Ainda cabe mais uma pessoa ativa na família? */
-export async function hasRoomForPerson(db: Db, householdId: string) {
-  return (await activePeopleCount(db, householdId)) < FAMILY_PEOPLE_MAX;
+/** Ainda cabe mais alguém com login? */
+export async function hasRoomForMember(db: Db, householdId: string) {
+  return (await membersCount(db, householdId)) < MEMBERS_MAX;
+}
+
+/** Contatos (pessoas sem login): quantos estão nas listas (ativos) e quantos existem no total. */
+export async function contactsCount(db: Db, householdId: string) {
+  const withLogin = db
+    .select({ id: schema.memberships.participantId })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, householdId), isNotNull(schema.memberships.participantId)));
+  const [row] = await db
+    .select({ total: count(), active: sql<number>`count(*) filter (where not ${schema.participants.archived})::int` })
+    .from(schema.participants)
+    .where(and(eq(schema.participants.householdId, householdId), notInArray(schema.participants.id, withLogin)));
+  return { active: row.active, total: row.total };
 }
 
 /**

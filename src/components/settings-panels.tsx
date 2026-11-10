@@ -24,7 +24,7 @@ import { Dot } from "./ui";
 /** Abas de Ajustes, com uma frase dizendo para que serve cada uma. */
 const TABS = [
   { href: "/ajustes", label: "Família", help: "Nome da família e moeda." },
-  { href: "/ajustes/pessoas", label: "Pessoas", help: "Quem divide as contas. Não precisa ter login." },
+  { href: "/ajustes/pessoas", label: "Pessoas", help: "Família (com login) e contatos (sem login)." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
   { href: "/ajustes/projetos", label: "Projetos", help: "Opcionais. Juntam gastos de um assunto, como uma viagem." },
   { href: "/ajustes/status", label: "Status", help: "Automático, a partir de quem pagou e de quem tem parte." },

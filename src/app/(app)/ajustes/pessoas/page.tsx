@@ -1,19 +1,65 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { UserPlus } from "lucide-react";
 import { ListEditor } from "@/components/list-editor";
-import { TempPeopleList } from "@/components/temp-people-list";
+import { Avatar } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
+import { CONTACT_IDLE_DAYS, CONTACTS_TOTAL_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getLookups } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Pessoas" };
 
+/**
+ * Dois tipos de pessoa:
+ * - Família (com login): entram no app. Limite do plano, contando você.
+ * - Contatos (sem login): quem só divide conta. Limite de ativos; parados e quites saem das listas sozinhos.
+ */
 export default async function PeoplePage() {
   const auth = await requireAuth();
   const { participants } = await getLookups(auth.householdId);
+  const members = participants.filter((p) => p.hasLogin);
+  const contacts = participants.filter((p) => !p.hasLogin);
+  const owner = auth.role === "owner";
   return (
     <>
-      {/* Você não aparece aqui: seu nome e sua foto ficam no seu perfil (e a cor também). */}
-      <ListEditor kind="participants" items={participants.filter((p) => !p.temporary && p.id !== auth.participantId)} hidden={auth.role === "owner" ? 0 : 1} />
-      <TempPeopleList people={participants.filter((p) => p.temporary)} />
+      <section className="card section" aria-labelledby="familia">
+        <div className="card-head">
+          <h2 id="familia">Família (com login)</h2>
+          <span className={`faint num ${members.length >= MEMBERS_MAX ? "neg" : ""}`}>
+            {members.length} de {MEMBERS_MAX}, contando você
+          </span>
+        </div>
+        <p className="faint">Entram no app, veem o que os envolve e recebem avisos.</p>
+        <div className="rows" style={{ marginTop: 8 }}>
+          {members.map((p) => (
+            <div key={p.id} className="row">
+              <Avatar name={p.name} color={p.color} src={p.avatarUrl} />
+              <div className="grow">
+                <p className="title">
+                  {p.name}
+                  {p.id === auth.participantId && <span className="faint"> · você</span>}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {owner && members.length < MEMBERS_MAX && (
+          <div className="actions" style={{ marginTop: 12 }}>
+            <Link className="btn" href="/ajustes/membros">
+              <UserPlus size={16} /> Convidar alguém
+            </Link>
+          </div>
+        )}
+      </section>
+
+      <section className="section" aria-labelledby="contatos">
+        <h2 id="contatos" style={{ margin: "0 0 4px" }}>Contatos (sem login)</h2>
+        <p className="faint" style={{ marginBottom: 10 }}>
+          Quem só divide conta, como Fulano. Parado {CONTACT_IDLE_DAYS} dias e sem dívida, sai das listas sozinho e volta ao digitar o nome.
+          Até {CONTACTS_TOTAL_MAX} guardados.
+        </p>
+        <ListEditor kind="participants" items={contacts} canInvite={owner} />
+      </section>
     </>
   );
 }

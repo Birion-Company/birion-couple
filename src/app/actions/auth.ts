@@ -1,12 +1,12 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { and, eq, gte, isNull } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import * as z from "zod";
-import { defaultHouseholdName, FAMILY_PEOPLE_MAX, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
+import { defaultHouseholdName, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getDb, schema } from "@/db";
-import { createHouseholdForUser, hasRoomForPerson } from "@/lib/household";
+import { createHouseholdForUser, hasRoomForMember } from "@/lib/household";
 import { createSession, destroySession } from "@/lib/session";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
@@ -104,8 +104,8 @@ export async function acceptInvite(_: FormState, form: FormData): Promise<FormSt
     .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .where(and(eq(schema.memberships.householdId, invite.householdId), eq(schema.users.email, parsed.data.email)))
     .limit(1);
-  if (!member && !(await hasRoomForPerson(db, invite.householdId))) {
-    return { error: `Esta família já está no limite de ${FAMILY_PEOPLE_MAX} pessoas.`, fields };
+  if (!member && !(await hasRoomForMember(db, invite.householdId))) {
+    return { error: `Esta família já está no limite de ${MEMBERS_MAX} pessoas com login.`, fields };
   }
 
   const [existing] = await db.select().from(schema.users).where(eq(schema.users.email, parsed.data.email)).limit(1);
@@ -129,11 +129,31 @@ export async function acceptInvite(_: FormState, form: FormData): Promise<FormSt
       .where(and(eq(schema.memberships.householdId, invite.householdId), eq(schema.memberships.userId, userId)))
       .limit(1);
     if (!already) {
-      const [p] = await tx
-        .insert(schema.participants)
-        .values({ householdId: invite.householdId, name: parsed.data.name, color: "#A77BDB", sortOrder: 99 })
-        .returning({ id: schema.participants.id });
-      await tx.insert(schema.memberships).values({ householdId: invite.householdId, userId, role: invite.role, participantId: p.id });
+      // Convite feito a partir de um contato: a conta assume essa pessoa (com o histórico e as dívidas dela),
+      // se ela ainda não tem login. Senão, cria a pessoa nova.
+      const [contact] = invite.participantId
+        ? await tx
+            .select({ id: schema.participants.id })
+            .from(schema.participants)
+            .where(
+              and(
+                eq(schema.participants.id, invite.participantId),
+                eq(schema.participants.householdId, invite.householdId),
+                sql`not exists (select 1 from "memberships" m where m."participantId" = ${schema.participants.id})`,
+              ),
+            )
+        : [];
+      let participantId = contact?.id;
+      if (participantId) {
+        await tx.update(schema.participants).set({ archived: false, temporary: false }).where(eq(schema.participants.id, participantId));
+      } else {
+        const [p] = await tx
+          .insert(schema.participants)
+          .values({ householdId: invite.householdId, name: parsed.data.name, color: "#A77BDB", sortOrder: 99 })
+          .returning({ id: schema.participants.id });
+        participantId = p.id;
+      }
+      await tx.insert(schema.memberships).values({ householdId: invite.householdId, userId, role: invite.role, participantId });
     }
     await tx.update(schema.invites).set({ usedAt: new Date() }).where(eq(schema.invites.id, invite.id));
   });

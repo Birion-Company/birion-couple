@@ -9,6 +9,7 @@ import { addDaysIso, addMonthsKey, competenceMonth, todayIn } from "./cards";
 import { merchantKey, recurringMerchants } from "./import/patterns";
 import { dueOccurrences, endOfMonth } from "./recurring";
 import { ensureRecurring } from "./recurring-server";
+import { lastUsedByPerson } from "./contacts";
 
 const t = schema.transactions;
 
@@ -33,13 +34,17 @@ export async function getLookups(householdId: string) {
     .where(and(eq(schema.memberships.householdId, householdId), isNotNull(schema.users.avatarUpdatedAt)));
   const photoOf = new Map(photos.map((x) => [x.participantId, `/api/avatar/${x.userId}?v=${x.at!.getTime()}`]));
   // Quem tem login: a foto do perfil. Quem não tem: a foto cadastrada em Ajustes → Pessoas (se houver).
-  const logins = new Set(
-    (await db.select({ id: schema.memberships.participantId }).from(schema.memberships).where(eq(schema.memberships.householdId, householdId))).map((m) => m.id),
-  );
+  const [loginRows, lastUsed] = await Promise.all([
+    db.select({ id: schema.memberships.participantId }).from(schema.memberships).where(eq(schema.memberships.householdId, householdId)),
+    // Última vez que cada pessoa apareceu num lançamento: ordena os contatos recentes nas listas.
+    lastUsedByPerson(householdId),
+  ]);
+  const logins = new Set(loginRows.map((m) => m.id));
   return {
     participants: participants.map((x) => ({
       ...x,
       hasLogin: logins.has(x.id),
+      lastUsed: lastUsed.get(x.id) ?? null,
       avatarUrl: photoOf.get(x.id) ?? (x.photoUpdatedAt && !logins.has(x.id) ? `/api/avatar/pessoa/${x.id}?v=${x.photoUpdatedAt.getTime()}` : null),
     })),
     categories,

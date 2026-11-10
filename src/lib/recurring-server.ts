@@ -4,7 +4,7 @@ import { cache } from "react";
 import { getDb, schema } from "@/db";
 import { todayIn } from "./cards";
 import { classifyFromHistory, expandInstallments } from "./patterns-server";
-import { archiveSettledTemporary } from "./temp-people";
+import { hideIdleContacts } from "./contacts";
 import { dueOccurrences, endOfMonth } from "./recurring";
 
 type Split = { participantId: string; amountCents: number };
@@ -84,7 +84,7 @@ const FRESH_MS = 5 * 60_000;
 /**
  * Manutenção da família: cria os meses das recorrências, as parcelas que faltam das compras
  * parceladas do extrato, classifica o que ficou sem categoria pelo histórico do estabelecimento
- * e arquiva pessoas avulsas quitadas.
+ * e esconde contatos parados e quites.
  *
  * Roda antes das consultas, mas só quando algo mudou: toda ação que grava registra uma atividade,
  * então basta ver se há atividade nova desde a última vez (uma consulta de ~1 ms). Assim trocar de
@@ -102,6 +102,6 @@ export const ensureRecurring = cache(async (householdId: string) => {
   await materializeRecurring(householdId);
   await expandInstallments(householdId);
   await classifyFromHistory(householdId);
-  await archiveSettledTemporary(householdId);
+  await hideIdleContacts(householdId);
   lastRun.set(householdId, { at: Date.now(), month, activity });
 });

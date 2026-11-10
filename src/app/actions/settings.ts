@@ -1,7 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { and, asc, count, eq, gte, inArray, isNotNull, ne } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
@@ -9,10 +9,10 @@ import { canEditTx } from "@/lib/access";
 import { involved, logActivity, snapshots } from "@/lib/activity";
 import { requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
 import { ruleMatches } from "@/lib/rules-server";
-import { findOrCreateTempPerson } from "@/lib/temp-people";
+import { findOrCreateContact, hasRoomForContact } from "@/lib/contacts";
 import { ICON_KEYS } from "@/lib/category-icons";
-import { FAMILY_FULL_MESSAGE, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
-import { hasRoomForPerson } from "@/lib/household";
+import { HOUSEHOLD_NAME_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
+import { hasRoomForMember } from "@/lib/household";
 import { destroySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
@@ -101,7 +101,11 @@ export async function saveListItem(kind: ListKind, id: string | null, input: Rec
   const db = getDb();
   const table = tables[kind];
   const data = parsed.data as Record<string, unknown>;
-  if (kind === "participants" && !id && !(await hasRoomForPerson(db, auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
+  // Pessoa nova criada aqui é um contato (sem login): respeita o limite de contatos.
+  if (kind === "participants" && !id) {
+    const full = await hasRoomForContact(auth.householdId, { creating: true });
+    if (full) return fail(full);
+  }
 
   await db.transaction(async (tx) => {
     // Só pode haver um status padrão para lançamentos e um para importações.
@@ -122,8 +126,12 @@ export async function saveListItem(kind: ListKind, id: string | null, input: Rec
 export async function setArchived(kind: ListKind, id: string, archived: boolean): Promise<ActionResult> {
   const auth = await requireAuth();
   const table = tables[kind];
-  if (kind === "participants" && !archived && !(await hasRoomForPerson(getDb(), auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
+  if (kind === "participants" && !archived) {
+    const full = await hasRoomForContact(auth.householdId);
+    if (full) return fail(full);
+  }
   await getDb().update(table).set({ archived }).where(and(eq(table.id, id), eq(table.householdId, auth.householdId)));
+  if (kind === "participants") return done(archived ? "Escondido. Volta ao digitar o nome num lançamento." : "Voltou para as listas.");
   return done(archived ? "Arquivado. Continua nos lançamentos antigos, mas some das opções." : "Reativado.");
 }
 
@@ -230,9 +238,23 @@ export async function deletePreset(id: string): Promise<ActionResult> {
 
 // ---------- Membros e convites ----------
 
-export async function createInvite(role: "owner" | "member"): Promise<ActionResult & { code?: string }> {
+export async function createInvite(role: "owner" | "member", participantId: string | null = null): Promise<ActionResult & { code?: string }> {
   const auth = await requireOwner();
-  if (!(await hasRoomForPerson(getDb(), auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
+  if (!(await hasRoomForMember(getDb(), auth.householdId))) return fail(MEMBERS_FULL_MESSAGE);
+  // Convite de um contato: a conta nova fica ligada a ele (só se for mesmo um contato desta família, sem login).
+  if (participantId) {
+    const [ok] = await getDb()
+      .select({ id: schema.participants.id })
+      .from(schema.participants)
+      .where(
+        and(
+          eq(schema.participants.id, participantId),
+          eq(schema.participants.householdId, auth.householdId),
+          sql`not exists (select 1 from "memberships" m where m."participantId" = ${schema.participants.id})`,
+        ),
+      );
+    if (!ok) return fail("Essa pessoa já tem login ou não é desta família.");
+  }
   const code = randomBytes(12).toString("base64url");
   await getDb()
     .insert(schema.invites)
@@ -240,6 +262,7 @@ export async function createInvite(role: "owner" | "member"): Promise<ActionResu
       householdId: auth.householdId,
       code,
       role: role === "owner" ? "owner" : "member",
+      participantId,
       createdBy: auth.userId,
       expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
     });
@@ -321,36 +344,30 @@ export async function sortCategoriesByUse(): Promise<ActionResult> {
   return done(used.length ? "Pronto: as mais usadas estão no topo." : "Ainda não há despesas com categoria para saber quais você usa mais.");
 }
 
-// ---------- Pessoas avulsas ----------
+// ---------- Contatos (pessoas sem login) ----------
 
 /**
- * Pessoa só para um lançamento ("emprestei para o Fulano"). Se o nome já existe, devolve a mesma pessoa
- * (não cria outro Fulano); se não, cria como avulsa.
+ * "Adicionar pessoa" no lançamento: acha pelo nome (não cria outro Fulano) ou cria um contato.
+ * Respeita os limites de contatos (ativos e guardados).
  */
-export async function addTempPerson(name: string): Promise<ActionResult & { person?: { id: string; name: string; color: string; archived: boolean; temporary: boolean }; reused?: boolean }> {
+export async function addContact(name: string): Promise<ActionResult & { person?: { id: string; name: string; color: string; archived: boolean }; reused?: boolean }> {
   const auth = await requireAuth();
   const parsed = label("a pessoa").safeParse(name);
   if (!parsed.success) return firstIssue(parsed.error);
-  const { person, reused } = await findOrCreateTempPerson(auth.householdId, parsed.data);
+  const r = await findOrCreateContact(auth.householdId, parsed.data);
+  if (!r.ok) return fail(r.error);
   revalidatePath("/", "layout");
   return {
     ok: true,
-    person: { id: person.id, name: person.name, color: person.color, archived: person.archived, temporary: person.temporary },
-    reused,
-    message: reused ? `Usando ${person.name}, que já existe.` : `${person.name} adicionado só para este lançamento.`,
+    person: { id: r.person.id, name: r.person.name, color: r.person.color, archived: false },
+    reused: r.reused,
+    message: r.reused ? `Usando ${r.person.name}, que já existe.` : `${r.person.name} adicionado aos contatos.`,
   };
 }
 
-/** Pessoa avulsa vira pessoa da família (aparece nas listas e conta no limite). */
-export async function makePersonPermanent(id: string): Promise<ActionResult> {
-  const auth = await requireAuth();
-  const db = getDb();
-  if (!(await hasRoomForPerson(db, auth.householdId))) return fail(FAMILY_FULL_MESSAGE);
-  await db
-    .update(schema.participants)
-    .set({ temporary: false, archived: false })
-    .where(and(eq(schema.participants.id, id), eq(schema.participants.householdId, auth.householdId)));
-  return done("Agora faz parte das pessoas da família.");
+/** "Convidar para o app": convite ligado ao contato; ao aceitar, ele vira membro com o histórico dele. */
+export async function inviteContact(id: string) {
+  return createInvite("member", id);
 }
 
 // ---------- Foto e cor das pessoas ----------

@@ -11,7 +11,7 @@ import { requireAuth, type AuthContext } from "@/lib/auth";
 import { buildSeries, invoiceDates, invoiceOf, invoiceRange, monthLabel, shortDate, todayIn } from "@/lib/cards";
 import { materializeRecurring } from "@/lib/recurring-server";
 import { ruleCategory } from "@/lib/rules-server";
-import { reviveTemporary } from "@/lib/temp-people";
+import { reviveContacts } from "@/lib/contacts";
 import { PREDICTED } from "@/lib/patterns-server";
 import { getMembers, getSeriesItems, getTransaction } from "@/lib/queries";
 import { firstDateOf, isReal, planSeries, scaleSplits } from "@/lib/series-plan";
@@ -317,8 +317,8 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     }
     return txId!;
   });
-  // Pessoa avulsa que estava fora das listas (já tinha acertado tudo) volta, porque tem lançamento novo.
-  await reviveTemporary(auth.householdId, [...new Set([data.payerId, ...splits.map((x) => x.participantId)].filter((x): x is string => !!x))]);
+  // Contato escondido (parado e quite) volta às listas, porque tem lançamento novo.
+  await reviveContacts(auth.householdId, [...new Set([data.payerId, ...splits.map((x) => x.participantId)].filter((x): x is string => !!x))]);
   revalidatePath("/", "layout");
   return {
     ok: true,

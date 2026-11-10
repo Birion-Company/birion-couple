@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
-import { FAMILY_PEOPLE_MAX } from "@/lib/defaults";
+import { CONTACTS_ACTIVE_MAX, MEMBERS_MAX } from "@/lib/defaults";
 
 export const metadata: Metadata = { title: "Como funciona" };
 
@@ -13,7 +13,7 @@ const SECTIONS: Section[] = [
     id: "comecar",
     title: "Para começar",
     items: [
-      { term: "Pessoa", text: "Quem divide as contas. Não precisa ter login." },
+      { term: "Pessoas", text: "Família: tem login e entra no app. Contato: só divide conta, sem login." },
       { term: "1. Pessoas", text: <>Cadastre em <Link href="/ajustes/pessoas">Ajustes → Pessoas</Link>.</> },
       { term: "2. Convites", text: <>Gere links em <Link href="/ajustes/membros">Ajustes → Acesso</Link>.</> },
       { term: "3. Lançamentos", text: <>Use <Link href="/transacoes/nova">Novo lançamento</Link> ou <Link href="/ajustes/importacao">importe o extrato</Link>.</> },
@@ -89,7 +89,7 @@ const SECTIONS: Section[] = [
       { term: "Registrar pagamento", text: "Um valor solto que abate as dívidas mais antigas." },
       { term: "Já pago", text: "Fica no histórico, com “Desfazer”." },
       { term: "Parcelas futuras", text: "Só contam no mês delas; antes aparecem como “a vencer”." },
-      { term: "Pessoa avulsa", text: "Digite um nome novo ao lançar (ex.: Fulano). Some sozinha quando tudo for pago." },
+      { term: "Contatos", text: "Digite o nome em Adicionar pessoa (ex.: Fulano). Parado 90 dias e quite, sai das listas e volta ao digitar." },
     ],
   },
   {
@@ -98,7 +98,7 @@ const SECTIONS: Section[] = [
     items: [
       { term: "Quem administra", text: "Vê e altera tudo." },
       { term: "Outros membros", text: "Veem só o que lançaram, pagaram ou têm parte. Só quem lançou altera." },
-      { term: "Limite", text: `Até ${FAMILY_PEOPLE_MAX} integrantes, sem contar você.` },
+      { term: "Limites", text: `Até ${MEMBERS_MAX} pessoas com login (contando você) e ${CONTACTS_ACTIVE_MAX} contatos ativos.` },
     ],
   },
 ];

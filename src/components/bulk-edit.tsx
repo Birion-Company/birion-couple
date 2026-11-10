@@ -27,7 +27,7 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
   const [changeDate, setChangeDate] = useState(false);
   const [date, setDate] = useState("");
   const dialog = useRef<HTMLDivElement>(null);
-  const people = lookups.participants.filter((p) => !p.archived && !p.temporary);
+  const people = lookups.participants.filter((p) => !p.archived);
   const name = (id: string | null) => lookups.participants.find((p) => p.id === id)?.name ?? "alguém";
 
   useEffect(() => {

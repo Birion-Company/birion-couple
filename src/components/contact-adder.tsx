@@ -2,23 +2,23 @@
 
 import { useId, useState, useTransition } from "react";
 import { UserPlus } from "lucide-react";
-import { addTempPerson } from "@/app/actions/settings";
+import { addContact } from "@/app/actions/settings";
 import { toastResult } from "./toaster";
 
-export type TempPerson = { id: string; name: string; color: string; archived: boolean; temporary: boolean };
+export type NewContact = { id: string; name: string; color: string; archived: boolean };
 
 /**
- * "+ Pessoa avulsa": alguém só para este lançamento (ex.: emprestei para o Fulano), sem cadastrar na família.
- * Digitar um nome que já existe usa a mesma pessoa (não cria outro Fulano).
+ * "Adicionar pessoa" no lançamento: digite o nome. Se já existe (mesmo escondida), usa a mesma pessoa;
+ * se não, cria um contato (pessoa sem login).
  */
-export function TempPersonAdder({ suggestions, onAdd }: { suggestions: string[]; onAdd: (p: TempPerson) => void }) {
+export function ContactAdder({ suggestions, onAdd }: { suggestions: string[]; onAdd: (p: NewContact) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [pending, start] = useTransition();
   const listId = useId();
   const add = () =>
     start(async () => {
-      const r = await addTempPerson(name);
+      const r = await addContact(name);
       toastResult(r);
       if (r.ok && r.person) {
         onAdd(r.person);
@@ -29,7 +29,7 @@ export function TempPersonAdder({ suggestions, onAdd }: { suggestions: string[];
   if (!open) {
     return (
       <button type="button" className="btn small ghost temp-person-btn" onClick={() => setOpen(true)}>
-        <UserPlus size={15} /> Pessoa avulsa (só para este lançamento)
+        <UserPlus size={15} /> Adicionar pessoa
       </button>
     );
   }
@@ -42,7 +42,7 @@ export function TempPersonAdder({ suggestions, onAdd }: { suggestions: string[];
         value={name}
         maxLength={60}
         placeholder="Nome (ex.: Fulano)"
-        aria-label="Nome da pessoa avulsa"
+        aria-label="Nome da pessoa"
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -62,9 +62,7 @@ export function TempPersonAdder({ suggestions, onAdd }: { suggestions: string[];
       <button type="button" className="btn small ghost" onClick={() => setOpen(false)}>
         Cancelar
       </button>
-      <p className="faint temp-person-hint">
-        Some sozinha quando acertar tudo. Mesmo nome = mesma pessoa.
-      </p>
+      <p className="faint temp-person-hint">Mesmo nome = mesma pessoa. Sem login, não entra no app.</p>
     </div>
   );
 }

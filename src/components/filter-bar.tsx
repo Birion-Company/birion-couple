@@ -9,7 +9,7 @@ import { Select, type SelectOption } from "./select";
 import { STATE_FILTER_OPTIONS } from "@/lib/tx-state";
 import { Avatar } from "./ui";
 
-type Option = { id: string; name: string; color: string; archived: boolean; temporary?: boolean; avatarUrl?: string | null };
+type Option = { id: string; name: string; color: string; archived: boolean; avatarUrl?: string | null };
 
 type Props = {
   filters: Filters;
@@ -91,8 +91,8 @@ export function FilterBar({ filters, participants, categories, projects, cards =
   };
 
   const active = extras > 0 || !!filters.q || (showPeriod && (filters.period !== defaultPeriod || !!filters.month));
-  // Pessoas avulsas só aparecem se estiverem escolhidas (ex.: vindo de Dívidas).
-  const people = participants.filter((p) => (!p.archived && !p.temporary) || p.id === filters.person);
+  // Contatos escondidos só aparecem se estiverem escolhidos (ex.: vindo de Dívidas).
+  const people = participants.filter((p) => !p.archived || p.id === filters.person);
 
   return (
     <div className="filter-bar" style={{ opacity: pending ? 0.6 : 1, transition: "opacity .15s" }}>

@@ -21,7 +21,7 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
     prefill = { kind: "loan", payerId: auth.participantId ?? undefined };
   }
 
-  if (lookups.participants.filter((p) => !p.archived && !p.temporary).length === 0) {
+  if (lookups.participants.filter((p) => !p.archived).length === 0) {
     return (
       <div className="card">
         <div className="empty">

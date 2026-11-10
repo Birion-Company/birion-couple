@@ -64,6 +64,8 @@ export const invites = pgTable("invites", {
     .references(() => households.id, { onDelete: "cascade" }),
   code: text().notNull().unique(),
   role: text().notNull().default("member"),
+  /** Convite feito a partir de um contato: ao aceitar, a conta fica ligada a essa pessoa (com o histórico dela). */
+  participantId: uuid().references(() => participants.id, { onDelete: "set null" }),
   createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
   usedAt: timestamp({ withTimezone: true }),
@@ -83,9 +85,8 @@ export const participants = pgTable(
     sortOrder: integer().notNull().default(0),
     archived: boolean().notNull().default(false),
     /**
-     * Pessoa avulsa: criada só para um lançamento (ex.: "emprestei para o Fulano"). Não aparece nas listas
-     * nem conta no limite de pessoas; sai sozinha (arquivada) quando não deve nem tem a receber nada,
-     * e volta a mesma pessoa se o nome for usado de novo.
+     * Antigo "pessoa avulsa". Não é mais usado: quem não tem login é um contato (lib/contacts.ts),
+     * com limite de ativos e escondido sozinho quando fica parado. Fica no banco só por compatibilidade.
      */
     temporary: boolean().notNull().default(false),
     /** Foto de quem não tem login (JPEG ~320px em base64). Quem tem login usa a foto do próprio perfil. */
