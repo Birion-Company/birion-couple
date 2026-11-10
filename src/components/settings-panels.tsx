@@ -35,7 +35,7 @@ export function SettingsTabs() {
   const active = TABS.find((t) => t.href === path);
   return (
     <>
-      <nav className="tabs" aria-label="Ajustes">
+      <nav className="tabs" aria-label="Ajustes" data-tour="settings-tabs">
         {TABS.map((t) => (
           <Link key={t.href} href={t.href} aria-current={path === t.href ? "page" : undefined}>
             {t.label}

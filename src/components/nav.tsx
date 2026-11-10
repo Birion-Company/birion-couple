@@ -20,6 +20,9 @@ function isActive(path: string, href: string) {
   return path === href || path.startsWith(href + "/");
 }
 
+/** Nome de cada item do menu para o tutorial destacar. */
+const TOUR: Record<string, string> = { "/identificar": "nav-identify", "/confirmar": "nav-confirm", "/projetos": "nav-projects" };
+
 /** Contador ao lado de "A identificar" e de "Para confirmar". */
 function Count({ n, what = "a identificar" }: { n: number; what?: string }) {
   if (n <= 0) return null;
@@ -36,7 +39,7 @@ export function SideNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number
     <nav aria-label="Principal">
       {/* "Novo lançamento" fica no botão do canto da tela (no celular, no + da barra de baixo). */}
       {items.filter((x) => !x.add).map(({ href, label, icon: Icon }) => (
-        <Link key={href} href={href} aria-current={isActive(path, href) ? "page" : undefined} data-tour={href === "/identificar" ? "nav-identify" : undefined}>
+        <Link key={href} href={href} aria-current={isActive(path, href) ? "page" : undefined} data-tour={TOUR[href]}>
           <Icon size={18} strokeWidth={1.6} />
           {label}
           {href === "/identificar" && <Count n={toIdentify} />}
@@ -56,7 +59,7 @@ export function BottomNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: numb
     <nav className="bottom-nav" aria-label="Principal">
       {/* O + fica no botão redondo do canto (fora da barra). */}
       {shown.map(({ href, label, icon: Icon, add, short }) => (
-        <Link key={href} href={href} className={add ? "add" : undefined} aria-current={isActive(path, href) ? "page" : undefined} aria-label={add ? "Novo lançamento" : undefined} data-tour={href === "/identificar" ? "nav-identify" : undefined}>
+        <Link key={href} href={href} className={add ? "add" : undefined} aria-current={isActive(path, href) ? "page" : undefined} aria-label={add ? "Novo lançamento" : undefined} data-tour={TOUR[href]}>
           <span className="icon">
             <Icon size={add ? 22 : 20} strokeWidth={add ? 2 : 1.6} />
             {href === "/identificar" && <Count n={toIdentify} />}

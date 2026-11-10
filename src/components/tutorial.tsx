@@ -10,7 +10,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, Bell, Check, ChevronLeft, ChevronRigh
  * e explica o que fazer ali. O destaque acompanha a rolagem quadro a quadro (sem animação
  * atrasada) e só desliza quando troca de área sem precisar rolar.
  */
-type Demo = "people" | "kinds" | "split" | "card" | "series" | "debts" | "panel" | "bell";
+type Demo = "people" | "kinds" | "split" | "card" | "series" | "debts" | "panel" | "bell" | "confirm" | "settings";
 type Step = {
   /** Página do passo; se for outra, o tour navega até lá. */
   route?: string;
@@ -26,27 +26,33 @@ type Step = {
 };
 
 const STEPS: Step[] = [
-  { title: "Bem-vindo ao BIRION", text: "Contas divididas entre pessoas, sem planilha. Leva um minuto.", demo: "people" },
-  { targets: ["new-fab", "tx-new"], title: "Novo lançamento", text: "No botão **+ Novo Lançamento**. Escolha o tipo da movimentação e o valor." },
-  { route: "/transacoes/nova", targets: ["tx-kind"], title: "Tipo", text: "**Despesa**, **Receita**, **Dívida** ou **Acerto**." },
-  { route: "/transacoes/nova", targets: ["tx-card", "tx-payer"], title: "Como foi pago", text: "Cartão X, Cartão Y ou PIX." },
-  { route: "/transacoes/nova", targets: ["tx-split"], title: "Dividir", text: "Marque quem tem parte. Quem não pagou fica devendo." },
-  { route: "/transacoes/nova", targets: ["tx-repeat"], title: "Parcelado e todo mês", text: "As próximas parcelas são criadas sozinhas, inclusive as do extrato." },
+  { title: "Bem-vindo ao BIRION", text: "Contas divididas entre pessoas, sem planilha. Em 2 minutos você vê o principal.", demo: "people" },
+  { targets: ["new-fab", "tx-new"], title: "Novo lançamento", text: "Tudo começa no botão **+**. Toque nele sempre que gastar, receber ou emprestar." },
+  { route: "/transacoes/nova", targets: ["tx-kind"], title: "Tipo", text: "**Despesa**: algo pago. **Receita**: dinheiro que entrou para você. **Dívida**: alguém fica devendo. **Acerto**: alguém pagou alguém." },
+  { route: "/transacoes/nova", targets: ["tx-card", "tx-payer"], title: "Como foi pago", text: "Escolha o cartão. Logo embaixo aparece em qual **fatura** a compra entra — cada cartão fecha e vence num dia diferente." },
+  { route: "/transacoes/nova", targets: ["tx-split"], title: "Quem deveria pagar", text: "Toque e pesquise o nome. Marcou mais gente? Divide. A **seta** mostra para onde o dinheiro vai ter que ir." },
+  { route: "/transacoes/nova", targets: ["tx-people"], title: "Pessoas", text: "Alguém novo? Cadastre um contato ou convide para o app aqui, sem sair do lançamento." },
+  { route: "/transacoes/nova", targets: ["tx-repeat"], title: "Parcelado e todo mês", text: "Celular em 10x cria os 10 meses sozinho. Começou no passado? As parcelas que já venceram não entram.", demo: "series" },
+  { route: "/painel", targets: ["dash-month"], title: "Escolha o mês", text: "O painel abre na fatura que você tem que pagar. Use as setas ou **toque no nome do mês** para escolher mês e ano.", demo: "panel" },
+  { route: "/painel", targets: ["dash-summary"], title: "Resumo", text: "Em três frases: quanto **te devem**, quanto você paga de **cartão** (só a sua parte) e quanto **você deve**." },
+  { route: "/painel", targets: ["dash-outlook"], title: "Próximos meses", text: "Quanto já está comprometido em cada mês: parcelas e contas fixas." },
+  { route: "/transacoes", targets: ["filters"], title: "Filtros", text: "Pessoa, categoria e status abrem **ao lado**, cada um com pesquisa." },
   {
     route: "/transacoes",
     targets: ["tx-list", "tx-list-empty"],
     title: "Lançamentos",
-    text: "Tudo o que foi lançado. Toque num item para editar.",
+    text: "Tudo do mês. Quem ainda deve aparece na **cor da pessoa**. Toque num item para editar.",
     emptyText: "Ainda vazio. Assim aparece um lançamento:",
     emptyDemo: "split",
   },
-  { route: "/painel", targets: ["dash-month"], title: "Painel", text: "Uma fatura por vez. Use as setas para ver até 12 meses à frente." },
-  { route: "/painel", targets: ["dash-outlook"], title: "Próximos meses", text: "Quanto já está comprometido em cada mês." },
-  { route: "/dividas", targets: ["debts"], title: "Dívidas", text: "Quando te pagarem, toque em **Recebi**. Pagou a mais vira lucro.", demo: "debts" },
-  { route: "/cartoes", targets: ["cards-stats", "cards-intro", "cards"], title: "Cartões", text: "Cada compra entra na fatura do mês em que vence. Pagou? **Marcar como paga**.", demo: "card" },
-  { targets: ["nav-identify"], title: "A identificar", text: "O que chega sem categoria ou sem dono fica aqui." },
-  { targets: ["bell"], title: "Notificações", text: "Faturas e dívidas avisam no sino e no celular." },
-  { targets: ["help"], title: "Pronto!", text: "O botão **Tutorial** abre este guia de novo." },
+  { route: "/dividas", targets: ["debts"], title: "Dívidas", text: "Te pagaram? Toque em **Recebi**. Pagou só uma parte? O resto continua e o valor antigo fica **riscado**.", demo: "debts" },
+  { route: "/cartoes", targets: ["cards-stats", "cards-intro", "cards"], title: "Cartões", text: "Cada cartão tem o seu dia de **fechar** e de **vencer**. A compra conta no mês em que a fatura dela vence. Pagou? **Marcar como paga**.", demo: "card" },
+  { targets: ["nav-confirm"], title: "Para confirmar", text: "Se alguém te colocar numa conta, você **aceita** ou **recusa** (pode dizer o motivo). Só vale nas dívidas depois de aceito.", demo: "confirm" },
+  { targets: ["nav-projects"], title: "Projetos", text: "Junte os gastos de um assunto, como uma viagem: crie o projeto e coloque os lançamentos nele. No celular, fica no menu da sua foto." },
+  { targets: ["nav-identify"], title: "A identificar", text: "O que chega sem categoria ou sem dono fica aqui para você completar." },
+  { targets: ["bell"], title: "Avisos", text: "Fatura fechando, alguém te pagou, alguém recusou: tudo aparece no **sino** e no celular." },
+  { route: "/ajustes", targets: ["settings-tabs"], title: "Ajustes", text: "**Família**: nome e moeda. **Pessoas**: quem divide com você. **Categorias** e regras automáticas. **Acesso**: convites. **Importação**: extrato do banco. **Exportação**: o mês em Excel ou PDF.", demo: "settings" },
+  { targets: ["help"], title: "Pronto!", text: "Dúvidas? **Como funciona**, no menu da sua foto, explica tudo com exemplos. O botão **Tutorial** abre este guia de novo." },
 ];
 
 const MOBILE = 640;
@@ -160,22 +166,22 @@ function DemoView({ kind }: { kind: Demo }) {
     case "card":
       return (
         <div className="tour-demo">
-          <div className="tour-demo-row">
-            <span className="tour-demo-icon" aria-hidden>
-              <CreditCard size={15} strokeWidth={1.8} />
-            </span>
-            <span className="grow">
-              <span className="tour-demo-title">Fatura de novembro</span>
-              <span className="tour-demo-sub">Cartão A · vence 10/11</span>
-            </span>
-            <strong>R$ 1.200,00</strong>
-          </div>
-          <div className="tour-demo-row">
-            <span className="grow tour-demo-sub">Sua parte R$ 950 · Fulano R$ 250</span>
-            <span className="tour-demo-btn">
-              <Check size={12} /> Marcar como paga
-            </span>
-          </div>
+          {[
+            ["Cartão A", "fecha 03 · vence 10", "R$ 1.200,00"],
+            ["Cartão B", "fecha 07 · vence 13", "R$ 300,00"],
+          ].map(([n, d, v]) => (
+            <div key={n} className="tour-demo-row">
+              <span className="tour-demo-icon" aria-hidden>
+                <CreditCard size={15} strokeWidth={1.8} />
+              </span>
+              <span className="grow">
+                <span className="tour-demo-title">{n}</span>
+                <span className="tour-demo-sub">{d}</span>
+              </span>
+              <strong>{v}</strong>
+            </div>
+          ))}
+          <p className="tour-demo-arrow">Compra no dia 5: no Cartão A vai para a próxima fatura; no B, para a atual.</p>
         </div>
       );
     case "series":
@@ -200,17 +206,18 @@ function DemoView({ kind }: { kind: Demo }) {
         <div className="tour-demo">
           <div className="tour-demo-row">
             <span className="grow">Fulano te deve</span>
-            <strong className="pos">R$ 20,00</strong>
+            <strong className="pos">R$ 560,00</strong>
             <span className="tour-demo-btn ghost">
               <Check size={12} /> Recebi
             </span>
           </div>
           <p className="tour-demo-arrow">
-            <ArrowDown size={14} /> Fulano mandou R$ 30,00
+            <ArrowDown size={14} /> Fulano pagou R$ 500,00
           </p>
           <div className="tour-demo-row">
-            <span className="grow">Já pago</span>
-            <span className="profit-badge">+R$ 10,00 de lucro</span>
+            <span className="grow">Ainda deve</span>
+            <span className="tour-demo-was">R$ 560,00</span>
+            <strong className="pos">R$ 60,00</strong>
           </div>
         </div>
       );
@@ -234,6 +241,44 @@ function DemoView({ kind }: { kind: Demo }) {
         </div>
       );
     }
+    case "confirm":
+      return (
+        <div className="tour-demo">
+          <div className="tour-demo-row">
+            <span className="tour-demo-avatar">P</span>
+            <span className="grow">
+              <span className="tour-demo-title">Pessoa 1 lançou Mercado</span>
+              <span className="tour-demo-sub">Você deve R$ 45,00 para Pessoa 1</span>
+            </span>
+          </div>
+          <div className="tour-demo-row">
+            <span className="tour-demo-btn">
+              <Check size={12} /> Aceitar
+            </span>
+            <span className="tour-demo-btn ghost">
+              <X size={12} /> Recusar
+            </span>
+          </div>
+        </div>
+      );
+    case "settings":
+      return (
+        <div className="tour-demo">
+          {[
+            ["Família", "nome e moeda"],
+            ["Pessoas", "família e contatos"],
+            ["Categorias", "e regras automáticas"],
+            ["Acesso", "convites"],
+            ["Importação", "extrato do banco"],
+            ["Exportação", "Excel e PDF"],
+          ].map(([n, d]) => (
+            <div key={n} className="tour-demo-row">
+              <span className="grow tour-demo-title">{n}</span>
+              <span className="tour-demo-sub">{d}</span>
+            </div>
+          ))}
+        </div>
+      );
     case "bell":
       return (
         <div className="tour-demo">

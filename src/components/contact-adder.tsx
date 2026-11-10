@@ -47,7 +47,7 @@ export function PeopleMenu({ suggestions, canInvite, onAdd }: { suggestions: str
     });
 
   return (
-    <div className="people-menu" ref={boxRef}>
+    <div className="people-menu" ref={boxRef} data-tour="tx-people">
       <button type="button" className="btn ghost" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((o) => !o)}>
         <Users size={16} strokeWidth={1.7} /> Pessoas
       </button>

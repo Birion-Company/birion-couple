@@ -7080,3 +7080,9 @@ s.was {
 .project-pick-row .title {
   font-weight: 500;
 }
+.tour-demo-was {
+  margin-right: 6px;
+  text-decoration: line-through;
+  color: var(--text-3);
+  font-size: 0.85em;
+}

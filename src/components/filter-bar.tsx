@@ -127,7 +127,7 @@ export function FilterBar({ filters, participants, categories, projects, cards =
             </span>
           </>
         )}
-        <button type="button" className={`chip ${extras ? "on" : ""}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <button type="button" className={`chip ${extras ? "on" : ""}`} aria-expanded={open} onClick={() => setOpen((o) => !o)} data-tour="filters">
           <SlidersHorizontal size={14} strokeWidth={1.7} /> Filtros{extras ? ` (${extras})` : ""}
         </button>
         {/* Os filtros abrem para o lado, na mesma linha (no celular, rola para o lado). */}

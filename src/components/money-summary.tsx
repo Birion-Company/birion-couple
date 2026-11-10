@@ -54,7 +54,7 @@ export function MoneySummary({
   const cardMine = open.reduce((a, v) => a + v.mineCents, 0);
 
   return (
-    <section className="summary" aria-label="Resumo">
+    <section className="summary" aria-label="Resumo" data-tour="dash-summary">
       <Link href="/dividas" className={`summary-row area-in ${owedTotal > 0 ? "in" : "zero"}`}>
         <span className="summary-icon" aria-hidden>
           {owedTotal > 0 ? <ArrowDownLeft size={18} strokeWidth={2} /> : <Check size={18} strokeWidth={2} />}
