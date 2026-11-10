@@ -27,7 +27,7 @@ const SECTIONS: Section[] = [
     intro: "Painel, Lançamentos e Dívidas mostram um mês por vez.",
     items: [
       { term: "Abre onde importa", text: "Na fatura que você tem que pagar agora. Com cartão, o mês é o da fatura (o mês em que ela vence)." },
-      { term: "Trocar de mês", text: "Use as setas ou toque no nome do mês para escolher mês e ano." },
+      { term: "Trocar de mês", text: "O mês fica no centro da barra de cima. Use as setas ou toque no nome do mês para escolher mês e ano. A setinha curva volta para o mês atual." },
       { term: "Até onde vai", text: "Do primeiro mês em que você usou o app até o último mês com algo lançado (ex.: a última parcela do celular). Fora disso, aparece um aviso." },
       { term: "Meses à frente", text: "Mostram uma previsão: só o que é daquele mês (parcelas e contas fixas), contando que o resto já foi pago." },
     ],

@@ -33,7 +33,7 @@ const STEPS: Step[] = [
   { route: "/transacoes/nova", targets: ["tx-split"], title: "Quem deveria pagar", text: "Toque e pesquise o nome. Marcou mais gente? Divide. A **seta** mostra para onde o dinheiro vai ter que ir." },
   { route: "/transacoes/nova", targets: ["tx-people"], title: "Pessoas", text: "Alguém novo? Cadastre um contato ou convide para o app aqui, sem sair do lançamento." },
   { route: "/transacoes/nova", targets: ["tx-repeat"], title: "Parcelado e todo mês", text: "Celular em 10x cria os 10 meses sozinho. Começou no passado? As parcelas que já venceram não entram.", demo: "series" },
-  { route: "/painel", targets: ["dash-month"], title: "Escolha o mês", text: "O painel abre na fatura que você tem que pagar. Use as setas ou **toque no nome do mês** para escolher mês e ano.", demo: "panel" },
+  { route: "/painel", targets: ["dash-month"], title: "Escolha o mês", text: "O mês fica na **barra de cima** e abre na fatura que você tem que pagar. Use as setas ou **toque no nome do mês** para escolher mês e ano.", demo: "panel" },
   { route: "/painel", targets: ["dash-summary"], title: "Resumo", text: "Em três frases: quanto **te devem**, quanto você paga de **cartão** (só a sua parte) e quanto **você deve**." },
   { route: "/painel", targets: ["dash-outlook"], title: "Próximos meses", text: "Quanto já está comprometido em cada mês: parcelas e contas fixas." },
   { route: "/transacoes", targets: ["filters"], title: "Filtros", text: "Pessoa, categoria e status abrem **ao lado**, cada um com pesquisa." },
@@ -95,7 +95,7 @@ function TourText({ text }: { text: string }) {
 export function HelpButton({ className = "tutorial-btn" }: { className?: string }) {
   return (
     <button type="button" className={className} onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))} data-tour="help" title="Abrir o tutorial">
-      <CircleHelp size={16} strokeWidth={1.9} aria-hidden /> Tutorial
+      <CircleHelp size={16} strokeWidth={1.9} aria-hidden /> <span className="tutorial-label">Tutorial</span>
     </button>
   );
 }

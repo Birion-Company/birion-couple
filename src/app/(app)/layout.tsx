@@ -48,7 +48,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         {/* Barra de cima (estilo Waybar): marca à esquerda, módulos à direita. */}
         <header className="topbar">
           <Brand />
-          <span className="spacer" />
+          {/* Centro da barra: o seletor de mês das páginas que mostram um mês por vez. */}
+          <div id="topbar-month" className="topbar-center" />
           <HelpButton />
           <div className="wb-group" role="group" aria-label="Notificações e tema">
             <BellButton />

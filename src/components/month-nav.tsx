@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, CalendarX, ChevronDown, ChevronLeft, ChevronRight, Layers, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { addMonthsKey, longMonth, monthsBetween } from "@/lib/cards";
@@ -38,6 +38,7 @@ export function MonthNav({
   total?: { active: boolean; summary: string } | null;
 }) {
   const router = useRouter();
+  const slot = useSyncExternalStore(noop, topbarSlot, serverSlot);
   const pathname = usePathname();
   const [pending, start] = useTransition();
   // Mostra o mês novo na hora, enquanto os números carregam.
@@ -86,36 +87,39 @@ export function MonthNav({
         ? { cls: "future", text: diff === 1 ? "Próxima · previsão" : `Daqui a ${diff} meses · previsão` }
         : { cls: "past", text: diff === -1 ? "Anterior" : `Há ${-diff} meses` };
 
-  return (
+  // Versão curta para o celular: "Fatura nov" / "Nov 26".
+  const short = isTotal
+    ? "Todos"
+    : hasCards
+      ? `Fatura ${MONTHS[Number(shown.slice(5, 7)) - 1]}${shown.slice(0, 4) !== String(new Date().getFullYear()) ? `/${shown.slice(2, 4)}` : ""}`
+      : `${MONTHS[Number(shown.slice(5, 7)) - 1]}/${shown.slice(2, 4)}`;
+  const tip = [badge.text, detail && !isTotal ? detail : null].filter(Boolean).join(" · ");
+
+  const body = (
     <section
       ref={nav}
-      className={`month-nav ${badge.cls} ${pending ? "loading" : ""}`}
-      aria-label="Mês que o painel mostra"
+      className={`month-nav compact ${badge.cls} ${pending ? "loading" : ""}`}
+      aria-label="Mês que a página mostra"
       data-tour="dash-month"
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft") go(addMonthsKey(shown, -1));
         if (e.key === "ArrowRight") go(addMonthsKey(shown, 1));
       }}
     >
-      <button
-        type="button"
-        className="month-arrow"
-        onClick={() => go(addMonthsKey(shown, -1))}
-        aria-label={`Ver ${longMonth(addMonthsKey(shown, -1))}`}
-      >
-        <ChevronLeft size={22} strokeWidth={2} />
+      <button type="button" className="month-arrow" onClick={() => go(addMonthsKey(shown, -1))} aria-label={`Ver ${longMonth(addMonthsKey(shown, -1))}`}>
+        <ChevronLeft size={18} strokeWidth={2.2} />
       </button>
       <div className="month-center" aria-live="polite">
-        <span className={`month-badge ${badge.cls}`}>
-          {badge.cls === "total" ? <Layers size={12} strokeWidth={2.2} aria-hidden /> : badge.cls === "future" ? <Sparkles size={12} strokeWidth={2.2} aria-hidden /> : <CalendarDays size={12} strokeWidth={2.2} aria-hidden />} {badge.text}
-        </span>
-        <h2 className="month-title">
-          {/* Tocar no título abre o seletor de mês e ano. */}
-          <button type="button" className="month-pick-btn" aria-expanded={picking} aria-haspopup="dialog" onClick={() => setPicking((o) => !o)}>
-            {title}
-            {pending ? <Loader2 size={18} className="spin" aria-label="Carregando" /> : <ChevronDown size={18} strokeWidth={2.2} className="month-pick-chevron" aria-hidden />}
-          </button>
-        </h2>
+        {/* Tocar no mês abre o seletor de mês e ano. O selo e os vencimentos ficam na dica (passar o mouse). */}
+        <button type="button" className="month-pick-btn" aria-expanded={picking} aria-haspopup="dialog" onClick={() => setPicking((o) => !o)} title={tip}>
+          <span className={`month-state ${badge.cls}`} aria-hidden>
+            {badge.cls === "total" ? <Layers size={13} strokeWidth={2.2} /> : badge.cls === "future" ? <Sparkles size={13} strokeWidth={2.2} /> : <CalendarDays size={13} strokeWidth={2.2} />}
+          </span>
+          <span className="month-label-long">{title}</span>
+          <span className="month-label-short">{short}</span>
+          <span className="sr-only"> · {badge.text}</span>
+          {pending ? <Loader2 size={15} className="spin" aria-label="Carregando" /> : <ChevronDown size={15} strokeWidth={2.4} className="month-pick-chevron" aria-hidden />}
+        </button>
         {blocked && <BlockedMonth month={blocked} min={min} max={max} onClose={() => setBlocked(null)} />}
         {picking && (
           <MonthPicker
@@ -128,28 +132,31 @@ export function MonthNav({
             total={total && !total.active ? { summary: total.summary, onPick: goTotal } : null}
           />
         )}
-        {detail && !pending && !isTotal && <p className="month-detail">{detail}</p>}
-        {isTotal ? (
-          <button type="button" className="month-today" onClick={() => go(current)}>
-            <Undo2 size={14} strokeWidth={2} aria-hidden /> Voltar para {monthName(current).toLowerCase()}
-          </button>
-        ) : diff !== 0 && (
-          <button type="button" className="month-today" onClick={() => go(current)}>
-            <Undo2 size={14} strokeWidth={2} aria-hidden /> Voltar para {hasCards ? "a fatura em aberto" : monthName(current).toLowerCase()}
-          </button>
-        )}
       </div>
-      <button
-        type="button"
-        className="month-arrow"
-        onClick={() => go(addMonthsKey(shown, 1))}
-        aria-label={`Ver ${longMonth(addMonthsKey(shown, 1))}`}
-      >
-        <ChevronRight size={22} strokeWidth={2} />
+      <button type="button" className="month-arrow" onClick={() => go(addMonthsKey(shown, 1))} aria-label={`Ver ${longMonth(addMonthsKey(shown, 1))}`}>
+        <ChevronRight size={18} strokeWidth={2.2} />
       </button>
+      {(isTotal || diff !== 0) && (
+        <button
+          type="button"
+          className="month-today"
+          onClick={() => go(current)}
+          title={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
+          aria-label={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
+        >
+          <Undo2 size={15} strokeWidth={2.2} />
+        </button>
+      )}
     </section>
   );
+  // Fica no centro da barra de cima (que estava vazia), em vez de ocupar um bloco grande na página.
+  return slot ? createPortal(body, slot) : null;
 }
+
+/** Lugar do navegador de mês: o centro da barra de cima (layout do app). */
+const noop = () => () => {};
+const topbarSlot = () => document.getElementById("topbar-month");
+const serverSlot = () => null;
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 

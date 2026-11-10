@@ -7086,3 +7086,146 @@ s.was {
   color: var(--text-3);
   font-size: 0.85em;
 }
+
+/* ---------- Seletor de mês no centro da barra de cima ---------- */
+.topbar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+.month-nav.compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  margin: 0;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: none;
+  min-width: 0;
+}
+.month-nav.compact.future {
+  border-color: color-mix(in srgb, var(--brand) 50%, var(--line));
+}
+.month-nav.compact .month-arrow {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+}
+.month-nav.compact .month-arrow:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.month-nav.compact .month-center {
+  position: relative;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.month-nav.compact .month-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.month-nav.compact .month-pick-btn > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.month-state {
+  display: grid;
+  place-items: center;
+  color: var(--brand-strong);
+}
+.month-state.future {
+  color: #a08cf0;
+}
+.month-state.past {
+  color: var(--text-3);
+}
+.month-label-short {
+  display: none;
+}
+.month-nav.compact .month-today {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: 0 0 0 2px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--brand-strong);
+}
+/* O seletor de mês/ano abre logo abaixo da barra. */
+.month-nav.compact .month-picker {
+  top: calc(100% + 12px);
+}
+@media (max-width: 640px) {
+  .month-label-long {
+    display: none;
+  }
+  .month-label-short {
+    display: inline;
+    text-transform: capitalize;
+  }
+  .month-nav.compact {
+    padding: 0 2px;
+  }
+  .month-nav.compact .month-pick-btn {
+    padding: 0 4px;
+    gap: 4px;
+    font-size: 0.86rem;
+  }
+  .month-nav.compact .month-arrow,
+  .month-nav.compact .month-today {
+    width: 26px;
+  }
+  .month-state {
+    display: none;
+  }
+  /* Celular: o botão Tutorial vira só o ícone para caber o mês. */
+  .tutorial-label {
+    display: none;
+  }
+  .tutorial-btn {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    margin-right: 0;
+  }
+}
+@media (max-width: 640px) {
+  /* Celular: com o seletor de mês na barra, a logo sai para caber o nome do mês inteiro. */
+  .topbar:has(#topbar-month .month-nav) > .brand {
+    display: none;
+  }
+  .topbar:has(#topbar-month .month-nav) .topbar-center {
+    justify-content: flex-start;
+  }
+  .month-nav.compact .month-pick-btn > span {
+    overflow: visible;
+  }
+  /* O seletor de mês e ano abre centralizado na tela, logo abaixo da barra. */
+  .month-nav.compact .month-picker {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
