@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { Check, Hourglass } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Check, ChevronDown, Hourglass } from "lucide-react";
 import { setReceived } from "@/app/actions/transactions";
 import { formatMoney } from "@/lib/money";
 import { toastResult } from "./toaster";
@@ -14,9 +14,13 @@ export type DebtDue = { txId: string; date: string; description: string; personI
 
 type Item = { id: string; date: string; description: string; amountCents: number; seriesIndex: number | null; seriesTotal: number | null; seriesKind: string | null };
 
+/** Quantos aparecem sem abrir: o quadro não cresce sem fim conforme a pessoa lança mais coisas. */
+const SHOWN = 3;
+
 /**
- * "A receber" no painel: receitas que ainda não caíram na conta. O app não supõe que você recebeu:
- * só conta nas entradas depois do "Recebi". Atrasadas (data já passou) aparecem em destaque.
+ * "A receber" no painel: receitas que ainda não caíram na conta e dívidas a seu favor. O app não
+ * supõe que você recebeu: só conta depois do "Recebi". Uma lista só, do mais atrasado para o mais
+ * novo; aparecem os primeiros e o resto abre em "Ver mais".
  */
 export function AwaitingIncome({
   items,
@@ -34,71 +38,93 @@ export function AwaitingIncome({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [all, setAll] = useState(false);
   if (items.length === 0 && debts.length === 0) return null;
-  const late = [...items, ...debts].filter((x) => x.date < today);
+
+  const list = [
+    ...debts.map((x) => ({ key: `d-${x.txId}-${x.personId}`, date: x.date, debt: x, income: null })),
+    ...items.map((x) => ({ key: `i-${x.id}`, date: x.date, debt: null, income: x })),
+  ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const visible = all ? list : list.slice(0, SHOWN);
+  const hidden = list.length - visible.length;
+  const total = debts.reduce((a, x) => a + x.leftCents, 0) + items.reduce((a, x) => a + x.amountCents, 0);
+  const late = list.filter((x) => x.date < today).length;
   const day = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   const daysLate = (iso: string) => Math.round((Date.parse(today) - Date.parse(iso)) / 86400000);
+  const lateText = (iso: string) => `${daysLate(iso)} dia${daysLate(iso) === 1 ? "" : "s"} de atraso`;
+
+  const received = (id: string) =>
+    start(async () => {
+      const r = await setReceived(id, true);
+      toastResult(r);
+      if (r.ok) router.refresh();
+    });
+
   return (
     <section className="card section awaiting" aria-labelledby="a-receber" data-tour="dash-awaiting">
       <div className="card-head">
         <h2 id="a-receber">
           <Hourglass size={17} strokeWidth={1.9} aria-hidden /> A receber
         </h2>
-        <span className="faint">{late.length ? `${late.length} atrasad${late.length === 1 ? "o" : "os"}` : "você recebeu?"}</span>
+        <span className="faint">{late ? `${late} atrasad${late === 1 ? "o" : "os"}` : "você recebeu?"}</span>
       </div>
-      <p className="faint awaiting-help">Receitas e dívidas a seu favor. Só conta depois que você confirmar que recebeu.</p>
+      <p className="faint awaiting-help">
+        <strong className="num awaiting-total">{formatMoney(total, currency)}</strong> em {list.length} {list.length === 1 ? "item" : "itens"}. Só conta depois que
+        você confirmar que recebeu.
+      </p>
       <div className="rows">
-        {debts.map((x) => {
-          const isLate = x.date < today;
+        {visible.map(({ key, debt: x, income: y }) => {
+          if (x) {
+            const isLate = x.date < today;
+            return (
+              <div key={key} className={`row awaiting-row ${isLate ? "late" : ""}`}>
+                <Link href={`/transacoes/${x.txId}`} className="grow" style={{ minWidth: 0 }}>
+                  <span className="title">
+                    {names[x.personId] ?? "Alguém"} · {x.description}
+                    {x.series && <span className="tx-series">{x.series}</span>}
+                  </span>
+                  <span className="sub" style={{ display: "block" }}>
+                    Dívida · {isLate ? `venceu ${day(x.date)} · ${lateText(x.date)}` : x.date === today ? "vence hoje" : `vence ${day(x.date)}`}
+                    {x.pending ? " · pagamento esperando confirmação" : ""}
+                  </span>
+                </Link>
+                <strong className="num awaiting-value">{formatMoney(x.leftCents, currency)}</strong>
+                {!x.pending && <PayButton txId={x.txId} participantId={x.personId} owedCents={x.leftCents} currency={currency} label="Recebi" />}
+              </div>
+            );
+          }
+          const isLate = y!.date < today;
           return (
-            <div key={x.txId + x.personId} className={`row awaiting-row ${isLate ? "late" : ""}`}>
-              <Link href={`/transacoes/${x.txId}`} className="grow" style={{ minWidth: 0 }}>
+            <div key={key} className={`row awaiting-row ${isLate ? "late" : ""}`}>
+              <Link href={`/transacoes/${y!.id}`} className="grow" style={{ minWidth: 0 }}>
                 <span className="title">
-                  {names[x.personId] ?? "Alguém"} · {x.description}
-                  {x.series && <span className="tx-series">{x.series}</span>}
+                  {y!.description}
+                  {y!.seriesKind === "monthly" ? (
+                    <span className="tx-series">todo mês</span>
+                  ) : y!.seriesTotal ? (
+                    <span className="tx-series">
+                      {y!.seriesIndex}/{y!.seriesTotal}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="sub" style={{ display: "block" }}>
-                  Dívida · {isLate ? `venceu ${day(x.date)} · ${daysLate(x.date)} dia${daysLate(x.date) === 1 ? "" : "s"} de atraso` : x.date === today ? "vence hoje" : `vence ${day(x.date)}`}
-                  {x.pending ? " · pagamento esperando confirmação" : ""}
+                  {isLate ? `Era para ${day(y!.date)} · ${lateText(y!.date)}` : y!.date === today ? "Hoje" : `Dia ${day(y!.date)}`}
                 </span>
               </Link>
-              <strong className="num awaiting-value">{formatMoney(x.leftCents, currency)}</strong>
-              {!x.pending && <PayButton txId={x.txId} participantId={x.personId} owedCents={x.leftCents} currency={currency} label="Recebi" />}
-            </div>
-          );
-        })}
-        {items.map((x) => {
-          const isLate = x.date < today;
-          return (
-            <div key={x.id} className={`row awaiting-row ${isLate ? "late" : ""}`}>
-              <Link href={`/transacoes/${x.id}`} className="grow" style={{ minWidth: 0 }}>
-                <span className="title">
-                  {x.description}
-                  {x.seriesKind === "monthly" ? <span className="tx-series">todo mês</span> : x.seriesTotal ? <span className="tx-series">{x.seriesIndex}/{x.seriesTotal}</span> : null}
-                </span>
-                <span className="sub" style={{ display: "block" }}>
-                  {isLate ? `Era para ${day(x.date)} · ${daysLate(x.date)} dia${daysLate(x.date) === 1 ? "" : "s"} de atraso` : x.date === today ? "Hoje" : `Dia ${day(x.date)}`}
-                </span>
-              </Link>
-              <strong className="num awaiting-value">{formatMoney(x.amountCents, currency)}</strong>
-              <button
-                type="button"
-                className="btn small primary"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    const r = await setReceived(x.id, true);
-                    toastResult(r);
-                    if (r.ok) router.refresh();
-                  })
-                }
-              >
+              <strong className="num awaiting-value">{formatMoney(y!.amountCents, currency)}</strong>
+              <button type="button" className="btn small primary" disabled={pending} onClick={() => received(y!.id)}>
                 <Check size={14} strokeWidth={2.4} /> Recebi
               </button>
             </div>
           );
         })}
       </div>
+      {list.length > SHOWN && (
+        <button type="button" className="awaiting-more" aria-expanded={all} onClick={() => setAll((o) => !o)}>
+          {all ? "Mostrar menos" : `Ver mais ${hidden} ${hidden === 1 ? "item" : "itens"}`}
+          <ChevronDown size={15} strokeWidth={2.2} aria-hidden style={{ transform: all ? "rotate(180deg)" : undefined }} />
+        </button>
+      )}
     </section>
   );
 }
