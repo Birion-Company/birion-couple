@@ -18,7 +18,7 @@ const SECTIONS: Section[] = [
       { term: "1. Cartões", text: <>Cadastre seus cartões em <Link href="/cartoes">Cartões</Link>, com o dia em que a fatura fecha e o dia em que vence.</> },
       { term: "2. Pessoas", text: <>Em <Link href="/ajustes/pessoas">Ajustes → Pessoas</Link>, cadastre quem divide conta com você. Quem vai usar o app recebe um convite.</> },
       { term: "3. Lançamentos", text: <>Use <Link href="/transacoes/nova">Novo lançamento</Link> (o botão + ) ou <Link href="/importar">importe o extrato</Link> do banco.</> },
-      { term: "4. Acompanhe", text: <>O <Link href="/painel">Painel</Link> mostra o mês; <Link href="/dividas">Dívidas</Link>, quem deve para quem.</> },
+      { term: "4. Acompanhe", text: <>O <Link href="/painel">Painel</Link> mostra o mês; <Link href="/transacoes?dividas=1">Lançamentos → Dívidas</Link>, quem deve para quem.</> },
     ],
   },
   {
@@ -39,7 +39,7 @@ const SECTIONS: Section[] = [
       { term: "Painel", text: "Resumo do mês: quanto te devem, quanto você paga de cartão, quanto você deve, os próximos meses e os gastos por categoria." },
       { term: "Lançamentos", text: "Tudo o que foi lançado no mês, com pesquisa, filtros e edição de vários de uma vez." },
       { term: "A identificar", text: "Lançamentos com algo faltando (categoria, quem pagou ou quem deveria pagar)." },
-      { term: "Dívidas", text: "Quem deve para quem, de onde veio cada dívida e o que já foi pago." },
+      { term: "Dívidas", text: "Em Lançamentos, aba Dívidas: quem deve para quem e tudo o que ainda está em aberto, de todos os meses. Escolha uma pessoa no filtro para ver o saldo com ela e o que ela já pagou." },
       { term: "Cartões", text: "Faturas de cada cartão: a que vence, a aberta, a parte de cada pessoa e os parcelados." },
       { term: "Projetos", text: "Juntam gastos de um assunto, como uma viagem. No celular, ficam no menu da sua foto." },
       { term: "Para confirmar", text: "O que outra pessoa colocou no seu nome e você precisa aceitar ou recusar." },

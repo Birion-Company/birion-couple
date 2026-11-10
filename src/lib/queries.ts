@@ -128,6 +128,16 @@ function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean; w
   if (f.project) parts.push(eq(t.projectId, f.project));
   const state = stateFromParam(f.status);
   if (state) parts.push(stateWhere(state));
+  if (f.debtsOnly) {
+    // Alguém (que não quem pagou) ainda deve a parte: despesa, dívida ou receita dividida, no cartão ou não.
+    parts.push(
+      sql`"transactions"."kind" <> 'transfer'`,
+      isNotNull(t.payerId),
+      eq(t.settled, false),
+      sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" <> "transactions"."payerId" and s."amountCents" > 0 and s."paidById" is null)`,
+      or(sql`"transactions"."kind" <> 'income'`, eq(t.awaitingReceipt, false)),
+    );
+  }
   if (f.card) parts.push(eq(t.cardId, f.card));
   if (f.q) parts.push(or(ilike(t.description, `%${f.q}%`), ilike(t.notes, `%${f.q}%`)));
   if (f.person) {

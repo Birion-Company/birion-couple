@@ -74,7 +74,7 @@ export function describeImpact(i: ImpactInput): Impact[] {
       if (series) debts.push("Meses futuros só contam quando chegarem.");
     }
   }
-  if (debts.length) out.push({ area: "debts", title: "Dívidas", lines: debts, href: "/dividas" });
+  if (debts.length) out.push({ area: "debts", title: "Dívidas", lines: debts, href: "/transacoes?dividas=1" });
 
   // ---------- Fatura do cartão ----------
   if (i.card && !between && /^\d{4}-\d{2}-\d{2}$/.test(i.date)) {

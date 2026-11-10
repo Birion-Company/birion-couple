@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ListPlus, Plus, Search } from "lucide-react";
+import { ListPlus, Search } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { RecurringList } from "@/components/recurring-list";
 import { TxList } from "@/components/tx-list";
@@ -10,7 +10,8 @@ import { MonthNav } from "@/components/month-nav";
 
 import { defaultPanelMonth } from "@/lib/card-queries";
 import { filtersToQuery, parseFilters } from "@/lib/filters";
-import { getLookupsFor, getRecurringFor, listTransactions, navigableMonths } from "@/lib/queries";
+import { getDebtLedger, getLookupsFor, getRecurringFor, listTransactions, navigableMonths } from "@/lib/queries";
+import { DebtsPanel } from "@/components/debts-panel";
 
 export const metadata: Metadata = { title: "Lançamentos" };
 
@@ -24,14 +25,20 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const { first: firstMonth, last: lastMonth } = await navigableMonths(auth.householdId, current);
   const asked = typeof sp.mes === "string" ? sp.mes : null;
   const month = asked && asked >= firstMonth && asked <= lastMonth ? asked : current;
-  const filters = parseFilters({ ...sp, mes: month }, "mes");
+  // Aba "Dívidas": só o que alguém ainda deve, de todos os meses (sem o seletor de mês).
+  const debtsTab = sp.dividas === "1";
+  const parsed = debtsTab ? parseFilters({ ...sp, mes: undefined }, "tudo") : parseFilters({ ...sp, mes: month }, "mes");
+  // Pessoa escolhida sem dizer o quê: mostra os gastos dela ("Gastos da Clara").
+  const filters = parsed.person && !parsed.role && !debtsTab ? { ...parsed, role: "dele" as const } : parsed;
   const pages = Math.min(50, Math.max(1, Number(sp.paginas) || 1));
   // Em paralelo: as duas listas esperam a mesma manutenção (ensureRecurring, uma vez por requisição),
   // então o "próximo em" das contas fixas já sai atualizado.
-  const [lookups, { rows, count, total, futureCount }, recurring] = await Promise.all([
-    getLookupsFor(auth),
+  const lookups = await getLookupsFor(auth);
+  const [{ rows, count, total, futureCount }, recurring, ledger] = await Promise.all([
     listTransactions(auth, filters, PAGE * pages),
     getRecurringFor(auth, filters),
+    // Dívidas (antes uma página): "Quem deve para quem" e o saldo com a pessoa escolhida.
+    debtsTab || filters.person ? getDebtLedger(auth, lookups) : Promise.resolve(null),
   ]);
   const personName = filters.person ? lookups.participants.find((p) => p.id === filters.person)?.name : null;
 
@@ -41,28 +48,46 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         <div>
           <h1>Lançamentos</h1>
           <p className="muted">
-            {count} {count === 1 ? "lançamento" : "lançamentos"} · <Money cents={total} currency={auth.currency} /> em despesas{personName ? ` (parte de ${personName})` : ""}
+            {debtsTab ? (
+              <>
+                {count} {count === 1 ? "lançamento" : "lançamentos"} com dívida em aberto{personName ? ` · com ${personName}` : ""}
+              </>
+            ) : (
+              <>
+                {count} {count === 1 ? "lançamento" : "lançamentos"} · <Money cents={total} currency={auth.currency} /> em despesas{personName ? ` (parte de ${personName})` : ""}
+              </>
+            )}
           </p>
         </div>
         <div className="actions" data-tour="tx-actions">
+          {/* Novo lançamento: o botão do canto da tela (no celular, o + redondo). */}
           <Link className="btn" href="/transacoes/lote">
             <ListPlus size={16} strokeWidth={1.6} aria-hidden /> <span className="hide-sm">Lançar vários</span>
             <span className="sr-only">Lançar vários</span>
           </Link>
-          <Link className="btn primary" href="/transacoes/nova" data-tour="tx-new">
-            <Plus size={16} /> <span>Novo</span>
-          </Link>
         </div>
       </div>
 
-      <MonthNav
+      {/* Duas visões: o mês (com o seletor na barra de cima) e as dívidas em aberto de todos os meses. */}
+      <nav className="tx-tabs" aria-label="O que mostrar" data-tour="debts-tab">
+        <Link href="/transacoes" className={debtsTab ? "" : "on"} aria-current={debtsTab ? undefined : "page"}>
+          Do mês
+        </Link>
+        <Link href="/transacoes?dividas=1" className={debtsTab ? "on" : ""} aria-current={debtsTab ? "page" : undefined}>
+          Dívidas
+        </Link>
+      </nav>
+
+      {ledger && <DebtsPanel ledger={ledger} lookups={lookups} me={auth.participantId} person={filters.person} currency={auth.currency} />}
+
+      {!debtsTab && <MonthNav
         filters={filters}
         month={month}
         current={current}
         min={firstMonth}
         max={lastMonth}
         hasCards={lookups.cards.some((c) => !c.archived)}
-      />
+      />}
 
       {/* Busca e filtros ficam presos no topo ao rolar: dá para pesquisar sem voltar lá em cima. */}
       <div className="list-toolbar">
@@ -83,7 +108,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         projects={lookups.projects}
         cards={lookups.cards}
         showPeriod={false}
-        defaultPeriod="mes"
+        defaultPeriod={debtsTab ? "tudo" : "mes"}
+        keep={debtsTab ? "dividas=1" : undefined}
+        hideRole={debtsTab}
+        showStatus={!debtsTab}
       />
       </div>
 

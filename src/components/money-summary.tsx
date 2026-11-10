@@ -55,7 +55,7 @@ export function MoneySummary({
 
   return (
     <section className="summary" aria-label="Resumo" data-tour="dash-summary">
-      <Link href="/dividas" className={`summary-row area-in ${owedTotal > 0 ? "in" : "zero"}`}>
+      <Link href="/transacoes?dividas=1" className={`summary-row area-in ${owedTotal > 0 ? "in" : "zero"}`}>
         <span className="summary-icon" aria-hidden>
           {owedTotal > 0 ? <ArrowDownLeft size={18} strokeWidth={2} /> : <Check size={18} strokeWidth={2} />}
         </span>
@@ -114,7 +114,7 @@ export function MoneySummary({
         </Link>
       )}
 
-      <Link href="/dividas" className={`summary-row area-out ${oweTotal > 0 ? "out" : "zero"}`}>
+      <Link href="/transacoes?dividas=1" className={`summary-row area-out ${oweTotal > 0 ? "out" : "zero"}`}>
         <span className="summary-icon" aria-hidden>
           {oweTotal > 0 ? <ArrowUpRight size={18} strokeWidth={2} /> : <Check size={18} strokeWidth={2} />}
         </span>

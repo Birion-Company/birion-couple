@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { monthLabel } from "@/lib/cards";
-import { PERIODS, PERSON_ROLES, filtersToQuery, type Filters } from "@/lib/filters";
+import { PERIODS, filtersToQuery, type Filters } from "@/lib/filters";
 import { Select, type SelectOption } from "./select";
 import { STATE_FILTER_OPTIONS } from "@/lib/tx-state";
 
@@ -23,6 +23,10 @@ type Props = {
   defaultPerson?: string | null;
   /** Período que a página usa sem parâmetro na URL. */
   defaultPeriod?: Filters["period"];
+  /** Parâmetro que a página precisa manter ao trocar filtros (ex.: "dividas=1", a aba Dívidas). */
+  keep?: string;
+  /** Esconde o menu "Gastos de X / X tem a receber" (ex.: na aba Dívidas). */
+  hideRole?: boolean;
 };
 
 function ChipSelect({
@@ -62,7 +66,7 @@ function ChipSelect({
   );
 }
 
-export function FilterBar({ filters, participants, categories, projects, cards = [], showStatus = true, showPeriod = true, defaultPeriod = "tudo", defaultPerson = null }: Props) {
+export function FilterBar({ filters, participants, categories, projects, cards = [], showStatus = true, showPeriod = true, defaultPeriod = "tudo", defaultPerson = null, keep, hideRole = false }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, start] = useTransition();
@@ -90,7 +94,9 @@ export function FilterBar({ filters, participants, categories, projects, cards =
 
   const go = (patch: Partial<Filters>) => {
     const next = { ...filters, ...patch };
-    start(() => router.replace(pathname + filtersToQuery(next, defaultPeriod), { scroll: false }));
+    const q = filtersToQuery(next, defaultPeriod);
+    const extra = keep ? (q ? `&${keep}` : `?${keep}`) : "";
+    start(() => router.replace(pathname + q + extra, { scroll: false }));
   };
 
   const active = extras > 0 || !!filters.q || (showPeriod && (filters.period !== defaultPeriod || !!filters.month));
@@ -144,15 +150,18 @@ export function FilterBar({ filters, participants, categories, projects, cards =
                 searchable
               />
             )}
-            {/* Com pessoa escolhida: o que mostrar dela, num menu só. */}
-            {selected && (
+            {/* Com pessoa escolhida: os gastos dela ou o que ela tem a receber (nomes com a própria pessoa). */}
+            {selected && !hideRole && (
               <Select
                 variant="chip"
                 ariaLabel="O que mostrar da pessoa"
-                value={filters.role ?? ""}
-                options={PERSON_ROLES.map((r) => ({ value: r.value, label: r.label }))}
-                onChange={(v) => go({ role: (v || null) as Filters["role"], person: v ? selected : filters.person })}
-                active={!!filters.role}
+                value={filters.role === "a-receber" ? "a-receber" : ""}
+                options={[
+                  { value: "", label: selected === defaultPerson ? "Seus gastos" : `Gastos de ${people.find((p) => p.id === selected)?.name ?? "alguém"}` },
+                  { value: "a-receber", label: selected === defaultPerson ? "Você tem a receber" : `${people.find((p) => p.id === selected)?.name ?? "Alguém"} tem a receber` },
+                ]}
+                onChange={(v) => go({ role: (v || (defaultPerson ? null : "dele")) as Filters["role"], person: selected === defaultPerson ? filters.person : selected })}
+                active={filters.role === "a-receber"}
               />
             )}
             <ChipSelect

@@ -168,7 +168,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
               <p className="value pos"><Money cents={data.repaidToMe} currency={cur} /></p>
               <p className="hint">neste mês</p>
             </div>
-            <Link className="stat" href="/dividas">
+            <Link className="stat" href="/transacoes?dividas=1">
               <p className="label">Falta {focus?.name} pagar</p>
               <p className={`value ${data.stillOwesMe > 0 ? "pos" : ""}`}><Money cents={data.stillOwesMe} currency={cur} /></p>
               <p className="hint">deste mês · o total fica em Dívidas</p>
@@ -176,7 +176,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           </>
         ) : (
           <>
-            <Link className="stat" href="/dividas">
+            <Link className="stat" href="/transacoes?dividas=1">
               <p className="label">{mode === "all" ? "A acertar entre vocês" : "Devem a você"}</p>
               <p className="value pos"><Money cents={data.paidForOthers} currency={cur} /></p>
               <p className="hint">

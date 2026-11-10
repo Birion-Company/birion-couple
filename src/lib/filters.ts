@@ -30,6 +30,8 @@ export type Filters = {
   status: string | null;
   card: string | null;
   q: string | null;
+  /** Aba Dívidas: só o que alguém ainda deve (no cartão ou fora), de todos os meses. */
+  debtsOnly?: boolean;
   /** Mês escolhido no painel ("2026-12"); as datas de/até são o mês inteiro. */
   month: string | null;
   /**
@@ -123,6 +125,7 @@ export function parseFilters(sp: Search, defaultPeriod: PeriodKey = "tudo"): Fil
     status: stateFromParam(one(sp.status)) ? one(sp.status)! : null,
     card: isId(one(sp.cartao)),
     future: one(sp.futuros) === "1",
+    debtsOnly: one(sp.dividas) === "1",
     q: one(sp.q)?.slice(0, 100) ?? null,
   };
 }
