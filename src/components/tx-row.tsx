@@ -63,7 +63,7 @@ export function txProfit(tx: TxRow): number {
 export function ProfitAmount({ tx, currency }: { tx: TxRow; currency: string }) {
   const p = txProfit(tx);
   if (p <= 0) return null;
-  return <span className="tx-profit">+{formatMoney(p, currency)} a mais</span>;
+  return <span className="tx-profit">+{formatMoney(p, currency)} de lucro</span>;
 }
 
 /**
@@ -71,13 +71,14 @@ export function ProfitAmount({ tx, currency }: { tx: TxRow; currency: string }) 
  * - um selo por pessoa que tinha que pagar ("Fulano pagou R$ 30,00", "Fulano deve R$ 60,00");
  * - no acerto que pagou uma dívida, o valor a mais ou o que ainda falta.
  */
-/** Num acerto ligado: parcial ("falta R$ 60,00") ou o valor a mais de quem quitou. */
+/** Num acerto ligado e parcial: "falta R$ 60,00". */
 export function SettlesBadge({ tx, currency }: { tx: TxRow; currency: string }) {
   const s = tx.settles;
   if (!s) return null;
   const left = s.owedCents - s.otherPaidCents - tx.amountCents;
   if (!s.closes) return <ProfitBadge paidCents={tx.amountCents} owedCents={tx.amountCents + Math.max(0, left)} restCents={Math.max(0, left)} currency={currency} />;
-  return <ProfitBadge paidCents={tx.amountCents} owedCents={s.owedCents - s.otherPaidCents} currency={currency} />;
+  // Quitou com lucro: o lucro já aparece embaixo do valor (não repete aqui).
+  return null;
 }
 
 /**
@@ -170,7 +171,6 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
                 {owedNow(x)}
                 {x.state === "paid" || x.state === "own" ? <Check size={12} strokeWidth={2.8} aria-hidden /> : x.state === "pending" ? <Clock size={12} strokeWidth={2.4} aria-hidden /> : <CircleDashed size={12} strokeWidth={2.4} aria-hidden />}
               </span>
-              {x.state === "paid" && x.paidCents != null && <ProfitBadge paidCents={x.paidCents} owedCents={x.cents} currency={currency} />}
             </span>
           ))}
           {rest.length > 0 && (

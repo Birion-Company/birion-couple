@@ -45,7 +45,7 @@ const STEPS: Step[] = [
     emptyText: "Ainda vazio. Assim aparece um lançamento:",
     emptyDemo: "split",
   },
-  { route: "/transacoes", targets: ["debts-tab"], title: "Dívidas", text: "Na aba **Dívidas** fica quem deve para quem. Te pagaram? Toque em **Recebi**. Pagou só uma parte? O resto continua, com o valor antigo **riscado**. Pagou a mais? O app pergunta se a sobra **abate a próxima conta** da pessoa ou fica com você.", demo: "debts" },
+  { route: "/transacoes", targets: ["debts-tab"], title: "Dívidas", text: "Na aba **Dívidas** fica quem deve para quem. Te pagaram? Toque em **Recebi**. Pagou só uma parte? O resto continua, com o valor antigo **riscado**. Pagou a mais? A diferença aparece como **lucro**.", demo: "debts" },
   { route: "/cartoes", targets: ["cards-stats", "cards-intro", "cards"], title: "Cartões", text: "Cada cartão tem o seu dia de **fechar** e de **vencer**. A compra conta no mês em que a fatura dela vence. Pagou? **Marcar como paga**.", demo: "card" },
   { targets: ["nav-confirm"], title: "Para confirmar", text: "Se alguém te colocar numa conta, você **aceita** ou **recusa** (pode dizer o motivo). Só vale nas dívidas depois de aceito.", demo: "confirm" },
   { targets: ["nav-projects"], title: "Projetos", text: "Junte os gastos de um assunto, como uma viagem: crie o projeto e coloque os lançamentos nele. No celular, fica no menu da sua foto." },

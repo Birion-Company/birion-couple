@@ -1,23 +1,40 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintToolbar } from "@/components/print-toolbar";
 import { requireAuth } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
-import { getMonthReport, reportFileName } from "@/lib/report";
+import { getMonthReport, reportFileName, type MonthReport } from "@/lib/report";
 import { longMonth } from "@/lib/cards";
 
 /** O "Salvar como PDF" usa o título da página como nome do arquivo. */
-export async function generateMetadata({ params }: { params: Promise<{ mes: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ mes: string }>;
+}): Promise<Metadata> {
   const { mes } = await params;
   const ok = /^\d{4}-(0[1-9]|1[0-2])$/.test(mes);
-  return { title: { absolute: ok ? reportFileName(`Extrato de ${longMonth(mes).toLowerCase()}`) : "Birion - Relatório" } };
+  return {
+    title: {
+      absolute: ok
+        ? reportFileName(`Extrato de ${longMonth(mes).toLowerCase()}`)
+        : "Birion - Relatório",
+    },
+  };
 }
 
 /**
  * Extrato do mês para imprimir ou salvar em PDF (Ajustes → Exportação): folha A4 branca, com resumo,
  * faturas, gastos por categoria, dívidas e todos os lançamentos — no estilo de extrato de banco.
  */
-export default async function ReportPage({ params, searchParams }: { params: Promise<{ mes: string }>; searchParams: Promise<{ imprimir?: string }> }) {
+export default async function ReportPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ mes: string }>;
+  searchParams: Promise<{ imprimir?: string }>;
+}) {
   const auth = await requireAuth();
   const { mes } = await params;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) notFound();
@@ -41,10 +58,22 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           <p className="rep-gen">
             Gerado em
             <br />
-            {r.generatedAt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+            {r.generatedAt.toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "America/Sao_Paulo",
+            })}
           </p>
         </header>
-        {r.estimate && <p className="rep-note">Mês à frente: os valores são uma previsão com o que já está lançado (parcelas e contas fixas).</p>}
+        {r.estimate && (
+          <p className="rep-note">
+            Mês à frente: os valores são uma previsão com o que já está lançado
+            (parcelas e contas fixas).
+          </p>
+        )}
 
         <section className="rep-cards">
           <div className="rep-card">
@@ -58,7 +87,9 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           <div className="rep-card">
             <span>Faturas a pagar</span>
             <strong>{m(s.invoicesCents)}</strong>
-            {s.invoicesMineCents !== s.invoicesCents && <em>sua parte {m(s.invoicesMineCents)}</em>}
+            {s.invoicesMineCents !== s.invoicesCents && (
+              <em>sua parte {m(s.invoicesMineCents)}</em>
+            )}
           </div>
           <div className="rep-card">
             <span>Te devem</span>
@@ -89,7 +120,8 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
                   {r.invoices.map((v) => (
                     <tr key={v.card + v.due}>
                       <td>
-                        {v.card} {v.paid && <span className="rep-tag">paga</span>}
+                        {v.card}{" "}
+                        {v.paid && <span className="rep-tag">paga</span>}
                       </td>
                       <td>{d(v.due)}</td>
                       <td className="n">{m(v.totalCents)}</td>
@@ -108,10 +140,33 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
               <table className="rep-table">
                 <tbody>
                   {r.debts.map((x) => (
-                    <tr key={x.name + x.direction}>
-                      <td>{x.direction === "te deve" ? `${x.name} te deve` : `Você deve a ${x.name}`}</td>
-                      <td className={`n ${x.direction === "te deve" ? "pos" : "neg"}`}>{m(x.cents)}</td>
-                    </tr>
+                    <Fragment key={x.name + x.direction}>
+                      <tr>
+                        <td>
+                          <strong>
+                            {x.direction === "te deve"
+                              ? `${x.name} te deve`
+                              : `Você deve a ${x.name}`}
+                          </strong>
+                        </td>
+                        <td
+                          className={`n ${x.direction === "te deve" ? "pos" : "neg"}`}
+                        >
+                          {m(x.cents)}
+                        </td>
+                      </tr>
+                      {/* De quê: cada lançamento que forma a dívida. */}
+                      {x.items.map((it, k) => (
+                        <tr key={k} className="rep-sub">
+                          <td>
+                            {it.description} · {it.date.slice(8, 10)}/
+                            {it.date.slice(5, 7)}
+                            {it.projected ? " · todo mês (previsto)" : ""}
+                          </td>
+                          <td className="n">{m(it.cents)}</td>
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -139,48 +194,104 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           )}
         </section>
 
-        <section>
-          <h2>Lançamentos ({r.rows.length})</h2>
-          <table className="rep-table rep-tx">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Descrição</th>
-                <th>Categoria</th>
-                <th>Quem pagou</th>
-                <th className="n">Valor</th>
-                <th className="n">Sua parte</th>
-              </tr>
-            </thead>
-            <tbody>
-              {r.rows.map((x, i) => (
-                <tr key={i}>
-                  <td>{d(x.date)}</td>
-                  <td>
-                    {x.description}
-                    {x.series && <span className="rep-tag">{x.series}</span>}
-                    <span className="rep-meta">
-                      {[x.kind !== "Despesa" ? x.kind : "", x.card ? `cartão ${x.card}` : "", x.owing ? `deve: ${x.owing}` : ""].filter(Boolean).join(" · ")}
-                    </span>
-                  </td>
-                  <td>{x.category}</td>
-                  <td>{x.payer}</td>
-                  <td className="n">{m(x.totalCents)}</td>
-                  <td className="n">{m(x.myShareCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={4}>Total das despesas</td>
-                <td className="n">{m(r.rows.filter((x) => x.kind === "Despesa").reduce((a, x) => a + x.totalCents, 0))}</td>
-                <td className="n">{m(r.rows.filter((x) => x.kind === "Despesa").reduce((a, x) => a + x.myShareCents, 0))}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
-        <footer className="rep-foot">BIRION FINANCE · {r.family} · {r.title}</footer>
+        {/* Contas "todo mês" numa lista própria, acima dos lançamentos, para identificar fácil. */}
+        {r.recurring.length > 0 && (
+          <TxTable
+            title="Recorrentes (todo mês)"
+            list={r.recurring}
+            totalLabel="Total das despesas recorrentes"
+            m={m}
+            d={d}
+          />
+        )}
+        <TxTable
+          title="Lançamentos"
+          list={r.rows}
+          totalLabel="Total das despesas"
+          m={m}
+          d={d}
+        />
+        <footer className="rep-foot">
+          BIRION FINANCE · {r.family} · {r.title}
+        </footer>
       </article>
     </div>
+  );
+}
+
+function TxTable({
+  title,
+  list,
+  totalLabel,
+  m,
+  d,
+}: {
+  title: string;
+  list: MonthReport["rows"];
+  totalLabel: string;
+  m: (c: number) => string;
+  d: (iso: string) => string;
+}) {
+  return (
+    <section>
+      <h2>
+        {title} ({list.length})
+      </h2>
+      <table className="rep-table rep-tx">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th>Quem pagou</th>
+            <th className="n">Valor</th>
+            <th className="n">Sua parte</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((x, i) => (
+            <tr key={i}>
+              <td>{d(x.date)}</td>
+              <td>
+                {x.description}
+                {x.series && <span className="rep-tag">{x.series}</span>}
+                <span className="rep-meta">
+                  {[
+                    x.kind !== "Despesa" ? x.kind : "",
+                    x.card ? `cartão ${x.card}` : "",
+                    x.owing ? `deve: ${x.owing}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </td>
+              <td>{x.category}</td>
+              <td>{x.payer}</td>
+              <td className="n">{m(x.totalCents)}</td>
+              <td className="n">{m(x.myShareCents)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={4}>{totalLabel}</td>
+            <td className="n">
+              {m(
+                list
+                  .filter((x) => x.kind === "Despesa")
+                  .reduce((a, x) => a + x.totalCents, 0),
+              )}
+            </td>
+            <td className="n">
+              {m(
+                list
+                  .filter((x) => x.kind === "Despesa")
+                  .reduce((a, x) => a + x.myShareCents, 0),
+              )}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
   );
 }

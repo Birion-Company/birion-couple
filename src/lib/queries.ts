@@ -782,7 +782,7 @@ export type LedgerPerson = {
  */
 export async function getMonthDebts(viewer: Viewer, month: string) {
   const me = viewer.participantId;
-  if (!me) return [] as { id: string; net: number }[];
+  if (!me) return [] as { id: string; net: number; items: DebtItem[] }[];
   const cards = await closingDays(viewer.householdId);
   const { from, to } = monthRange(month);
   // Compras no cartão de até 2 meses antes podem cair na fatura que vence neste mês.
@@ -792,11 +792,26 @@ export async function getMonthDebts(viewer: Viewer, month: string) {
   );
   const projected = await projectedRecurring(viewer, parseFilters({}), from, to);
   const net = new Map<string, number>();
+  // De quê: cada lançamento que soma ou abate a dívida com a pessoa (para a exportação).
+  const items = new Map<string, DebtItem[]>();
   for (const r of [...saved, ...projected]) {
     if (monthOf(r, cards) !== month) continue;
-    for (const [other, v] of pairEffects(me, r)) net.set(other, (net.get(other) ?? 0) + v);
+    for (const [other, v] of pairEffects(me, r)) {
+      if (v === 0) continue;
+      net.set(other, (net.get(other) ?? 0) + v);
+      items.set(other, [...(items.get(other) ?? []), { description: r.description, date: r.date, cents: v, projected: r.source === "projetado" }]);
+    }
   }
-  return [...net].filter(([, v]) => v !== 0).map(([id, v]) => ({ id, net: v }));
+  return [...net].filter(([, v]) => v !== 0).map(([id, v]) => ({ id, net: v, items: items.get(id) ?? [] }));
+}
+
+/** Um lançamento que forma uma dívida: positivo = a pessoa te deve; negativo = você deve a ela. */
+export type DebtItem = { description: string; date: string; cents: number; projected?: boolean };
+
+/** Contas "todo mês" previstas para um mês à frente (ainda não lançadas), como no painel. */
+export async function projectedForMonth(viewer: Viewer, month: string) {
+  const closing = await closingDays(viewer.householdId);
+  return (await projectedRecurring(viewer, parseFilters({}), `${addMonthsKey(month, -2)}-01`, endOfMonth(`${month}-01`))).filter((r) => monthOf(r, closing) === month);
 }
 
 /**

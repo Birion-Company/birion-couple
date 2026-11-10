@@ -252,7 +252,8 @@ export function TxForm({
   const [count, setCount] = useState("10");
   // "Todo mês": por padrão repete sem data para acabar.
   const [forever, setForever] = useState(true);
-  const [applyToSeries, setApplyToSeries] = useState(true);
+  // Parcela de série: por padrão a mudança vale só para esta (as próximas seguem como estavam).
+  const [applyToSeries, setApplyToSeries] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // Cartões que esta pessoa vê (os próprios; quem administra vê todos). No cartão, quem pagou é o dono.
   const visibleCards = cards.filter((c) => !c.archived || c.id === cardId);
@@ -846,13 +847,22 @@ export function TxForm({
       ) : (
       <>
       {initial?.seriesId && (
-        <label className="check series-apply">
-          <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
-          <span>
-            Levar descrição, categoria, projeto, cartão, quem pagou e observações para {monthly ? "os outros meses" : "as outras parcelas"}
-            <span className="faint"> (valor, data e divisão mudam só nesta)</span>
+        <div className="field series-apply">
+          <span className="label-text">Salvar a mudança em</span>
+          <div className="segmented" role="group" aria-label="Onde vale a mudança">
+            <button type="button" aria-pressed={!applyToSeries} onClick={() => setApplyToSeries(false)}>
+              {monthly ? "Só este mês" : "Só esta parcela"}
+            </button>
+            <button type="button" aria-pressed={applyToSeries} onClick={() => setApplyToSeries(true)}>
+              {monthly ? "Este e os próximos" : "Esta e as próximas"}
+            </button>
+          </div>
+          <span className="faint">
+            {applyToSeries
+              ? `Valor, divisão, quem pagou, descrição, categoria e observações ficam iguais ${monthly ? "nos próximos meses" : "nas próximas parcelas"}. Os anteriores e os já pagos não mudam.`
+              : `${monthly ? "Os outros meses continuam" : "As outras parcelas continuam"} como estavam. Bom para um mês diferente (ex.: alguém pagou tudo desta vez).`}
           </span>
-        </label>
+        </div>
       )}
       <div className="actions" style={{ justifyContent: "space-between" }}>
         {/* Canto inferior esquerdo: cadastrar ou convidar pessoas (vale para qualquer campo de pessoa). */}
