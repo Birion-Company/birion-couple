@@ -53,7 +53,8 @@ const SECTIONS: Section[] = [
     items: [
       { term: "Despesa", text: "Algo que foi pago. Quem tem parte fica devendo para quem pagou. Ex.: mercado de R$ 100 dividido com Fulano → ele te deve R$ 50." },
       { term: "Receita", text: "Dinheiro para você (salário, venda). Ao lançar, diga se já caiu na conta ou se ainda vai receber. Se alguém te pagou uma dívida, use Acerto." },
-      { term: "A receber", text: "O app não supõe que o dinheiro caiu: a receita fica “A receber” e só conta nas entradas quando você toca em Recebi. O painel mostra as atrasadas. Salário todo mês começa “a receber” a cada mês." },
+      { term: "A receber", text: "O app não supõe que o dinheiro caiu: a receita fica “A receber” e só conta nas entradas quando você toca em Recebi. Salário todo mês começa “a receber” a cada mês." },
+      { term: "A receber no painel", text: "Mostra só o mais importante: o que já venceu ou vence no mês visto, do mais atrasado para o mais novo — os 3 primeiros, e “Ver mais” abre o resto do mês. Para ver todas as receitas a receber: Lançamentos, filtro Status “A receber” (troque o mês para ver as dos próximos). Quem te deve, de todos os meses: aba Dívidas." },
       { term: "Dívida", text: "Alguém fica te devendo (ou você a alguém): um empréstimo ou algo vendido para pagar depois. Ex.: vendeu um notebook por R$ 5.600 em 10x → ele te deve R$ 560 por mês." },
       { term: "Acerto", text: "Dinheiro que passou de uma pessoa para outra para abater uma dívida." },
       { term: "Pessoas", text: "“Quem deveria pagar” abre uma lista com pesquisa. Para cadastrar alguém sem sair do lançamento, use o botão Pessoas no canto de baixo." },

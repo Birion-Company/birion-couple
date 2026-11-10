@@ -49,8 +49,8 @@ const STEPS: Step[] = [
     route: "/painel",
     targets: ["dash-awaiting"],
     title: "A receber",
-    text: "Dinheiro que deveria entrar e que o app **não supõe que entrou**: receitas marcadas como “ainda vou receber” e dívidas a seu favor que já venceram. Caiu na conta? Toque em **Recebi**. O valor de cada pessoa já desconta o que ela pagou e o que você deve a ela.",
-    emptyText: "Quando houver dinheiro para entrar (um salário, uma venda, alguém que te deve), aparece aqui o quadro **A receber**, com o botão **Recebi**. O app só conta esse dinheiro depois que você confirma que recebeu.",
+    text: "Dinheiro que deveria entrar e que o app **não supõe que entrou**. Aqui no painel aparece **só o mais importante**: o que já venceu ou vence neste mês, do mais atrasado para o mais novo (os **3 primeiros**; “Ver mais” abre o resto do mês). Caiu na conta? Toque em **Recebi**. **Para ver todas**: as receitas ficam em **Lançamentos**, no filtro Status “A receber” (troque o mês para ver as dos próximos), e quem te deve, de todos os meses, na aba **Dívidas**. Os dois links estão no rodapé do quadro.",
+    emptyText: "Quando houver dinheiro para entrar (um salário, uma venda, alguém que te deve), aparece aqui o quadro **A receber**, com o botão **Recebi**. Ele mostra **só o mais importante** (o que já venceu ou vence no mês). **Para ver todas**: Lançamentos, filtro Status “A receber”; quem te deve, na aba **Dívidas**.",
   },
   {
     chapter: "Painel",
