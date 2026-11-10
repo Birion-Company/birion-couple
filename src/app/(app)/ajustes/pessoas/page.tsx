@@ -54,10 +54,16 @@ export default async function PeoplePage() {
 
       <section className="section" aria-labelledby="contatos">
         <h2 id="contatos" style={{ margin: "0 0 4px" }}>Contatos (sem login)</h2>
-        <p className="faint" style={{ marginBottom: 10 }}>
-          Quem só divide conta, como Fulano. Parado {CONTACT_IDLE_DAYS} dias e sem dívida, sai das listas sozinho e volta ao digitar o nome.
-          Até {CONTACTS_TOTAL_MAX} guardados.
-        </p>
+        <div className="contacts-help">
+          <p>
+            Pessoas que <strong>entram nas contas, mas não usam o app</strong>. Ex.: sua mãe, um amigo do churrasco, quem divide o aluguel.
+          </p>
+          <ul>
+            <li>Ficou {CONTACT_IDLE_DAYS} dias sem aparecer e não deve nada? Some das listas sozinho (não é apagado) e volta quando você escreve o nome num lançamento.</li>
+            <li>Quer que ele use o app? Toque no aviãozinho para mandar um convite.</li>
+            <li>Cabem até {CONTACTS_TOTAL_MAX} contatos guardados.</li>
+          </ul>
+        </div>
         <ListEditor kind="participants" items={contacts} canInvite={owner} />
       </section>
     </>

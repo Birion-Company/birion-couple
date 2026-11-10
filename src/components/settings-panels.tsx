@@ -25,7 +25,6 @@ const TABS = [
   { href: "/ajustes", label: "Família", help: "Nome da família e moeda." },
   { href: "/ajustes/pessoas", label: "Pessoas", help: "Família (com login) e contatos (sem login)." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
-  { href: "/ajustes/projetos", label: "Projetos", help: "Opcionais. Juntam gastos de um assunto, como uma viagem." },
   { href: "/ajustes/membros", label: "Acesso", help: "Convites para entrar no app." },
   { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
   { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou em PDF, para guardar ou mandar para alguém." },
@@ -343,7 +342,8 @@ export function DangerZone({ householdName }: { householdName: string }) {
     <section className="card" aria-labelledby="danger">
       <h2 id="danger" style={{ marginBottom: 4 }}>Excluir a família</h2>
       <p className="faint" style={{ marginBottom: 12 }}>
-        Apaga todos os lançamentos, pessoas e configurações desta família. Não dá para desfazer.
+        Apaga tudo desta família: lançamentos, pessoas, cartões e ajustes. Não dá para desfazer. As contas continuam, mas ficam bloqueadas até
+        criar uma família nova, que começa do zero.
       </p>
       {!open ? (
         <button className="btn danger" onClick={() => setOpen(true)}>Excluir a família…</button>
@@ -359,13 +359,15 @@ export function DangerZone({ householdName }: { householdName: string }) {
           }}
         >
           <label className="field">
-            <span>Para confirmar, digite o nome da família: {householdName}</span>
+            <span>
+              Para confirmar, digite o nome da família: <strong>{householdName}</strong>
+            </span>
             <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
           </label>
           <div className="actions" style={{ justifyContent: "flex-end" }}>
             <button type="button" className="btn ghost" onClick={() => setOpen(false)} disabled={pending}>Cancelar</button>
             <button className="btn danger" disabled={pending || typed.trim() !== householdName.trim()}>
-              {pending ? "Excluindo…" : "Excluir para sempre"}
+              {pending ? "Apagando…" : "Apagar"}
             </button>
           </div>
         </form>

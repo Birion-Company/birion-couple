@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, CreditCard, HandCoins, LayoutGrid, Plus, ScanSearch, UserCheck } from "lucide-react";
+import { ArrowLeftRight, CreditCard, FolderKanban, HandCoins, LayoutGrid, Plus, ScanSearch, UserCheck } from "lucide-react";
 
 const items = [
   { href: "/painel", label: "Painel", icon: LayoutGrid },
@@ -11,6 +11,7 @@ const items = [
   { href: "/identificar", label: "A identificar", icon: ScanSearch, short: "Identificar" },
   { href: "/dividas", label: "Dívidas", icon: HandCoins },
   { href: "/cartoes", label: "Cartões", icon: CreditCard },
+  { href: "/projetos", label: "Projetos", icon: FolderKanban, desktopOnly: true },
   { href: "/confirmar", label: "Para confirmar", icon: UserCheck, short: "Confirmar" },
 ];
 
@@ -49,7 +50,8 @@ export function SideNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number
 export function BottomNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number; toConfirm?: number }) {
   const path = usePathname();
   // No celular, "Confirmar" só entra na barra quando há algo esperando (ou quando você está nela).
-  const shown = items.filter((x) => !x.add && (x.href !== "/confirmar" || toConfirm > 0 || isActive(path, x.href)));
+  // Projetos fica no menu da conta no celular (a barra de baixo já tem 5 itens).
+  const shown = items.filter((x) => !x.add && !("desktopOnly" in x && x.desktopOnly) && (x.href !== "/confirmar" || toConfirm > 0 || isActive(path, x.href)));
   return (
     <nav className="bottom-nav" aria-label="Principal">
       {/* O + fica no botão redondo do canto (fora da barra). */}

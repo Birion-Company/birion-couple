@@ -2,7 +2,7 @@
 
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { squareJpeg } from "./profile-forms";
-import { Archive, ArchiveRestore, Camera, EyeOff, Eye, GripVertical, ListOrdered, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Camera, EyeOff, Eye, GripVertical, ListOrdered, Pencil, Plus, Search, Send, Trash2 } from "lucide-react";
 import { deleteListItem, inviteContact, reorderCategories, saveListItem, setArchived, setPersonPhoto, sortCategoriesByUse } from "@/app/actions/settings";
 import { CATEGORY_ICONS, suggestIcon } from "@/lib/category-icons";
 import { CONTACTS_ACTIVE_MAX, PALETTE, STATUS_BEHAVIORS } from "@/lib/defaults";
@@ -202,6 +202,7 @@ function ItemForm({ kind, item, onDone, defaultColor }: { kind: Kind; item: List
 export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; items: ListItem[]; canInvite?: boolean }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [query, setQuery] = useState("");
   const [pending, start] = useTransition();
   const w = WORDS[kind];
   // Categorias: a ordem daqui é a das listas de escolha. Muda na hora e salva em seguida.
@@ -212,7 +213,10 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
   const rowsRef = useRef<HTMLDivElement>(null);
   const byId = new Map(ordered.map((x) => [x.id, x]));
   const shown = drag ? drag.order.map((id) => byId.get(id)!).filter(Boolean) : ordered;
-  const visible = shown.filter((i) => showArchived || !i.archived);
+  // Pesquisa (contatos): acha pelo nome, inclusive os escondidos.
+  const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = fold(query.trim());
+  const visible = shown.filter((i) => (q ? fold(i.name).includes(q) : showArchived || !i.archived));
   const save = (list: ListItem[]) =>
     start(async () => {
       setOrdered(list);
@@ -271,8 +275,32 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) => start(async () => toastResult(await fn()));
 
+  // Contatos: cadastrar e pesquisar ficam em cima (não precisa rolar a lista toda para adicionar).
+  const topBar = people && (
+    <div className="list-top">
+      {editing === "new" ? (
+        <ItemForm kind={kind} item={null} onDone={() => setEditing(null)} defaultColor={PALETTE[items.length % PALETTE.length]} />
+      ) : (
+        <div className="list-top-row">
+          <button className="btn primary" onClick={() => setEditing("new")} disabled={full}>
+            <Plus size={16} /> {w.add}
+          </button>
+          <label className="list-search">
+            <Search size={15} strokeWidth={1.8} aria-hidden />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pesquisar contato" aria-label="Pesquisar contato" />
+          </label>
+        </div>
+      )}
+      <p className={`faint list-count ${full ? "neg" : ""}`}>
+        {activeCount} de {CONTACTS_ACTIVE_MAX} contatos ativos{full ? " · esconda um para adicionar outro" : ""}
+        {archivedCount > 0 ? ` · ${archivedCount} escondido${archivedCount === 1 ? "" : "s"}` : ""}
+      </p>
+    </div>
+  );
+
   return (
     <div className="card" data-tour={`list-${kind}`}>
+      {topBar}
       {sortable && visible.length > 1 && (
         <div className="order-head">
           <p className="faint">Arraste pela alça ⋮⋮ para mudar a ordem.</p>
@@ -281,7 +309,7 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
           </button>
         </div>
       )}
-      {visible.length === 0 && editing !== "new" && <div className="empty">{w.empty}</div>}
+      {visible.length === 0 && editing !== "new" && <div className="empty">{q ? `Ninguém com “${query}”.` : w.empty}</div>}
       <div className="rows" ref={rowsRef}>
         {visible.map((item) =>
           editing === item.id ? (
@@ -379,23 +407,26 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
           ),
         )}
       </div>
-      {editing === "new" ? (
+      {people ? (
+        archivedCount > 0 && !q && (
+          <div className="actions" style={{ marginTop: 12, justifyContent: "flex-end" }}>
+            <button className="btn ghost small" onClick={() => setShowArchived((x) => !x)}>
+              {showArchived ? "Ocultar escondidos" : `Ver escondidos (${archivedCount})`}
+            </button>
+          </div>
+        )
+      ) : editing === "new" ? (
         <ItemForm kind={kind} item={null} onDone={() => setEditing(null)} defaultColor={PALETTE[items.length % PALETTE.length]} />
       ) : (
         <div className="actions" style={{ marginTop: 12, justifyContent: "space-between" }}>
           <div className="actions" style={{ alignItems: "center" }}>
-            <button className="btn" onClick={() => setEditing("new")} disabled={full} aria-describedby={kind === "participants" ? "limite-pessoas" : undefined}>
+            <button className="btn" onClick={() => setEditing("new")}>
               <Plus size={16} /> {w.add}
             </button>
-            {kind === "participants" && (
-              <span id="limite-pessoas" className={`faint ${full ? "neg" : ""}`}>
-                {activeCount} de {CONTACTS_ACTIVE_MAX} contatos ativos{full ? " · esconda um para adicionar outro" : ""}
-              </span>
-            )}
           </div>
           {archivedCount > 0 && (
             <button className="btn ghost small" onClick={() => setShowArchived((s) => !s)}>
-              {people ? (showArchived ? "Ocultar escondidos" : `Ver escondidos (${archivedCount})`) : showArchived ? "Esconder arquivados" : `Ver arquivados (${archivedCount})`}
+              {showArchived ? "Esconder arquivados" : `Ver arquivados (${archivedCount})`}
             </button>
           )}
         </div>

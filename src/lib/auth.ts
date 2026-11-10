@@ -22,7 +22,7 @@ export type AuthContext = {
 /** Lê a sessão e confere no banco se a pessoa ainda é membro da família. */
 export const getAuth = cache(async (): Promise<AuthContext | null> => {
   const session = await readSession();
-  if (!session || session.hid === AUDIT_HID) return null;
+  if (!session || !/^[0-9a-f-]{36}$/.test(session.hid)) return null;
   const db = getDb();
   const [row] = await db
     .select({
@@ -70,9 +70,26 @@ export async function requireAuditor(): Promise<Auditor> {
   return a;
 }
 
+/** Sessão de quem está sem família (a família foi apagada): só pode criar uma nova. */
+export const NO_HOUSEHOLD = "sem-familia";
+
+export type Homeless = { userId: string; name: string; email: string };
+
+/** Conta logada que não pertence a nenhuma família (ex.: depois de apagar a família). */
+export const getHomeless = cache(async (): Promise<Homeless | null> => {
+  const session = await readSession();
+  if (!session || session.hid !== NO_HOUSEHOLD) return null;
+  const db = getDb();
+  const [u] = await db.select({ userId: schema.users.id, name: schema.users.name, email: schema.users.email }).from(schema.users).where(eq(schema.users.id, session.uid)).limit(1);
+  if (!u) return null;
+  // Se já voltou a ter família (ex.: aceitou um convite), não está mais sem família.
+  const [m] = await db.select({ hid: schema.memberships.householdId }).from(schema.memberships).where(eq(schema.memberships.userId, u.userId)).limit(1);
+  return m ? null : u;
+});
+
 export async function requireAuth(): Promise<AuthContext> {
   const auth = await getAuth();
-  if (!auth) redirect("/entrar");
+  if (!auth) redirect((await getHomeless()) ? "/nova-familia" : "/entrar");
   return auth;
 }
 

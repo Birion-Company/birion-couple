@@ -7,7 +7,7 @@ import * as z from "zod";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getDb, schema } from "@/db";
 import { createHouseholdForUser, hasRoomForMember } from "@/lib/household";
-import { AUDIT_HID } from "@/lib/auth";
+import { AUDIT_HID, NO_HOUSEHOLD, getHomeless } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
@@ -81,7 +81,11 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     .where(eq(schema.memberships.userId, user.id))
     .orderBy(schema.memberships.createdAt)
     .limit(1);
-  if (!membership) return { error: "Esta conta não participa de nenhuma família.", fields };
+  // Sem família (a dela foi apagada): entra, mas só pode criar uma família nova.
+  if (!membership) {
+    await createSession({ uid: user.id, hid: NO_HOUSEHOLD });
+    redirect("/nova-familia");
+  }
   await createSession({ uid: user.id, hid: membership.hid });
   redirect("/painel");
 }
@@ -164,5 +168,21 @@ export async function acceptInvite(_: FormState, form: FormData): Promise<FormSt
     await tx.update(schema.invites).set({ usedAt: new Date() }).where(eq(schema.invites.id, invite.id));
   });
   await createSession({ uid: userId, hid: invite.householdId });
+  redirect("/painel?bemvindo=1");
+}
+
+/**
+ * Conta sem família (a dela foi apagada): cria uma família nova, vazia, e entra nela.
+ * Os dados da família antiga não voltam.
+ */
+export async function createNewHousehold(_: FormState, form: FormData): Promise<FormState> {
+  const me = await getHomeless();
+  if (!me) redirect("/entrar");
+  const raw = String(form.get("household") ?? "").trim();
+  if (raw.length > HOUSEHOLD_NAME_MAX) return { error: `O nome da família pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.`, fields: { household: raw } };
+  const hid = await getDb().transaction((tx) =>
+    createHouseholdForUser(tx, { userId: me.userId, userName: me.name, householdName: raw || defaultHouseholdName(me.name) }),
+  );
+  await createSession({ uid: me.userId, hid });
   redirect("/painel?bemvindo=1");
 }

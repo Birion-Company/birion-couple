@@ -927,6 +927,22 @@ export async function getProjectStats(viewer: Viewer) {
   );
 }
 
+/** Lançamentos de um projeto (o que a pessoa pode ver), do mais novo para o mais velho. */
+export async function getProjectTransactions(viewer: Viewer, projectId: string) {
+  return attachSplits((await getDb().select(txColumns).from(t).where(txScope(viewer, eq(t.projectId, projectId), isNull(t.settlesId))).orderBy(desc(t.date))) as BaseRow[]);
+}
+
+/** Para "colocar no projeto": despesas sem projeto dos últimos 6 meses (e as já lançadas para frente). */
+export async function getProjectCandidates(viewer: Viewer) {
+  const since = addDaysIso(todayIn(), -183);
+  return getDb()
+    .select({ id: t.id, date: t.date, description: t.description, amountCents: t.amountCents, categoryId: t.categoryId, cardId: t.cardId, seriesIndex: t.seriesIndex, seriesTotal: t.seriesTotal })
+    .from(t)
+    .where(txScope(viewer, isNull(t.projectId), isNull(t.settlesId), eq(t.kind, "expense"), gte(t.date, since)))
+    .orderBy(desc(t.date))
+    .limit(400);
+}
+
 export async function getRules(householdId: string) {
   const db = getDb();
   return db.select().from(schema.categoryRules).where(eq(schema.categoryRules.householdId, householdId)).orderBy(asc(schema.categoryRules.pattern));

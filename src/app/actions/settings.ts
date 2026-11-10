@@ -7,13 +7,13 @@ import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { canEditTx } from "@/lib/access";
 import { involved, logActivity, snapshots } from "@/lib/activity";
-import { requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
+import { NO_HOUSEHOLD, requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
 import { ruleMatches } from "@/lib/rules-server";
 import { findOrCreateContact, hasRoomForContact } from "@/lib/contacts";
 import { ICON_KEYS } from "@/lib/category-icons";
 import { HOUSEHOLD_NAME_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
-import { destroySession } from "@/lib/session";
+import { createSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
@@ -54,20 +54,10 @@ export async function updateHousehold(input: { name: string; currency: string })
 export async function deleteHousehold(confirmName: string): Promise<ActionResult> {
   const auth = await requireOwner();
   if (confirmName.trim() !== auth.householdName.trim()) return fail("O nome digitado não confere.");
-  const db = getDb();
-  await db.transaction(async (tx) => {
-    const members = await tx
-      .select({ userId: schema.memberships.userId })
-      .from(schema.memberships)
-      .where(eq(schema.memberships.householdId, auth.householdId));
-    await tx.delete(schema.households).where(eq(schema.households.id, auth.householdId));
-    for (const m of members) {
-      const [{ n }] = await tx.select({ n: count() }).from(schema.memberships).where(eq(schema.memberships.userId, m.userId));
-      if (n === 0) await tx.delete(schema.users).where(eq(schema.users.id, m.userId));
-    }
-  });
-  await destroySession();
-  redirect("/entrar");
+  // Apaga a família e tudo dela; as contas continuam, mas sem família (bloqueadas até criar outra).
+  await getDb().delete(schema.households).where(eq(schema.households.id, auth.householdId));
+  await createSession({ uid: auth.userId, hid: NO_HOUSEHOLD });
+  redirect("/nova-familia");
 }
 
 // ---------- Listas configuráveis ----------

@@ -1,3 +1,4 @@
+import { NO_HOUSEHOLD } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -41,9 +42,9 @@ export async function GET(request: NextRequest) {
       .where(eq(schema.memberships.userId, user.id))
       .orderBy(schema.memberships.createdAt)
       .limit(1);
-    if (!m) return fail("sem-familia");
     uid = user.id;
-    hid = m.hid;
+    // Sem família (a dela foi apagada): entra, mas só pode criar uma família nova.
+    hid = m?.hid ?? NO_HOUSEHOLD;
   } else {
     // Conta nova: senha aleatória (só entra pelo Google até definir outra) e família própria.
     const passwordHash = await bcrypt.hash(randomBytes(32).toString("base64url"), 10);
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
     welcome = true;
   }
   await createSession({ uid, hid });
-  const res = NextResponse.redirect(new URL(welcome ? "/painel?bemvindo=1" : "/painel", origin));
+  const res = NextResponse.redirect(new URL(hid === NO_HOUSEHOLD ? "/nova-familia" : welcome ? "/painel?bemvindo=1" : "/painel", origin));
   res.cookies.delete({ name: GOOGLE_COOKIE, path: "/api/auth/google" });
   return res;
 }
