@@ -2332,22 +2332,39 @@ button.user-menu-item {
   margin-top: 8px;
   font-size: 0.8rem;
 }
+.debt-row .btn .short {
+  display: none;
+}
+/* Celular: uma linha por pessoa (rosto de quem deve, nome e valor, botão curto). */
 @media (max-width: 520px) {
   .debt-row {
-    flex-wrap: wrap;
-    gap: 6px 10px;
+    flex-wrap: nowrap;
+    gap: 10px;
   }
-  .debt-row .btn {
-    margin-left: auto;
-  }
-  .debt-row .debt-people {
+  .debt-row .debt-arrow,
+  .debt-row .debt-to {
     display: none;
   }
   .debt-row .title {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     min-width: 0;
     font-size: 0.95rem;
     white-space: normal;
+    line-height: 1.3;
+  }
+  .debt-row .title .debt-amount {
+    display: block;
+    margin-left: 0;
+    font-size: 1.02rem;
+  }
+  .debt-row .btn {
+    flex: none;
+  }
+  .debt-row .btn .long {
+    display: none;
+  }
+  .debt-row .btn .short {
+    display: inline;
   }
 }
 
@@ -6053,4 +6070,51 @@ s.was {
 .amount-partial .amount-now {
   font-weight: 700;
   color: var(--text);
+}
+
+/* Dívidas: "Quem deve para quem" com muita gente. */
+.debt-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: -4px 0 10px;
+  font-size: 0.86rem;
+  color: var(--text-2);
+}
+.debt-totals .in strong {
+  color: var(--pos);
+}
+.debt-totals .out strong {
+  color: var(--neg);
+}
+.debt-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 12px;
+  min-height: 40px;
+  border: 1px solid var(--field-edge);
+  border-radius: 12px;
+  background: var(--field-bg);
+  color: var(--text-3);
+}
+.debt-search:focus-within {
+  border-color: var(--brand);
+}
+.debt-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.debt-more {
+  margin-top: 8px;
+}
+.debt-none {
+  padding: 12px 4px;
 }

@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ChevronDown, HandCoins } from "lucide-react";
+import { CheckCircle2, ChevronDown, HandCoins } from "lucide-react";
 import { PayButton, ProfitBadge, UndoButton } from "@/components/debt-payments";
 import { Avatar, Money, formatDate } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
-import { competenceMonth, longMonth, seriesLabel } from "@/lib/cards";
-import { closingDays, getDebtLedger, getLookupsFor } from "@/lib/queries";
+import { addMonthsKey, competenceMonth, longMonth, seriesLabel } from "@/lib/cards";
+import { closingDays, getDebtLedger, getLookupsFor, householdStartMonth } from "@/lib/queries";
+import { DebtLines } from "@/components/debt-lines";
+import { MonthNav } from "@/components/month-nav";
+import { MONTHS_AHEAD, parseFilters, thisMonthKey } from "@/lib/filters";
 
 export const metadata: Metadata = { title: "Dívidas" };
 
@@ -20,26 +23,33 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
   const name = (id: string | null) => (id ? people.get(id)?.name ?? "Alguém" : "ninguém");
   const me = auth.participantId;
 
-  // Mês de cada dívida: no cartão, o mês da fatura (como no painel). Os chips mostram só meses com dívida em aberto.
+  // Mês de cada dívida: no cartão, o mês da fatura (como no painel).
   const monthOf = (tx: { date: string; cardId: string | null }) => competenceMonth(tx.date, tx.cardId ? closing.get(tx.cardId) : null);
-  const months = [...new Set(full.people.flatMap((p) => [...p.entries, ...p.upcomingEntries].map((e) => monthOf(e.tx))))].sort();
-  const raw = (await searchParams).mes;
-  const month = typeof raw === "string" && months.includes(raw) ? raw : null;
-  const ledger = month
-    ? {
-        ...full,
-        people: full.people
-          .map((p) => {
-            // Mês escolhido: o que já venceu e as parcelas daquele mês (mesmo futuras).
-            const entries = [...p.entries, ...p.upcomingEntries].filter((e) => monthOf(e.tx) === month);
-            return { ...p, entries, net: entries.reduce((a, e) => a + e.effect, 0), upcoming: 0, upcomingCount: 0, upcomingEntries: [] };
-          })
-          .filter((p) => p.entries.length > 0),
-      }
-    : full;
+  // Mesmo navegador do painel: um mês por vez, do primeiro mês de uso até 12 meses à frente.
+  const sp = await searchParams;
+  const current = thisMonthKey();
+  const started = await householdStartMonth(auth.householdId);
+  const firstMonth = started < current ? started : current;
+  const lastMonth = addMonthsKey(current, MONTHS_AHEAD);
+  const raw = typeof sp.mes === "string" ? sp.mes : null;
+  const month = raw && raw >= firstMonth && raw <= lastMonth ? raw : current;
+  // Este mês: tudo o que está em aberto até agora (e as parcelas a vencer embaixo).
+  // Outro mês: só o que é daquele mês.
+  const ledger =
+    month === current
+      ? full
+      : {
+          ...full,
+          people: full.people
+            .map((p) => {
+              const entries = [...p.entries, ...p.upcomingEntries].filter((e) => monthOf(e.tx) === month);
+              return { ...p, entries, net: entries.reduce((a, e) => a + e.effect, 0), upcoming: 0, upcomingCount: 0, upcomingEntries: [] };
+            })
+            .filter((p) => p.entries.length > 0),
+        };
   const owedToMe = ledger.people.filter((p) => p.net > 0).reduce((a, p) => a + p.net, 0);
   const iOwe = ledger.people.filter((p) => p.net < 0).reduce((a, p) => a - p.net, 0);
-  const monthWord = month ? ` em ${longMonth(month).replace(/ de \d{4}$/, "").toLowerCase()}` : "";
+  const monthWord = month !== current ? ` em ${longMonth(month).replace(/ de \d{4}$/, "").toLowerCase()}` : "";
 
   // "Quem deve para quem" (o total, sem filtro de mês): as dívidas que envolvem você primeiro.
   // Só dívidas reais entre cada par de pessoas (sem "simplificar" passando por quem não tem nada a ver).
@@ -49,8 +59,6 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
       .map((p) => (p.net > 0 ? { fromId: p.personId, toId: me!, amountCents: p.net } : { fromId: me!, toId: p.personId, amountCents: -p.net })),
     ...full.others,
   ];
-  const sentence = (fromId: string, toId: string) =>
-    fromId === me ? <>Você deve para <strong>{name(toId)}</strong></> : toId === me ? <><strong>{name(fromId)}</strong> te deve</> : <><strong>{name(fromId)}</strong> deve para <strong>{name(toId)}</strong></>;
 
   return (
     <div className="debts-page">
@@ -74,42 +82,16 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
             <CheckCircle2 size={18} strokeWidth={1.7} aria-hidden /> Ninguém deve nada a ninguém.
           </p>
         ) : (
-          <div className="rows">
-            {debtLines.map((d) => (
-              <div key={d.fromId + d.toId} className={`row debt-row ${d.toId === me ? "in" : d.fromId === me ? "out" : ""}`}>
-                <span className="debt-people" aria-hidden>
-                  <Avatar name={name(d.fromId)} color={people.get(d.fromId)?.color ?? "#94A3B8"} size={30} src={people.get(d.fromId)?.avatarUrl} />
-                  <ArrowRight size={14} strokeWidth={1.8} />
-                  <Avatar name={name(d.toId)} color={people.get(d.toId)?.color ?? "#94A3B8"} size={30} src={people.get(d.toId)?.avatarUrl} />
-                </span>
-                <p className="grow title">
-                  {sentence(d.fromId, d.toId)} <span className="debt-amount"><Money cents={d.amountCents} currency={cur} /></span>
-                </p>
-                <Link
-                  className="btn small"
-                  href={`/transacoes/nova?acerto=${d.fromId}.${d.toId}.${d.amountCents}`}
-                  aria-label={`Registrar pagamento de ${name(d.fromId)} para ${name(d.toId)}`}
-                >
-                  Registrar pagamento
-                </Link>
-              </div>
-            ))}
-          </div>
+          <DebtLines
+            lines={debtLines}
+            me={me}
+            people={Object.fromEntries(lookups.participants.map((p) => [p.id, { name: p.name, color: p.color, avatarUrl: p.avatarUrl ?? null }]))}
+            currency={cur}
+          />
         )}
       </section>
 
-      {months.length > 0 && (
-        <nav className="month-chips" aria-label="Mês das dívidas">
-          <Link className={`chip ${!month ? "on" : ""}`} href="/dividas" scroll={false} aria-current={!month ? "page" : undefined}>
-            Todos os meses
-          </Link>
-          {months.map((m) => (
-            <Link key={m} className={`chip ${month === m ? "on" : ""}`} href={`/dividas?mes=${m}`} scroll={false} aria-current={month === m ? "page" : undefined}>
-              {longMonth(m).replace(" de ", "/").replace(/^(\w)/, (c) => c.toUpperCase())}
-            </Link>
-          ))}
-        </nav>
-      )}
+      <MonthNav filters={parseFilters(sp, "mes")} month={month} current={current} min={firstMonth} max={lastMonth} />
 
       {auth.participantId && (
         <div className="stats debts-stats" data-tour="debts">
