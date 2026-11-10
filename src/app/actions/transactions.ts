@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
@@ -442,6 +442,7 @@ export async function deleteTransactions(ids: string[]): Promise<ActionResult> {
   const db = getDb();
   const snaps = await snapshots(db, auth.householdId, list.data);
   await db.transaction(async (tx) => {
+    await deleteRests(tx, auth.householdId, list.data);
     await tx
       .delete(schema.transactions)
       .where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, list.data)));
@@ -506,11 +507,31 @@ const PaySchema = z.object({
   participantId: uuid,
   amountCents: z.number().int().positive({ error: "O valor pago precisa ser maior que zero." }).max(1_000_000_000),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** Pagou menos que o devido: "owe" = a diferença continua como dívida; "discount" = perdoa a diferença. */
+  rest: z.enum(["owe", "discount"]).optional(),
 });
 
+/** externalId da dívida com o que faltou de um pagamento: liga as duas para desfazer juntas. */
+const restKey = (payId: string) => `rest:${payId}`;
+
 /**
- * Marca como paga a parte de uma pessoa num lançamento, com o valor que ela pagou de verdade
- * (pode ser mais ou menos que o devido). Vira um acerto ligado ao lançamento.
+ * Apaga as dívidas "o que faltou" ligadas aos lançamentos que estão sendo apagados: o próprio pagamento
+ * ou o lançamento original (cujos pagamentos somem junto).
+ */
+async function deleteRests(tx: Conn, householdId: string, ids: string[]) {
+  if (ids.length === 0) return;
+  const pays = await tx
+    .select({ id: schema.transactionSplits.paidById })
+    .from(schema.transactionSplits)
+    .where(and(inArray(schema.transactionSplits.transactionId, ids), isNotNull(schema.transactionSplits.paidById)));
+  const keys = [...ids, ...pays.map((p) => p.id!)].map(restKey);
+  await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, householdId), inArray(schema.transactions.externalId, keys)));
+}
+
+/**
+ * Marca como paga a parte de uma pessoa num lançamento, com o valor que ela pagou de verdade.
+ * Pagou a mais: a diferença é lucro. Pagou a menos: por padrão o que faltou continua como dívida
+ * (um lançamento "Falta: …" ligado ao pagamento); ou, se escolhido, vira desconto.
  */
 export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionResult> {
   const auth = await requireAuth();
@@ -526,22 +547,54 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
   const involvedHere = auth.participantId === orig.payerId || auth.participantId === d.participantId;
   if (!canEditTx(auth, orig.createdBy) && !involvedHere) return { ok: false, error: NOT_YOURS };
   const db = getDb();
+  const date = d.date ?? todayIn();
+  const restCents = d.rest === "discount" ? 0 : Math.max(0, split.amountCents - d.amountCents);
   await db.transaction(async (tx) => {
-    const payId = await createPayment(tx, auth, orig, d.participantId, d.amountCents, d.date ?? todayIn());
+    const payId = await createPayment(tx, auth, orig, d.participantId, d.amountCents, date);
+    if (restCents > 0) {
+      // O que faltou continua devido, como uma dívida nova de quem deve para quem recebe.
+      const income = orig.kind === "income";
+      const debtor = income ? orig.payerId! : d.participantId;
+      const creditor = income ? d.participantId : orig.payerId!;
+      const [rest] = await tx
+        .insert(schema.transactions)
+        .values({
+          householdId: auth.householdId,
+          date,
+          description: `Falta: ${orig.description}`.slice(0, 200),
+          amountCents: restCents,
+          kind: "loan",
+          payerId: creditor,
+          notes: `Pagou ${formatMoney(d.amountCents, auth.currency)} de ${formatMoney(split.amountCents, auth.currency)}.`,
+          source: "manual",
+          externalId: restKey(payId),
+          createdBy: auth.userId,
+        })
+        .returning({ id: schema.transactions.id });
+      await tx.insert(schema.transactionSplits).values({ transactionId: rest.id, participantId: debtor, amountCents: restCents });
+    }
     const audience = [orig.payerId!, d.participantId];
     await logActivity(tx, auth, {
       action: "status",
       transactionId: orig.id,
-      data: { settled: true, paidCents: d.amountCents, owedCents: split.amountCents, items: [{ d: orig.description, a: audience }], changes: [] },
+      data: { settled: true, paidCents: d.amountCents, owedCents: split.amountCents - restCents, restCents, items: [{ d: orig.description, a: audience }], changes: [] },
       audience,
     });
     return payId;
   });
   revalidatePath("/", "layout");
   const diff = d.amountCents - split.amountCents;
+  const money = (c: number) => formatMoney(c, auth.currency);
   return {
     ok: true,
-    message: diff > 0 ? `Pago, com ${formatMoney(diff, auth.currency)} de lucro.` : diff < 0 ? `Pago, com ${formatMoney(-diff, auth.currency)} de desconto.` : "Marcado como pago.",
+    message:
+      restCents > 0
+        ? `Pagou ${money(d.amountCents)}. Falta ${money(restCents)}: continua como dívida.`
+        : diff > 0
+          ? `Pago, com ${money(diff)} de lucro.`
+          : diff < 0
+            ? `Pago, com ${money(-diff)} de desconto.`
+            : "Marcado como pago.",
   };
 }
 
@@ -570,6 +623,7 @@ export async function setTransactionsSettled(ids: string[], settled: boolean): P
         n += open.length ? 1 : 0;
       } else {
         const payIds = owed.map((x) => x.paidById).filter((x): x is string => !!x);
+        await deleteRests(tx, auth.householdId, payIds);
         if (payIds.length) await tx.delete(schema.transactions).where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.id, payIds)));
         // Modelo antigo: "Já acertado" sem acerto.
         await tx.update(schema.transactions).set({ settled: false }).where(eq(schema.transactions.id, r.id));

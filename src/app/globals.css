@@ -3862,7 +3862,8 @@ button.user-menu-item {
 
 /* Pagamento de dívida: lucro (pagou a mais) em destaque, desconto (pagou a menos) discreto. */
 .profit-badge,
-.discount-badge {
+.discount-badge,
+.rest-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -3884,6 +3885,12 @@ button.user-menu-item {
   color: var(--text-2);
   background: var(--surface-2);
   border: 1px solid var(--line);
+}
+/* Pagou a menos e o resto continua devido. */
+.rest-badge {
+  color: var(--neg);
+  background: color-mix(in srgb, var(--neg) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--neg) 35%, transparent);
 }
 .tx-paid {
   display: inline;
@@ -3947,6 +3954,34 @@ button.user-menu-item {
   align-self: center;
   font-size: 0.8rem;
   font-weight: 600;
+}
+/* Pagou a menos: escolher se o resto continua devido ou vira desconto. */
+.pay-rest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-self: center;
+  font-size: 0.8rem;
+}
+.pay-rest-say {
+  font-weight: 600;
+  color: var(--neg);
+}
+.pay-rest .chip {
+  cursor: pointer;
+  height: 30px;
+  font-size: 0.78rem;
+  padding: 0 10px;
+}
+.pay-rest .chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pay-rest .chip:has(input:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /* Faturas: o link ocupa a linha e o botão "Marcar como paga" fica ao lado. */
@@ -4582,11 +4617,14 @@ body:has(.bulkbar) .new-fab {
   white-space: nowrap;
   text-align: right;
 }
-/* Painel (linhas compactas): a explicação fica numa linha só; o detalhe completo está ao abrir. */
+/* Painel (linhas compactas): a explicação cabe em até duas linhas; o detalhe completo está ao abrir. */
 .tx-row .tx-explain {
-  white-space: nowrap !important;
+  white-space: normal !important;
   overflow: hidden !important;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .card-head > a {
   flex: none;
@@ -5145,8 +5183,8 @@ body.modal-open {
 .summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 .summary-row {
   display: flex;
@@ -5335,15 +5373,24 @@ body.modal-open {
     font-size: 1.1rem;
   }
 }
-/* Gastos, entradas e saldo do mês: linha secundária, menor. */
-.month-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  margin-bottom: 14px;
-  padding: 0 4px;
-  font-size: 0.86rem;
+
+/* Painel embaixo: os últimos lançamentos ficam mais largos (as linhas de explicação não são cortadas);
+   em telas médias, um embaixo do outro. */
+.dash-bottom {
+  grid-template-columns: minmax(0, 1fr);
 }
-.month-line .faint {
-  margin-right: 4px;
+@media (min-width: 1100px) {
+  .dash-bottom {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+
+/* Dívidas: ao abrir "Recebi/Paguei", o formulário desce para uma linha só dele. */
+.ledger-row:has(.pay-form) {
+  flex-wrap: wrap;
+}
+.ledger-row .pay-form {
+  flex-basis: 100%;
+  justify-content: flex-end;
 }

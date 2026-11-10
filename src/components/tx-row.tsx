@@ -56,7 +56,7 @@ const SETTLED = " · já acertado";
 export function txProfit(tx: TxRow): number {
   if (tx.settles) return tx.amountCents - tx.settles.owedCents;
   if (tx.kind === "transfer") return 0;
-  return tx.splits.reduce((a, s) => a + (s.paidById && s.paidCents !== null ? s.paidCents - s.amountCents : 0), 0);
+  return tx.splits.reduce((a, s) => a + (s.paidById && s.paidCents !== null ? s.paidCents + (s.restCents ?? 0) - s.amountCents : 0), 0);
 }
 
 /** Lucro em destaque embaixo do valor. */
@@ -92,13 +92,13 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
             <Check size={12} strokeWidth={2.6} aria-hidden />{" "}
             {income ? `Repassado para ${name(s.participantId)}` : `${name(s.participantId)} pagou`} {formatMoney(s.paidCents ?? s.amountCents, currency)}
           </span>
-          {s.paidCents !== null && <ProfitBadge paidCents={s.paidCents} owedCents={s.amountCents} currency={currency} />}
+          {s.paidCents !== null && <ProfitBadge paidCents={s.paidCents} owedCents={s.amountCents} restCents={s.restCents} currency={currency} />}
         </span>
       ))}
       {tx.settles && (
         <>
           <span className="tx-settles-ref"> · paga “{tx.settles.description}”, que era de {formatMoney(tx.settles.owedCents, currency)}</span>
-          <ProfitBadge paidCents={tx.amountCents} owedCents={tx.settles.owedCents} currency={currency} />
+          <ProfitBadge paidCents={tx.amountCents} owedCents={tx.settles.owedCents} restCents={tx.settles.restCents} currency={currency} />
         </>
       )}
     </p>

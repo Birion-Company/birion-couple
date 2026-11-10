@@ -125,21 +125,3 @@ export function MoneySummary({
     </section>
   );
 }
-
-/** Linha menor com o mês: gastos, entradas e saldo. */
-export function MonthLine({ spent, income, label, currency, future }: { spent: number; income: number; label: string; currency: string; future: boolean }) {
-  const balance = income - spent;
-  return (
-    <div className="month-line" aria-label={`Números de ${label}`}>
-      <span>
-        <span className="faint">{future ? "Já comprometido" : "Seus gastos"}</span> <Money cents={spent} currency={currency} />
-      </span>
-      <span>
-        <span className="faint">Entradas</span> <Money cents={income} currency={currency} />
-      </span>
-      <span>
-        <span className="faint">{future ? "Saldo previsto" : "Saldo"}</span> <Money cents={balance} currency={currency} signed />
-      </span>
-    </div>
-  );
-}

@@ -61,7 +61,7 @@ type Snap = { description: string; amountCents: number; kind: string; payerId: s
 type Entry = {
   action: string;
   transactionId?: string | null;
-  data: { tx?: Snap; items?: { d: string; a: string[] }[]; paidCents?: number; owedCents?: number; settled?: boolean; fileName?: string; fields?: string[] };
+  data: { tx?: Snap; items?: { d: string; a: string[] }[]; paidCents?: number; owedCents?: number; restCents?: number; settled?: boolean; fileName?: string; fields?: string[] };
   audience: string[];
 };
 
@@ -120,7 +120,7 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
       const diff = entry.data.paidCents - (entry.data.owedCents ?? entry.data.paidCents);
       msg = {
         title: "Pagamento registrado",
-        body: `${who} registrou o pagamento de ${money(entry.data.paidCents)} em “${items[0]?.d ?? "um lançamento"}”${diff > 0 ? ` (${money(diff)} de lucro)` : ""}.`,
+        body: `${who} registrou o pagamento de ${money(entry.data.paidCents)} em “${items[0]?.d ?? "um lançamento"}”${entry.data.restCents ? ` (falta ${money(entry.data.restCents)})` : diff > 0 ? ` (${money(diff)} de lucro)` : ""}.`,
       };
     } else if (entry.action === "status") {
       kind = "pagamento";

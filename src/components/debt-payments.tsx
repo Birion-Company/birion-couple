@@ -8,10 +8,20 @@ import { deleteTransactions, payDebt, setTransactionsSettled } from "@/app/actio
 import { centsToInput, formatMoney, parseAmountToCents } from "@/lib/money";
 import { toast, toastResult } from "./toaster";
 
-type Split = { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null };
+type Split = { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null; restCents?: number };
 
-/** Selo de lucro (pagou a mais) ou desconto (pagou a menos) de um pagamento de dívida. */
-export function ProfitBadge({ paidCents, owedCents, currency }: { paidCents: number; owedCents: number; currency: string }) {
+/**
+ * Selo de um pagamento de dívida: lucro (pagou a mais), desconto (pagou a menos e perdoou)
+ * ou o que falta (pagou a menos e o resto continua como dívida).
+ */
+export function ProfitBadge({ paidCents, owedCents, restCents = 0, currency }: { paidCents: number; owedCents: number; restCents?: number; currency: string }) {
+  if (restCents > 0) {
+    return (
+      <span className="rest-badge" title={`Devia ${formatMoney(owedCents, currency)} e pagou ${formatMoney(paidCents, currency)}`}>
+        falta {formatMoney(restCents, currency)}
+      </span>
+    );
+  }
   const diff = paidCents - owedCents;
   if (diff === 0) return null;
   return diff > 0 ? (
@@ -31,6 +41,8 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(centsToInput(owedCents));
+  // Pagou a menos: o que faltou continua como dívida (padrão) ou vira desconto.
+  const [rest, setRest] = useState<"owe" | "discount">("owe");
   const cents = parseAmountToCents(value, ",") ?? 0;
   const diff = cents - owedCents;
   if (!open) {
@@ -47,7 +59,7 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
         e.preventDefault();
         if (cents <= 0) return toast("Digite quanto foi pago.", "error");
         start(async () => {
-          const r = await payDebt({ transactionId: txId, participantId, amountCents: cents });
+          const r = await payDebt({ transactionId: txId, participantId, amountCents: cents, rest });
           toastResult(r);
           if (r.ok) {
             setOpen(false);
@@ -61,9 +73,21 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
         <span>Quanto pagou</span>
         <input className="input" inputMode="decimal" autoFocus value={value} onChange={(e) => setValue(e.target.value.replace(/[^\d,.]/g, ""))} aria-label="Quanto pagou" />
       </label>
-      <span className={`pay-diff ${diff > 0 ? "pos" : diff < 0 ? "neg" : "faint"}`}>
-        {diff > 0 ? `+${formatMoney(diff, currency)} de lucro` : diff < 0 ? `${formatMoney(-diff, currency)} a menos (desconto)` : "valor exato"}
-      </span>
+      {diff < 0 && cents > 0 ? (
+        <span className="pay-rest" role="radiogroup" aria-label={`Faltam ${formatMoney(-diff, currency)}`}>
+          <span className="pay-rest-say">Faltam {formatMoney(-diff, currency)}:</span>
+          <label className={`chip ${rest === "owe" ? "on" : ""}`}>
+            <input type="radio" name={`rest-${txId}-${participantId}`} checked={rest === "owe"} onChange={() => setRest("owe")} />
+            Continua devendo
+          </label>
+          <label className={`chip ${rest === "discount" ? "on" : ""}`}>
+            <input type="radio" name={`rest-${txId}-${participantId}`} checked={rest === "discount"} onChange={() => setRest("discount")} />
+            Dar desconto
+          </label>
+        </span>
+      ) : (
+        <span className={`pay-diff ${diff > 0 ? "pos" : "faint"}`}>{diff > 0 ? `+${formatMoney(diff, currency)} de lucro` : cents > 0 ? "valor exato" : ""}</span>
+      )}
       <button className="btn small primary" disabled={pending}>Confirmar</button>
       <button type="button" className="btn small ghost" onClick={() => setOpen(false)}>Cancelar</button>
     </form>
@@ -157,7 +181,7 @@ export function DebtPayments({
                 ) : (
                   <>{who(s.participantId)} pagou {formatMoney(s.paidCents ?? s.amountCents, currency)} para {creditor(s)}</>
                 )}
-                {s.paidCents !== null && <> <ProfitBadge paidCents={s.paidCents} owedCents={s.amountCents} currency={currency} /></>}
+                {s.paidCents !== null && <> <ProfitBadge paidCents={s.paidCents} owedCents={s.amountCents} restCents={s.restCents} currency={currency} /></>}
               </p>
               <Link className="btn small ghost" href={`/transacoes/${s.paidById}`}>Ver acerto</Link>
               {canPay && <UndoButton payId={s.paidById} />}

@@ -155,7 +155,7 @@ export type TxRow = {
   /** Acerto que paga a dívida de outro lançamento. */
   settlesId: string | null;
   /** Para acertos ligados: o lançamento pago e quanto era devido (o resto é lucro ou desconto). */
-  settles: { txId: string; description: string; owedCents: number } | null;
+  settles: { txId: string; description: string; owedCents: number; restCents: number } | null;
   notes: string | null;
   source: string;
   cardId: string | null;
@@ -167,8 +167,11 @@ export type TxRow = {
   createdBy: string | null;
   /** Compra recorrente: o mesmo estabelecimento aparece em meses diferentes (só na lista de lançamentos). */
   recurring?: boolean;
-  /** paidById/paidCents: o acerto que pagou esta parte e quanto foi pago nele. */
-  splits: { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null }[];
+  /**
+   * paidById/paidCents: o acerto que pagou esta parte e quanto foi pago nele.
+   * restCents: pagou a menos e o que faltou continua como dívida (não é desconto).
+   */
+  splits: { participantId: string; amountCents: number; paidById: string | null; paidCents: number | null; restCents: number }[];
 };
 
 type BaseRow = Omit<TxRow, "splits" | "settles">;
@@ -192,6 +195,15 @@ async function attachSplits(rows: BaseRow[]): Promise<TxRow[]> {
   for (let i = 0; i < payIds.length; i += 500) {
     for (const p of await db.select({ id: t.id, amountCents: t.amountCents }).from(t).where(inArray(t.id, payIds.slice(i, i + 500)))) paid.set(p.id, p.amountCents);
   }
+  // O que faltou de cada pagamento a menos (dívida "Falta: …" ligada pelo externalId "rest:<pagamento>").
+  const restIds = [...new Set([...payIds, ...rows.filter((r) => r.settlesId).map((r) => r.id)])];
+  const rest = new Map<string, number>();
+  // Mesma família dos lançamentos: usa o índice (householdId, externalId).
+  const household = db.select({ h: t.householdId }).from(t).where(eq(t.id, rows[0].id));
+  for (let i = 0; i < restIds.length; i += 500) {
+    const keys = restIds.slice(i, i + 500).map((id) => `rest:${id}`);
+    for (const r of await db.select({ key: t.externalId, amountCents: t.amountCents }).from(t).where(and(eq(t.householdId, household), inArray(t.externalId, keys)))) rest.set(r.key!.slice(5), r.amountCents);
+  }
   // Acertos ligados: o que pagaram e quanto era devido.
   const acertoIds = rows.filter((r) => r.settlesId).map((r) => r.id);
   const settles = new Map<string, NonNullable<TxRow["settles"]>>();
@@ -201,12 +213,12 @@ async function attachSplits(rows: BaseRow[]): Promise<TxRow[]> {
       .from(schema.transactionSplits)
       .innerJoin(t, eq(t.id, schema.transactionSplits.transactionId))
       .where(inArray(schema.transactionSplits.paidById, acertoIds.slice(i, i + 500)));
-    for (const f of found) settles.set(f.paidById!, { txId: f.txId, description: f.description, owedCents: f.owedCents });
+    for (const f of found) settles.set(f.paidById!, { txId: f.txId, description: f.description, owedCents: f.owedCents, restCents: rest.get(f.paidById!) ?? 0 });
   }
   const by = new Map<string, TxRow["splits"]>();
   for (const s of splits) {
     const list = by.get(s.transactionId) ?? [];
-    list.push({ participantId: s.participantId, amountCents: s.amountCents, paidById: s.paidById, paidCents: s.paidById ? paid.get(s.paidById) ?? null : null });
+    list.push({ participantId: s.participantId, amountCents: s.amountCents, paidById: s.paidById, paidCents: s.paidById ? paid.get(s.paidById) ?? null : null, restCents: s.paidById ? rest.get(s.paidById) ?? 0 : 0 });
     by.set(s.transactionId, list);
   }
   return rows.map((r) => ({ ...r, splits: by.get(r.id) ?? [], settles: settles.get(r.id) ?? null }));
@@ -362,7 +374,7 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         seriesIndex: o.index,
         seriesTotal: null,
         createdBy: s.createdBy,
-        splits: splits.map((x) => ({ ...x, paidById: null, paidCents: null })),
+        splits: splits.map((x) => ({ ...x, paidById: null, paidCents: null, restCents: 0 })),
       });
     }
   }
@@ -520,6 +532,8 @@ export type LedgerPaid = {
   undoId: string | null;
   /** Recebi/Paguei: quanto era devido (para mostrar lucro ou desconto). */
   owedCents?: number;
+  /** Recebi/Paguei a menos: o que faltou e continua como dívida. */
+  restCents?: number;
 };
 export type LedgerPerson = {
   personId: string;
@@ -576,7 +590,7 @@ export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
         const other = iAmPayer ? sp.participantId : tx.payerId;
         const sign = (tx.kind === "income" ? -1 : 1) * (iAmPayer ? 1 : -1);
         const p = people.get(other) ?? { personId: other, net: 0, entries: [], upcoming: 0, upcomingCount: 0, upcomingEntries: [], paid: [] };
-        p.paid.push({ key: `r-${tx.id}-${sp.participantId}`, tx, cents: sign * (sp.paidCents ?? sp.amountCents), how: "recebi", undoId: sp.paidById, owedCents: sp.amountCents });
+        p.paid.push({ key: `r-${tx.id}-${sp.participantId}`, tx, cents: sign * (sp.paidCents ?? sp.amountCents), how: "recebi", undoId: sp.paidById, owedCents: sp.amountCents, restCents: sp.restCents });
         people.set(other, p);
       }
     }

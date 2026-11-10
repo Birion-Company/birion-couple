@@ -9,7 +9,7 @@ import { addMonthsKey, longMonth, monthsBetween, shortDate } from "@/lib/cards";
 import { defaultPanelMonth, getInvoicesDue } from "@/lib/card-queries";
 import { filtersToQuery, monthRange, MONTHS_AHEAD, parseFilters, thisMonthKey } from "@/lib/filters";
 import { countUnidentified, getDashboard, getDebtLedger, getLookupsFor, getOutlook } from "@/lib/queries";
-import { MoneySummary, MonthLine } from "@/components/money-summary";
+import { MoneySummary } from "@/components/money-summary";
 import { MonthNav } from "@/components/month-nav";
 import { MonthOutlook } from "@/components/month-outlook";
 
@@ -130,7 +130,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             name={nameOf}
             currency={cur}
           />
-          <MonthLine spent={data.spent} income={data.income} label={monthName} currency={cur} future={diff > 0} />
         </>
       ) : (
       <div className="stats stats-4 dash-stats">
@@ -248,7 +247,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           </div>
         </div>
       ) : (
-        <div className="grid grid-2 section">
+        <div className="grid dash-bottom section">
           <section className="card" aria-labelledby="recent">
             <div className="card-head">
               <h2 id="recent">Últimos lançamentos de {monthName}</h2>
@@ -266,6 +265,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           <section className="card" aria-labelledby="cats">
             <div className="card-head">
               <h2 id="cats">Gastos por categoria</h2>
+              {/* O total do mês fica aqui, junto da divisão por categoria (sem repetir no topo). */}
+              <span className="faint num">
+                <Money cents={data.spent} currency={cur} /> {mode === "me" ? "sua parte" : "no mês"}
+              </span>
             </div>
             {data.byCategory.length === 0 ? (
               <div className="empty">Sem despesas no filtro atual.</div>

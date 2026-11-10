@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
 import { deleteSeries, deleteTransactions, saveTransaction } from "@/app/actions/transactions";
-import { addMonthsIso, monthLabel } from "@/lib/cards";
+import { addMonthsIso, invoiceDates, invoiceOf, monthLabel, shortDate } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
@@ -110,6 +110,14 @@ export function TxForm({
   // Cartões que esta pessoa vê (os próprios; quem administra vê todos). No cartão, quem pagou é o dono.
   const visibleCards = cards.filter((c) => !c.archived || c.id === cardId);
   const card = cards.find((c) => c.id === cardId) ?? null;
+  // Em qual fatura a compra entra pela data: "fatura de dezembro", que fecha e vence quando.
+  const bill = (() => {
+    if (!card || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    const { closing, due } = invoiceDates(invoiceOf(date, card.closingDay), card);
+    const name = new Date(Number(due.slice(0, 4)), Number(due.slice(5, 7)) - 1, 1).toLocaleDateString("pt-BR", { month: "long" });
+    const year = due.slice(0, 4) !== date.slice(0, 4) ? ` de ${due.slice(0, 4)}` : "";
+    return { label: `fatura de ${name}${year}`, closing, due };
+  })();
   // Cartão só em despesa: receita é dinheiro que entra (vai para você, não para um cartão).
   const showMethod = kind === "expense" && (visibleCards.length > 0 || !!card);
   const payerFromCard = kind === "expense" && !!card?.ownerId;
@@ -373,11 +381,18 @@ export function TxForm({
           {payerFromCard && card && (
             <p className="faint card-paid-hint">
               <CreditCard size={15} strokeWidth={1.7} aria-hidden />
-              {card.ownerId === me ? (
-                <>Entra na sua fatura do {card.name}. Quem tem parte fica te devendo.</>
-              ) : (
-                <>Entra na fatura do {card.name} de {payerName ?? "outra pessoa"}.</>
-              )}
+              <span>
+                {card.ownerId === me ? (
+                  <>
+                    {repeat === "installment" ? "A 1ª parcela entra" : "Entra"} na sua <strong>{bill?.label}</strong> do {card.name}. Quem tem parte fica te devendo.
+                  </>
+                ) : (
+                  <>
+                    {repeat === "installment" ? "A 1ª parcela entra" : "Entra"} na <strong>{bill?.label}</strong> do {card.name} de {payerName ?? "outra pessoa"}.
+                  </>
+                )}
+                {bill && <span className="card-paid-dates"> Fecha {shortDate(bill.closing)} · vence {shortDate(bill.due)}.</span>}
+              </span>
             </p>
           )}
           {!between && kind === "expense" && visibleCards.length === 0 && !readOnly && (
@@ -587,7 +602,7 @@ export function TxForm({
               <p className="tx-settles">
                 Pagamento da dívida em <Link href={`/transacoes/${initial.settles.txId}`} className="pos">{initial.settles.description}</Link>, que era de{" "}
                 {formatMoney(initial.settles.owedCents, currency)}.{" "}
-                <ProfitBadge paidCents={cents || initial.amountCents} owedCents={initial.settles.owedCents} currency={currency} />
+                <ProfitBadge paidCents={cents || initial.amountCents} owedCents={initial.settles.owedCents} restCents={initial.settles.restCents} currency={currency} />
                 <span className="faint" style={{ display: "block" }}>Mude se o valor pago foi outro.</span>
               </p>
             )}

@@ -226,7 +226,7 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                       <span className="amount">
                         <Money cents={Math.abs(x.cents)} currency={cur} />
                         {x.owedCents !== undefined && Math.abs(x.cents) !== x.owedCents ? (
-                          <ProfitBadge paidCents={Math.abs(x.cents)} owedCents={x.owedCents} currency={cur} />
+                          <ProfitBadge paidCents={Math.abs(x.cents)} owedCents={x.owedCents} restCents={x.restCents} currency={cur} />
                         ) : null}
                       </span>
                       {x.undoId && <UndoButton payId={x.undoId} />}
@@ -260,9 +260,6 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                 </div>
               </details>
             )}
-            <p className="faint ledger-hint">
-              <span className="pos">+</span> te deve · <span className="neg">−</span> você deve. Pagou a mais? A diferença vira lucro.
-            </p>
           </details>
         );
       })}
