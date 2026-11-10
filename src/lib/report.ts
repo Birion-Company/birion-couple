@@ -95,6 +95,8 @@ export async function getMonthReport(auth: AuthContext, month: string) {
               : "Todo mês"
             : `${r.seriesIndex}/${r.seriesTotal}`
           : "",
+        /** +1 entrada (receita), −1 saída (despesa), 0 dívida/acerto (só move entre pessoas). */
+        sign: r.kind === "income" ? 1 : r.kind === "expense" ? -1 : 0,
         totalCents: r.amountCents,
         myShareCents: myShare,
         people: r.splits
@@ -131,6 +133,10 @@ export async function getMonthReport(auth: AuthContext, month: string) {
     summary: {
       spentCents: spent,
       incomeCents: dash.income,
+      // Receitas ainda não recebidas (ex.: a bolsa do mês à frente): aparecem como "a receber".
+      toReceiveCents: rows
+        .filter((x) => x.sign > 0 && x.status === "A receber")
+        .reduce((a, x) => a + x.myShareCents, 0),
       invoicesCents: invoices
         .filter((v) => !v.paid)
         .reduce((a, v) => a + v.totalCents, 0),
@@ -168,7 +174,7 @@ export async function getMonthReport(auth: AuthContext, month: string) {
           .map((x) => ({
             description: x.description,
             date: x.date,
-            cents: x.cents * Math.sign(d.net),
+            cents: x.cents, // + a pessoa te deve; − você deve a ela (ou abate)
             projected: !!x.projected,
           })),
       })),

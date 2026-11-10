@@ -41,6 +41,9 @@ export default async function ReportPage({
   const r = await getMonthReport(auth, mes);
   const sp = await searchParams;
   const m = (c: number) => formatMoney(c, r.currency);
+  /** Com sinal: + entrada / te devem, − saída / você deve. */
+  const sm = (c: number) =>
+    (c > 0 ? "+" : c < 0 ? "−" : "") + formatMoney(Math.abs(c), r.currency);
   const d = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   const s = r.summary;
   return (
@@ -78,11 +81,12 @@ export default async function ReportPage({
         <section className="rep-cards">
           <div className="rep-card">
             <span>Seus gastos</span>
-            <strong>{m(s.spentCents)}</strong>
+            <strong className="neg">{sm(-s.spentCents)}</strong>
           </div>
           <div className="rep-card">
             <span>Entradas</span>
-            <strong className="pos">{m(s.incomeCents)}</strong>
+            <strong className="pos">{sm(s.incomeCents)}</strong>
+            {s.toReceiveCents > 0 && <em>+ {m(s.toReceiveCents)} a receber</em>}
           </div>
           <div className="rep-card">
             <span>Faturas a pagar</span>
@@ -93,11 +97,11 @@ export default async function ReportPage({
           </div>
           <div className="rep-card">
             <span>Te devem</span>
-            <strong className="pos">{m(s.owedToMeCents)}</strong>
+            <strong className="pos">{sm(s.owedToMeCents)}</strong>
           </div>
           <div className="rep-card">
             <span>Você deve</span>
-            <strong className="neg">{m(s.iOweCents)}</strong>
+            <strong className="neg">{sm(-s.iOweCents)}</strong>
           </div>
         </section>
 
@@ -152,7 +156,7 @@ export default async function ReportPage({
                         <td
                           className={`n ${x.direction === "te deve" ? "pos" : "neg"}`}
                         >
-                          {m(x.cents)}
+                          {sm(x.direction === "te deve" ? x.cents : -x.cents)}
                         </td>
                       </tr>
                       {/* De quê: cada lançamento que forma a dívida. */}
@@ -163,7 +167,9 @@ export default async function ReportPage({
                             {it.date.slice(5, 7)}
                             {it.projected ? " · todo mês (previsto)" : ""}
                           </td>
-                          <td className="n">{m(it.cents)}</td>
+                          <td className={`n ${it.cents > 0 ? "pos" : "neg"}`}>
+                            {sm(it.cents)}
+                          </td>
                         </tr>
                       ))}
                     </Fragment>
@@ -199,7 +205,7 @@ export default async function ReportPage({
           <TxTable
             title="Recorrentes (todo mês)"
             list={r.recurring}
-            totalLabel="Total das despesas recorrentes"
+            totalLabel="Saldo das recorrentes (entradas − saídas)"
             m={m}
             d={d}
           />
@@ -207,7 +213,7 @@ export default async function ReportPage({
         <TxTable
           title="Lançamentos"
           list={r.rows}
-          totalLabel="Total das despesas"
+          totalLabel="Saldo dos lançamentos (entradas − saídas)"
           m={m}
           d={d}
         />
@@ -232,6 +238,11 @@ function TxTable({
   m: (c: number) => string;
   d: (iso: string) => string;
 }) {
+  const sm = (c: number) => (c > 0 ? "+" : c < 0 ? "−" : "") + m(Math.abs(c));
+  const tone = (sign: number) => (sign > 0 ? "pos" : sign < 0 ? "neg" : "");
+  // Saldo: entradas (+) menos saídas (−); dívida e acerto não entram.
+  const totAll = list.reduce((a, x) => a + x.sign * x.totalCents, 0);
+  const totMine = list.reduce((a, x) => a + x.sign * x.myShareCents, 0);
   return (
     <section>
       <h2>
@@ -253,7 +264,7 @@ function TxTable({
             <tr key={i}>
               <td>{d(x.date)}</td>
               <td>
-                {x.description}
+                <span className={tone(x.sign)}>{x.description}</span>
                 {x.series && <span className="rep-tag">{x.series}</span>}
                 <span className="rep-meta">
                   {[
@@ -267,28 +278,21 @@ function TxTable({
               </td>
               <td>{x.category}</td>
               <td>{x.payer}</td>
-              <td className="n">{m(x.totalCents)}</td>
-              <td className="n">{m(x.myShareCents)}</td>
+              {/* Despesa em vermelho com −, receita em verde com +; dívida e acerto sem sinal. */}
+              <td className={`n ${tone(x.sign)}`}>
+                {x.sign ? sm(x.sign * x.totalCents) : m(x.totalCents)}
+              </td>
+              <td className={`n ${tone(x.sign)}`}>
+                {x.sign ? sm(x.sign * x.myShareCents) : m(x.myShareCents)}
+              </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr>
             <td colSpan={4}>{totalLabel}</td>
-            <td className="n">
-              {m(
-                list
-                  .filter((x) => x.kind === "Despesa")
-                  .reduce((a, x) => a + x.totalCents, 0),
-              )}
-            </td>
-            <td className="n">
-              {m(
-                list
-                  .filter((x) => x.kind === "Despesa")
-                  .reduce((a, x) => a + x.myShareCents, 0),
-              )}
-            </td>
+            <td className={`n ${tone(Math.sign(totAll))}`}>{sm(totAll)}</td>
+            <td className={`n ${tone(Math.sign(totMine))}`}>{sm(totMine)}</td>
           </tr>
         </tfoot>
       </table>

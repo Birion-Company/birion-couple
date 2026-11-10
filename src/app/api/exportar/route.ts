@@ -16,6 +16,9 @@ const GREEN = "FF13795B";
 const RED = "FFB42343";
 const WHITE = "FFFFFFFF";
 const BRL = '"R$" #,##0.00;[Red]-"R$" #,##0.00';
+/** Com sinal: + entrada / te devem, − saída / você deve (as cores vêm da fonte). */
+const BRL_SIGN = '+"R$" #,##0.00;-"R$" #,##0.00;"R$" #,##0.00';
+const tone = (v: number) => (v > 0 ? GREEN : v < 0 ? RED : NAVY);
 const STATUS_FILL: Record<string, string> = {
   Pago: "FFDCF5EA",
   "A acertar": "FFE0F7FB",
@@ -166,11 +169,11 @@ export async function GET(req: Request) {
   // Cartões: rótulo pequeno em cima, valor grande embaixo.
   const s = r.summary;
   const cards: [string, number, string][] = [
-    ["Seus gastos", s.spentCents, NAVY],
+    ["Seus gastos", -s.spentCents, RED],
     ["Entradas", s.incomeCents, GREEN],
     ["Faturas a pagar", s.invoicesCents, NAVY],
     ["Te devem", s.owedToMeCents, GREEN],
-    ["Você deve", s.iOweCents, RED],
+    ["Você deve", -s.iOweCents, RED],
   ];
   cards.forEach(([label, cents, color], i) => {
     const col = i + 1;
@@ -179,7 +182,8 @@ export async function GET(req: Request) {
     l.font = { size: 8, bold: true, color: { argb: MUTED } };
     const v = res.getCell(5, col);
     v.value = money(cents);
-    v.numFmt = BRL;
+    // Faturas sem sinal (é o total da conta do cartão); o resto com + / −.
+    v.numFmt = i === 2 ? BRL : BRL_SIGN;
     v.font = { size: 15, bold: true, color: { argb: color } };
     for (const c of [l, v]) {
       c.fill = fill(ZEBRA);
@@ -197,6 +201,12 @@ export async function GET(req: Request) {
   });
   res.getRow(4).height = 20;
   res.getRow(5).height = 30;
+  if (s.toReceiveCents > 0) {
+    const c = res.getCell(6, 2);
+    c.value = `+ R$ ${money(s.toReceiveCents).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} a receber`;
+    c.font = { size: 8, italic: true, color: { argb: GREEN } };
+    c.alignment = { indent: 1 };
+  }
   if (s.invoicesMineCents !== s.invoicesCents) {
     const c = res.getCell(6, 3);
     c.value = `sua parte: R$ ${money(s.invoicesMineCents).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -261,12 +271,13 @@ export async function GET(req: Request) {
           ? `${d.name} te deve`
           : `Você deve a ${d.name}`,
         "",
-        money(d.cents),
+        money(d.direction === "te deve" ? d.cents : -d.cents),
       ],
       i,
       [3],
     );
     res.getCell(row, 1).font = { bold: true };
+    res.getCell(row, 3).numFmt = BRL_SIGN;
     res.getCell(row, 3).font = {
       bold: true,
       color: { argb: d.direction === "te deve" ? GREEN : RED },
@@ -286,7 +297,8 @@ export async function GET(req: Request) {
       );
       res.getCell(row, 1).font = { size: 10, color: { argb: MUTED } };
       res.getCell(row, 2).font = { size: 10, color: { argb: MUTED } };
-      res.getCell(row, 3).font = { size: 10, color: { argb: MUTED } };
+      res.getCell(row, 3).numFmt = BRL_SIGN;
+      res.getCell(row, 3).font = { size: 10, color: { argb: tone(x.cents) } };
     }
   });
 
@@ -367,8 +379,8 @@ export async function GET(req: Request) {
           x.card,
           x.series,
           x.payer,
-          money(x.totalCents),
-          money(x.myShareCents),
+          money(x.sign ? x.sign * x.totalCents : x.totalCents),
+          money(x.sign ? x.sign * x.myShareCents : x.myShareCents),
           x.people,
           x.owing,
           x.status,
@@ -377,8 +389,18 @@ export async function GET(req: Request) {
         [8, 9],
       );
       lan.getCell(n, 1).numFmt = "dd/mm/yyyy";
-      if (x.kind === "Receita")
-        lan.getCell(n, 8).font = { color: { argb: GREEN }, bold: true };
+      // Despesa em vermelho com −, receita em verde com +; dívida e acerto sem sinal.
+      for (const col of [1, 2, 8, 9]) {
+        if (!x.sign) continue;
+        lan.getCell(n, col).font = {
+          color: { argb: tone(x.sign) },
+          bold: col === 8,
+        };
+      }
+      if (x.sign) {
+        lan.getCell(n, 8).numFmt = BRL_SIGN;
+        lan.getCell(n, 9).numFmt = BRL_SIGN;
+      }
       if (x.owing) lan.getCell(n, 11).font = { color: { argb: RED } };
       const st = lan.getCell(n, 12);
       st.fill = fill(STATUS_FILL[x.status] ?? CYAN_SOFT);
@@ -391,21 +413,23 @@ export async function GET(req: Request) {
         from: { row: 4, column: 1 },
         to: { row: last, column: cols.length },
       };
-    const desp = list.filter((x) => x.kind === "Despesa");
+    // Saldo: entradas (+) menos saídas (−). Dívida e acerto não entram (só movem entre pessoas).
+    const totAll = list.reduce((a, x) => a + x.sign * x.totalCents, 0);
+    const totMine = list.reduce((a, x) => a + x.sign * x.myShareCents, 0);
     const tot = last + 1;
     lan.getCell(tot, 2).value = totalLabel;
-    lan.getCell(tot, 8).value = money(
-      desp.reduce((a, x) => a + x.totalCents, 0),
-    );
-    lan.getCell(tot, 9).value = money(
-      desp.reduce((a, x) => a + x.myShareCents, 0),
-    );
+    lan.getCell(tot, 8).value = money(totAll);
+    lan.getCell(tot, 9).value = money(totMine);
     for (let c = 1; c <= cols.length; c++) {
       const cell = lan.getCell(tot, c);
       cell.font = { bold: true, color: { argb: NAVY } };
       cell.border = { top: { style: "medium", color: { argb: NAVY } } };
       if (c === 8 || c === 9) {
-        cell.numFmt = BRL;
+        cell.numFmt = BRL_SIGN;
+        cell.font = {
+          bold: true,
+          color: { argb: tone(c === 8 ? totAll : totMine) },
+        };
         cell.alignment = { horizontal: "right" };
       }
     }
@@ -413,8 +437,12 @@ export async function GET(req: Request) {
   };
   // Contas "todo mês" primeiro, numa aba só delas, para identificar fácil.
   if (r.recurring.length)
-    txSheet("Recorrentes", r.recurring, "Total das despesas recorrentes");
-  txSheet("Lançamentos", r.rows, "Total das despesas");
+    txSheet(
+      "Recorrentes",
+      r.recurring,
+      "Saldo das recorrentes (entradas − saídas)",
+    );
+  txSheet("Lançamentos", r.rows, "Saldo dos lançamentos (entradas − saídas)");
 
   // ---------- Categorias, Faturas, Dívidas (uma lista por aba, para filtrar e somar) ----------
   const simple = (
@@ -425,6 +453,8 @@ export async function GET(req: Request) {
       money?: boolean;
       pct?: boolean;
       date?: boolean;
+      /** Valor com + / − e verde / vermelho. */
+      signed?: boolean;
     }[],
     data: (string | number | Date)[][],
   ) => {
@@ -453,6 +483,14 @@ export async function GET(req: Request) {
           ws.getCell(5 + i, k + 1).alignment = { horizontal: "right" };
         }
         if (h.date) ws.getCell(5 + i, k + 1).numFmt = "dd/mm/yyyy";
+        if (h.signed && typeof vals[k] === "number") {
+          const cell = ws.getCell(5 + i, k + 1);
+          cell.numFmt = BRL_SIGN;
+          cell.font = {
+            bold: vals[2] === "Total",
+            color: { argb: tone(vals[k] as number) },
+          };
+        }
       });
     });
     if (data.length)
@@ -496,7 +534,7 @@ export async function GET(req: Request) {
       { h: "Situação", w: 14 },
       { h: "De quê", w: 34 },
       { h: "Data", w: 12, date: true },
-      { h: "Valor", w: 16, money: true },
+      { h: "Valor", w: 16, money: true, signed: true },
     ],
     r.debts.flatMap((d) => [
       ...d.items.map((x) => [
@@ -506,7 +544,13 @@ export async function GET(req: Request) {
         new Date(`${x.date}T12:00:00`),
         money(x.cents),
       ]),
-      [d.name, d.direction, "Total", "", money(d.cents)],
+      [
+        d.name,
+        d.direction,
+        "Total",
+        "",
+        money(d.direction === "te deve" ? d.cents : -d.cents),
+      ],
     ]),
   );
 
