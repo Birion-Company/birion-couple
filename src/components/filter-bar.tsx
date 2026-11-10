@@ -7,7 +7,6 @@ import { monthLabel } from "@/lib/cards";
 import { PERIODS, PERSON_ROLES, filtersToQuery, type Filters } from "@/lib/filters";
 import { Select, type SelectOption } from "./select";
 import { STATE_FILTER_OPTIONS } from "@/lib/tx-state";
-import { Avatar } from "./ui";
 
 type Option = { id: string; name: string; color: string; archived: boolean; avatarUrl?: string | null };
 
@@ -33,6 +32,7 @@ function ChipSelect({
   onChange,
   allLabel,
   extra,
+  searchable,
 }: {
   label: string;
   value: string | null;
@@ -40,6 +40,8 @@ function ChipSelect({
   onChange: (v: string | null) => void;
   allLabel: string;
   extra?: { value: string; label: string }[];
+  /** Pessoas e categorias: sempre com pesquisa (a lista cresce com o tempo). */
+  searchable?: boolean;
 }) {
   const list: SelectOption[] = [
     { value: "", label: allLabel },
@@ -55,6 +57,7 @@ function ChipSelect({
       onChange={(v) => onChange(v || null)}
       active={!!value}
       buttonLabel={value ? undefined : label}
+      searchable={searchable}
     />
   );
 }
@@ -139,43 +142,31 @@ export function FilterBar({ filters, participants, categories, projects, cards =
       </div>
       {open && (
         <div className="filters-more">
-          {people.length > 1 && (
-            <div className="person-pills" role="group" aria-label="Filtrar por pessoa">
-              <button type="button" className={`chip ${!selected ? "on" : ""}`} onClick={() => pickPerson(null)} aria-pressed={!selected}>
-                Todos
-              </button>
-              {people.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`chip ${selected === p.id ? "on" : ""}`}
-                  onClick={() => pickPerson(p.id)}
-                  aria-pressed={selected === p.id}
-                >
-                  <Avatar name={p.name} color={p.color} size={22} src={p.avatarUrl} />
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          )}
-          {selected && (
-            <div className="person-pills role-pills" role="group" aria-label="O que mostrar da pessoa">
-              {PERSON_ROLES.map((r) => (
-                <button
-                  key={r.value || "tudo"}
-                  type="button"
-                  className={`chip ${(filters.role ?? "") === r.value ? "on" : ""}`}
-                  onClick={() => go({ role: (r.value || null) as Filters["role"], person: r.value ? selected : filters.person })}
-                  aria-pressed={(filters.role ?? "") === r.value}
-                  title={r.hint}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          )}
           <div className="filters" role="group" aria-label="Mais filtros">
+            {/* Uma linha só, cada filtro num menu recolhido (pessoa e categoria com pesquisa). */}
+            {people.length > 1 && (
+              <ChipSelect
+                label="Pessoa"
+                allLabel={defaultPerson ? "Todos (a família)" : "Todas as pessoas"}
+                value={selected}
+                options={people}
+                onChange={(v) => pickPerson(v)}
+                searchable
+              />
+            )}
+            {/* Com pessoa escolhida: o que mostrar dela, num menu só. */}
+            {selected && (
+              <Select
+                variant="chip"
+                ariaLabel="O que mostrar da pessoa"
+                value={filters.role ?? ""}
+                options={PERSON_ROLES.map((r) => ({ value: r.value, label: r.label }))}
+                onChange={(v) => go({ role: (v || null) as Filters["role"], person: v ? selected : filters.person })}
+                active={!!filters.role}
+              />
+            )}
             <ChipSelect
+              searchable
               label="Categoria"
               allLabel="Todas as categorias"
               value={filters.category}

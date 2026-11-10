@@ -152,7 +152,7 @@ export function AvatarEditor({ name, avatarUrl }: { name: string; avatarUrl: str
       />
       {open &&
         createPortal(
-          <div ref={menuRef} id={menuId} role="menu" aria-label="Foto de perfil" className="bf-select-list user-menu" style={pos} onKeyDown={onMenuKey}>
+          <div ref={menuRef} id={menuId} role="menu" aria-label="Foto de perfil" className="bf-select-pop bf-select-list user-menu" style={pos} onKeyDown={onMenuKey}>
             <button type="button" role="menuitem" className="bf-select-option user-menu-item" onClick={pick}>
               <Camera size={17} strokeWidth={1.7} />
               <span className="bf-select-option-label">{shown ? "Trocar foto" : "Adicionar foto"}</span>

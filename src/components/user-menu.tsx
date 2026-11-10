@@ -113,7 +113,7 @@ export function UserMenu({
       </button>
       {open &&
         createPortal(
-          <div ref={menuRef} id={menuId} role="menu" aria-label={`Conta de ${name}`} className="bf-select-list user-menu" style={pos} onKeyDown={onMenuKey}>
+          <div ref={menuRef} id={menuId} role="menu" aria-label={`Conta de ${name}`} className="bf-select-pop bf-select-list user-menu" style={pos} onKeyDown={onMenuKey}>
             {ITEMS.map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href} role="menuitem" className="bf-select-option user-menu-item" onClick={() => setOpen(false)}>
                 <Icon size={17} strokeWidth={1.7} />

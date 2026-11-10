@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Search } from "lucide-react";
 
 export type SelectOption = { value: string; label: string; color?: string; disabled?: boolean };
 
@@ -26,7 +26,14 @@ type Props = {
   className?: string;
   style?: CSSProperties;
   icon?: ReactNode;
+  /** Campo de pesquisa no topo da lista. Padrão: liga sozinho com mais de 8 opções (pessoas, categorias…). */
+  searchable?: boolean;
 };
+
+/** "joão" acha "João": compara sem acento e sem maiúsculas. */
+const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+/** A partir de quantas opções a lista ganha pesquisa. */
+const SEARCH_FROM = 9;
 
 /**
  * Menu de seleção no tema Birion. Substitui o <select> nativo, cuja lista é desenhada
@@ -47,11 +54,19 @@ export function Select({
   className = "",
   style,
   icon,
+  searchable,
 }: Props) {
   const autoId = useId();
   const listId = `${autoId}-list`;
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const withSearch = searchable ?? options.length >= SEARCH_FROM;
+  const [query, setQuery] = useState("");
+  const q = fold(query.trim());
+  // Opções que aparecem (todas, ou só as que batem com a pesquisa), pelos índices originais.
+  const shownIdx = options.map((_, i) => i).filter((i) => !q || fold(options[i].label).includes(q));
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [pos, setPos] = useState<CSSProperties>({});
@@ -66,7 +81,7 @@ export function Select({
     const width = Math.max(b.width, 240);
     const below = window.innerHeight - b.bottom - 12;
     const above = b.top - 12;
-    const maxHeight = Math.min(320, Math.max(below, above));
+    const maxHeight = Math.min(withSearch ? 380 : 320, Math.max(below, above));
     const up = below < 200 && above > below;
     const left = Math.min(Math.max(8, b.left), window.innerWidth - width - 8);
     setPos(
@@ -74,11 +89,12 @@ export function Select({
         ? { left, width, maxHeight, bottom: window.innerHeight - b.top + 6 }
         : { left, width, maxHeight, top: b.bottom + 6 },
     );
-  }, []);
+  }, [withSearch]);
 
   const openMenu = (index = selectedIndex) => {
     if (disabled) return;
     place();
+    setQuery("");
     setActiveIndex(index >= 0 ? index : options.findIndex((o) => !o.disabled));
     setOpen(true);
   };
@@ -99,10 +115,10 @@ export function Select({
     if (!open) return;
     const onPointer = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!buttonRef.current?.contains(t) && !listRef.current?.contains(t)) close(false);
+      if (!buttonRef.current?.contains(t) && !popRef.current?.contains(t)) close(false);
     };
     const onScroll = (e: Event) => {
-      if (listRef.current?.contains(e.target as Node)) return;
+      if (popRef.current?.contains(e.target as Node)) return;
       const b = buttonRef.current?.getBoundingClientRect();
       // Se o campo saiu da tela, não faz sentido a lista ficar flutuando.
       if (!b || b.bottom < 0 || b.top > window.innerHeight) close(false);
@@ -119,6 +135,11 @@ export function Select({
     };
   }, [open, place]);
 
+  // Com pesquisa: o cursor vai direto para o campo ao abrir.
+  useEffect(() => {
+    if (open && withSearch) searchRef.current?.focus({ preventScroll: true });
+  }, [open, withSearch]);
+
   // Mantém a opção ativa visível ao navegar pelo teclado.
   useLayoutEffect(() => {
     if (!open || activeIndex < 0) return;
@@ -130,14 +151,13 @@ export function Select({
     else if (el.offsetTop + el.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = el.offsetTop + el.offsetHeight - list.clientHeight;
   }, [open, activeIndex]);
 
+  // Anda só pelas opções que aparecem (com pesquisa, as que batem).
   const move = (from: number, step: number) => {
-    if (options.length === 0) return -1;
-    let i = from;
-    for (let n = 0; n < options.length; n++) {
-      i = (i + step + options.length) % options.length;
-      if (!options[i].disabled) return i;
-    }
-    return from;
+    const list = shownIdx.filter((i) => !options[i].disabled);
+    if (list.length === 0) return -1;
+    const pos = list.indexOf(from);
+    if (pos < 0) return step > 0 ? list[0] : list[list.length - 1];
+    return list[(pos + step + list.length) % list.length];
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -159,17 +179,23 @@ export function Select({
         setActiveIndex((i) => move(i, -1));
         break;
       case "Home":
+        if (withSearch) break;
         e.preventDefault();
         setActiveIndex(move(-1, 1));
         break;
       case "End":
+        if (withSearch) break;
         e.preventDefault();
         setActiveIndex(move(options.length, -1));
         break;
-      case "Enter":
       case " ":
+        if (withSearch) break;
         e.preventDefault();
         choose(activeIndex);
+        break;
+      case "Enter":
+        e.preventDefault();
+        choose(shownIdx.includes(activeIndex) ? activeIndex : shownIdx[0]);
         break;
       case "Escape":
         e.preventDefault();
@@ -179,7 +205,7 @@ export function Select({
         close(false);
         break;
       default:
-        if (e.key.length === 1) {
+        if (e.key.length === 1 && !withSearch) {
           // Busca pela digitação: pula para a opção que começa com as letras digitadas.
           const now = Date.now();
           typed.current.text = now - typed.current.at > 700 ? e.key : typed.current.text + e.key;
@@ -220,8 +246,30 @@ export function Select({
       </button>
       {open &&
         createPortal(
-        <ul ref={listRef} id={listId} role="listbox" aria-label={ariaLabel} className="bf-select-list" style={pos}>
-          {options.map((o, i) => (
+        <div ref={popRef} className={`bf-select-pop ${withSearch ? "has-search" : ""}`} style={pos}>
+          {withSearch && (
+            <label className="bf-select-search">
+              <Search size={15} strokeWidth={1.8} aria-hidden />
+              <input
+                ref={searchRef}
+                value={query}
+                placeholder="Pesquisar"
+                aria-label={`Pesquisar ${ariaLabel ?? placeholder ?? ""}`.trim()}
+                aria-controls={listId}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  const nq = fold(e.target.value.trim());
+                  setActiveIndex(options.findIndex((o) => !o.disabled && (!nq || fold(o.label).includes(nq))));
+                }}
+                onKeyDown={onKeyDown}
+              />
+            </label>
+          )}
+        <ul ref={listRef} id={listId} role="listbox" aria-label={ariaLabel} className="bf-select-list">
+          {shownIdx.length === 0 && <li className="bf-select-empty">Nada com esse nome.</li>}
+          {shownIdx.map((i) => {
+            const o = options[i];
+            return (
             <li
               key={o.value + i}
               id={`${autoId}-opt-${i}`}
@@ -238,8 +286,10 @@ export function Select({
               <span className="bf-select-option-label">{o.label}</span>
               {o.value === value && <Check size={16} strokeWidth={2} className="bf-select-check" aria-hidden />}
             </li>
-          ))}
-        </ul>,
+            );
+          })}
+        </ul>
+        </div>,
           document.body,
         )}
     </>
