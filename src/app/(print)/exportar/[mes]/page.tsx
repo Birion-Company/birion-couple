@@ -2,7 +2,8 @@ import { Fragment } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PrintToolbar } from "@/components/print-toolbar";
-import { requireAuth } from "@/lib/auth";
+import { getAuth, requireAuth } from "@/lib/auth";
+import { getLookupsFor } from "@/lib/queries";
 import { formatMoney } from "@/lib/money";
 import { getMonthReport, reportFileName, type MonthReport } from "@/lib/report";
 import { longMonth } from "@/lib/cards";
@@ -10,18 +11,68 @@ import { longMonth } from "@/lib/cards";
 /** O "Salvar como PDF" usa o título da página como nome do arquivo. */
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ mes: string }>;
+  searchParams: Promise<{ pessoa?: string }>;
 }): Promise<Metadata> {
   const { mes } = await params;
+  const { pessoa } = await searchParams;
   const ok = /^\d{4}-(0[1-9]|1[0-2])$/.test(mes);
+  // Extrato de outra pessoa: o nome dela vai no nome do arquivo.
+  const auth = pessoa ? await getAuth() : null;
+  const who =
+    auth && pessoa
+      ? (await getLookupsFor(auth)).participants.find(
+          (p) => p.id === pessoa && p.id !== auth.participantId,
+        )?.name
+      : null;
   return {
     title: {
       absolute: ok
-        ? reportFileName(`Extrato de ${longMonth(mes).toLowerCase()}`)
+        ? reportFileName(`Extrato de ${longMonth(mes).toLowerCase()}`, who)
         : "Birion - Relatório",
     },
   };
+}
+
+/** Foto da pessoa (ou as iniciais na cor dela, se não tiver foto). */
+function Face({
+  who,
+  size = 40,
+}: {
+  who: { name: string; color: string; photo: string | null };
+  size?: number;
+}) {
+  const initials = who.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((x) => x[0]!.toUpperCase())
+    .join("");
+  return who.photo ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className="rep-face"
+      src={`data:image/jpeg;base64,${who.photo}`}
+      alt=""
+      width={size}
+      height={size}
+    />
+  ) : (
+    <span
+      className="rep-face"
+      style={{
+        width: size,
+        height: size,
+        background: who.color,
+        fontSize: size * 0.4,
+      }}
+      aria-hidden
+    >
+      {initials}
+    </span>
+  );
 }
 
 /**
@@ -33,19 +84,18 @@ export default async function ReportPage({
   searchParams,
 }: {
   params: Promise<{ mes: string }>;
-  searchParams: Promise<{ imprimir?: string }>;
+  searchParams: Promise<{ imprimir?: string; pessoa?: string }>;
 }) {
   const auth = await requireAuth();
   const { mes } = await params;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) notFound();
-  const r = await getMonthReport(auth, mes);
   const sp = await searchParams;
+  const r = await getMonthReport(auth, mes, sp.pessoa ?? null);
   const m = (c: number) => formatMoney(c, r.currency);
   /** Com sinal: + entrada / te devem, − saída / você deve. */
   const sm = (c: number) =>
     (c > 0 ? "+" : c < 0 ? "−" : "") + formatMoney(Math.abs(c), r.currency);
   const d = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
-  const s = r.summary;
   return (
     <div className="rep">
       <PrintToolbar auto={sp.imprimir === "1"} />
@@ -54,9 +104,25 @@ export default async function ReportPage({
           <div>
             <p className="rep-brand">BIRION FINANCE</p>
             <h1>{r.title.replace(/^./, (c) => c.toUpperCase())}</h1>
-            <p className="rep-sub">
-              {r.family} · {r.person}
-            </p>
+            {/* De quem é o extrato (foto e nome) e, se for de outra pessoa, quem mandou. */}
+            <div className="rep-people">
+              <span className="rep-who">
+                <Face who={r.subject ?? r.owner} />
+                <span>
+                  <strong>{(r.subject ?? r.owner).name}</strong>
+                  <em>{r.subject ? "extrato desta pessoa" : r.family}</em>
+                </span>
+              </span>
+              {r.subject && (
+                <span className="rep-who">
+                  <Face who={r.owner} size={30} />
+                  <span>
+                    <strong>{r.owner.name}</strong>
+                    <em>quem enviou</em>
+                  </span>
+                </span>
+              )}
+            </div>
           </div>
           <p className="rep-gen">
             Gerado em
@@ -78,64 +144,61 @@ export default async function ReportPage({
           </p>
         )}
 
-        <section className="rep-cards">
-          <div className="rep-card">
-            <span>Seus gastos</span>
-            <strong className="neg">{sm(-s.spentCents)}</strong>
-          </div>
-          <div className="rep-card">
-            <span>Entradas</span>
-            <strong className="pos">{sm(s.incomeCents)}</strong>
-            {s.toReceiveCents > 0 && <em>+ {m(s.toReceiveCents)} a receber</em>}
-          </div>
-          <div className="rep-card">
-            <span>Faturas a pagar</span>
-            <strong>{m(s.invoicesCents)}</strong>
-            {s.invoicesMineCents !== s.invoicesCents && (
-              <em>sua parte {m(s.invoicesMineCents)}</em>
-            )}
-          </div>
-          <div className="rep-card">
-            <span>Te devem</span>
-            <strong className="pos">{sm(s.owedToMeCents)}</strong>
-          </div>
-          <div className="rep-card">
-            <span>Você deve</span>
-            <strong className="neg">{sm(-s.iOweCents)}</strong>
-          </div>
+        <section className="rep-cards" style={{ gridTemplateColumns: `repeat(${r.cards.length}, 1fr)` }}>
+          {r.cards.map((c) => (
+            <div key={c.label} className="rep-card">
+              <span>{c.label}</span>
+              <strong
+                className={
+                  c.signed
+                    ? c.cents > 0
+                      ? "pos"
+                      : c.cents < 0
+                        ? "neg"
+                        : ""
+                    : ""
+                }
+              >
+                {c.signed ? sm(c.cents) : m(c.cents)}
+              </strong>
+              {c.note && <em>{c.note}</em>}
+            </div>
+          ))}
         </section>
 
-        <div className="rep-two">
-          <section>
-            <h2>Faturas do cartão</h2>
-            {r.invoices.length === 0 ? (
-              <p className="rep-empty">Nenhuma fatura vence neste mês.</p>
-            ) : (
-              <table className="rep-table">
-                <thead>
-                  <tr>
-                    <th>Cartão</th>
-                    <th>Vence</th>
-                    <th className="n">Total</th>
-                    <th className="n">Sua parte</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.invoices.map((v) => (
-                    <tr key={v.card + v.due}>
-                      <td>
-                        {v.card}{" "}
-                        {v.paid && <span className="rep-tag">paga</span>}
-                      </td>
-                      <td>{d(v.due)}</td>
-                      <td className="n">{m(v.totalCents)}</td>
-                      <td className="n">{m(v.mineCents)}</td>
+        <div className={r.subject ? "rep-one" : "rep-two"}>
+          {!r.subject && (
+            <section>
+              <h2>Faturas do cartão</h2>
+              {r.invoices.length === 0 ? (
+                <p className="rep-empty">Nenhuma fatura vence neste mês.</p>
+              ) : (
+                <table className="rep-table">
+                  <thead>
+                    <tr>
+                      <th>Cartão</th>
+                      <th>Vence</th>
+                      <th className="n">Total</th>
+                      <th className="n">Sua parte</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
+                  </thead>
+                  <tbody>
+                    {r.invoices.map((v) => (
+                      <tr key={v.card + v.due}>
+                        <td>
+                          {v.card}{" "}
+                          {v.paid && <span className="rep-tag">paga</span>}
+                        </td>
+                        <td>{d(v.due)}</td>
+                        <td className="n">{m(v.totalCents)}</td>
+                        <td className="n">{m(v.mineCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          )}
           <section>
             <h2>Dívidas{r.estimate ? " do mês" : " em aberto"}</h2>
             {r.debts.length === 0 ? (
@@ -147,11 +210,7 @@ export default async function ReportPage({
                     <Fragment key={x.name + x.direction}>
                       <tr>
                         <td>
-                          <strong>
-                            {x.direction === "te deve"
-                              ? `${x.name} te deve`
-                              : `Você deve a ${x.name}`}
-                          </strong>
+                          <strong>{x.label}</strong>
                         </td>
                         <td
                           className={`n ${x.direction === "te deve" ? "pos" : "neg"}`}
@@ -181,7 +240,7 @@ export default async function ReportPage({
         </div>
 
         <section>
-          <h2>Gastos por categoria</h2>
+          <h2>Gastos por categoria{r.subject ? ` de ${r.subject.name}` : ""}</h2>
           {r.byCategory.length === 0 ? (
             <p className="rep-empty">Sem gastos neste mês.</p>
           ) : (
@@ -203,6 +262,7 @@ export default async function ReportPage({
         {/* Contas "todo mês" numa lista própria, acima dos lançamentos, para identificar fácil. */}
         {r.recurring.length > 0 && (
           <TxTable
+            shareLabel={r.shareLabel}
             title="Recorrentes (todo mês)"
             list={r.recurring}
             totalLabel="Saldo das recorrentes (entradas − saídas)"
@@ -211,6 +271,7 @@ export default async function ReportPage({
           />
         )}
         <TxTable
+          shareLabel={r.shareLabel}
           title="Lançamentos"
           list={r.rows}
           totalLabel="Saldo dos lançamentos (entradas − saídas)"
@@ -226,12 +287,14 @@ export default async function ReportPage({
 }
 
 function TxTable({
+  shareLabel,
   title,
   list,
   totalLabel,
   m,
   d,
 }: {
+  shareLabel: string;
   title: string;
   list: MonthReport["rows"];
   totalLabel: string;
@@ -256,7 +319,7 @@ function TxTable({
             <th>Categoria</th>
             <th>Quem pagou</th>
             <th className="n">Valor</th>
-            <th className="n">Sua parte</th>
+            <th className="n">{shareLabel}</th>
           </tr>
         </thead>
         <tbody>

@@ -44,10 +44,12 @@ export async function GET(req: Request) {
   const auth = await getAuth();
   if (!auth)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const month = new URL(req.url).searchParams.get("mes") ?? "";
+  const url = new URL(req.url);
+  const month = url.searchParams.get("mes") ?? "";
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
     return NextResponse.json({ error: "mês inválido" }, { status: 400 });
-  const r = await getMonthReport(auth, month);
+  // ?pessoa=<id>: extrato de outra pessoa (para mandar a quem te deve e não tem login).
+  const r = await getMonthReport(auth, month, url.searchParams.get("pessoa"));
   const money = (c: number) => c / 100;
   const title = r.title.replace(/^./, (c) => c.toUpperCase());
   const generated = r.generatedAt.toLocaleString("pt-BR", {
@@ -57,19 +59,42 @@ export async function GET(req: Request) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "BIRION FINANCE";
   wb.created = r.generatedAt;
+  // Foto de quem é o extrato (e de quem enviou), no canto da faixa de título de cada aba.
+  const face = r.subject ?? r.owner;
+  const faceImg = face.photo
+    ? wb.addImage({ base64: face.photo, extension: "jpeg" })
+    : null;
+  const ownerImg =
+    r.subject && r.owner.photo
+      ? wb.addImage({ base64: r.owner.photo, extension: "jpeg" })
+      : null;
+  const who = r.subject
+    ? `Extrato de ${r.subject.name} · enviado por ${r.owner.name} (${r.family})`
+    : `${r.owner.name} · ${r.family}`;
 
   /** Faixa de título (marinho) + linha de subtítulo, ocupando `cols` colunas. */
   const banner = (ws: ExcelJS.Worksheet, text: string, cols: number) => {
     ws.mergeCells(1, 1, 1, cols);
     const t = ws.getCell(1, 1);
-    t.value = `BIRION FINANCE  ·  ${text}`;
+    t.value = `BIRION FINANCE  ·  ${text}  ·  ${face.name}`;
     t.font = { bold: true, size: 16, color: { argb: WHITE } };
     t.fill = fill(NAVY);
     t.alignment = { vertical: "middle", indent: 1 };
     ws.getRow(1).height = 34;
     ws.mergeCells(2, 1, 2, cols);
     const sub = ws.getCell(2, 1);
-    sub.value = `${r.family} · ${r.person} · gerado em ${generated}${r.estimate ? " · mês à frente: valores previstos" : ""}`;
+    sub.value = `${who} · gerado em ${generated}${r.estimate ? " · mês à frente: valores previstos" : ""}`;
+    // Foto no canto direito da faixa (a de quem enviou, menor, ao lado).
+    if (faceImg !== null)
+      ws.addImage(faceImg, {
+        tl: { col: cols - 0.55, row: 0.08 },
+        ext: { width: 38, height: 38 },
+      });
+    if (ownerImg !== null)
+      ws.addImage(ownerImg, {
+        tl: { col: cols - 0.95, row: 0.22 },
+        ext: { width: 26, height: 26 },
+      });
     sub.font = { italic: true, size: 10, color: { argb: MUTED } };
     sub.alignment = { indent: 1 };
     ws.getRow(2).height = 20;
@@ -167,27 +192,23 @@ export async function GET(req: Request) {
   ];
   banner(res, title, 5);
   // Cartões: rótulo pequeno em cima, valor grande embaixo.
-  const s = r.summary;
-  const cards: [string, number, string][] = [
-    ["Seus gastos", -s.spentCents, RED],
-    ["Entradas", s.incomeCents, GREEN],
-    ["Faturas a pagar", s.invoicesCents, NAVY],
-    ["Te devem", s.owedToMeCents, GREEN],
-    ["Você deve", -s.iOweCents, RED],
-  ];
-  cards.forEach(([label, cents, color], i) => {
+  r.cards.forEach((card, i) => {
     const col = i + 1;
     const l = res.getCell(4, col);
-    l.value = label.toUpperCase();
+    l.value = card.label.toUpperCase();
     l.font = { size: 8, bold: true, color: { argb: MUTED } };
     const v = res.getCell(5, col);
-    v.value = money(cents);
-    // Faturas sem sinal (é o total da conta do cartão); o resto com + / −.
-    v.numFmt = i === 2 ? BRL : BRL_SIGN;
-    v.font = { size: 15, bold: true, color: { argb: color } };
+    v.value = money(card.cents);
+    // Com sinal (+ entra / te devem, − sai / você deve); faturas sem sinal (é o total da conta do cartão).
+    v.numFmt = card.signed ? BRL_SIGN : BRL;
+    v.font = {
+      size: 15,
+      bold: true,
+      color: { argb: card.signed ? tone(card.cents) : NAVY },
+    };
     for (const c of [l, v]) {
       c.fill = fill(ZEBRA);
-      c.alignment = { indent: 1, vertical: "middle" };
+      c.alignment = { indent: 1, vertical: "middle", wrapText: true };
       c.border = {
         left: { style: "thin", color: { argb: LINE } },
         right: { style: "thin", color: { argb: LINE } },
@@ -198,58 +219,58 @@ export async function GET(req: Request) {
       ...v.border,
       bottom: { style: "thin", color: { argb: LINE } },
     };
+    if (card.note) {
+      const n = res.getCell(6, col);
+      n.value = card.note;
+      n.font = {
+        size: 8,
+        italic: true,
+        color: { argb: card.note.startsWith("+") ? GREEN : MUTED },
+      };
+      n.alignment = { indent: 1 };
+    }
   });
-  res.getRow(4).height = 20;
+  res.getRow(4).height = 24;
   res.getRow(5).height = 30;
-  if (s.toReceiveCents > 0) {
-    const c = res.getCell(6, 2);
-    c.value = `+ R$ ${money(s.toReceiveCents).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} a receber`;
-    c.font = { size: 8, italic: true, color: { argb: GREEN } };
-    c.alignment = { indent: 1 };
-  }
-  if (s.invoicesMineCents !== s.invoicesCents) {
-    const c = res.getCell(6, 3);
-    c.value = `sua parte: R$ ${money(s.invoicesMineCents).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
-    c.font = { size: 8, italic: true, color: { argb: MUTED } };
-    c.alignment = { indent: 1 };
-  }
 
-  // Faturas
+  // Faturas (só no seu extrato: os cartões são seus)
   let row = 8;
-  section(res, row, "Faturas do cartão", 5);
-  head(
-    res,
-    ++row,
-    ["Cartão", "Vence", "Total", "Sua parte", "Situação"],
-    [3, 4],
-  );
-  if (r.invoices.length === 0) {
-    res.getCell(++row, 1).value = "Nenhuma fatura vence neste mês.";
-    res.getCell(row, 1).font = { italic: true, color: { argb: MUTED } };
-  }
-  r.invoices.forEach((v, i) => {
-    line(
+  if (!r.subject) {
+    section(res, row, "Faturas do cartão", 5);
+    head(
       res,
       ++row,
-      [
-        v.card,
-        new Date(`${v.due}T12:00:00`),
-        money(v.totalCents),
-        money(v.mineCents),
-        v.paid ? "Paga" : "A pagar",
-      ],
-      i,
+      ["Cartão", "Vence", "Total", "Sua parte", "Situação"],
       [3, 4],
     );
-    res.getCell(row, 2).numFmt = "dd/mm/yyyy";
-    res.getCell(row, 5).font = {
-      bold: true,
-      color: { argb: v.paid ? GREEN : CYAN },
-    };
-  });
+    if (r.invoices.length === 0) {
+      res.getCell(++row, 1).value = "Nenhuma fatura vence neste mês.";
+      res.getCell(row, 1).font = { italic: true, color: { argb: MUTED } };
+    }
+    r.invoices.forEach((v, i) => {
+      line(
+        res,
+        ++row,
+        [
+          v.card,
+          new Date(`${v.due}T12:00:00`),
+          money(v.totalCents),
+          money(v.mineCents),
+          v.paid ? "Paga" : "A pagar",
+        ],
+        i,
+        [3, 4],
+      );
+      res.getCell(row, 2).numFmt = "dd/mm/yyyy";
+      res.getCell(row, 5).font = {
+        bold: true,
+        color: { argb: v.paid ? GREEN : CYAN },
+      };
+    });
+    row += 2;
+  }
 
   // Dívidas
-  row += 2;
   section(
     res,
     row,
@@ -266,13 +287,7 @@ export async function GET(req: Request) {
     line(
       res,
       ++row,
-      [
-        d.direction === "te deve"
-          ? `${d.name} te deve`
-          : `Você deve a ${d.name}`,
-        "",
-        money(d.direction === "te deve" ? d.cents : -d.cents),
-      ],
+      [d.label, "", money(d.direction === "te deve" ? d.cents : -d.cents)],
       i,
       [3],
     );
@@ -304,7 +319,7 @@ export async function GET(req: Request) {
 
   // Gastos por categoria (com barra dentro da célula)
   row += 2;
-  section(res, row, "Gastos por categoria (sua parte)", 5);
+  section(res, row, r.subject ? `Gastos por categoria (parte de ${r.subject.name})` : "Gastos por categoria (sua parte)", 5);
   head(res, ++row, ["Categoria", "Valor", "% do mês"], [2, 3]);
   const catFrom = row + 1;
   if (r.byCategory.length === 0) {
@@ -349,7 +364,7 @@ export async function GET(req: Request) {
       { h: "Parcela", w: 10 },
       { h: "Quem pagou", w: 14 },
       { h: "Valor", w: 14 },
-      { h: "Sua parte", w: 14 },
+      { h: r.shareLabel, w: 14 },
       { h: "Divisão", w: 34 },
       { h: "Ainda deve", w: 26 },
       { h: "Status", w: 13 },
@@ -510,23 +525,24 @@ export async function GET(req: Request) {
     ],
     r.byCategory.map((c) => [c.name, money(c.cents), c.pct]),
   );
-  simple(
-    "Faturas",
-    [
-      { h: "Cartão", w: 20 },
-      { h: "Vence", w: 12, date: true },
-      { h: "Total", w: 16, money: true },
-      { h: "Sua parte", w: 16, money: true },
-      { h: "Situação", w: 12 },
-    ],
-    r.invoices.map((v) => [
-      v.card,
-      new Date(`${v.due}T12:00:00`),
-      money(v.totalCents),
-      money(v.mineCents),
-      v.paid ? "Paga" : "A pagar",
-    ]),
-  );
+  if (!r.subject)
+    simple(
+      "Faturas",
+      [
+        { h: "Cartão", w: 20 },
+        { h: "Vence", w: 12, date: true },
+        { h: "Total", w: 16, money: true },
+        { h: "Sua parte", w: 16, money: true },
+        { h: "Situação", w: 12 },
+      ],
+      r.invoices.map((v) => [
+        v.card,
+        new Date(`${v.due}T12:00:00`),
+        money(v.totalCents),
+        money(v.mineCents),
+        v.paid ? "Paga" : "A pagar",
+      ]),
+    );
   simple(
     "Dívidas",
     [
@@ -539,14 +555,14 @@ export async function GET(req: Request) {
     r.debts.flatMap((d) => [
       ...d.items.map((x) => [
         d.name,
-        d.direction,
+        d.label,
         `${x.description}${x.projected ? " (todo mês, previsto)" : ""}`,
         new Date(`${x.date}T12:00:00`),
         money(x.cents),
       ]),
       [
         d.name,
-        d.direction,
+        d.label,
         "Total",
         "",
         money(d.direction === "te deve" ? d.cents : -d.cents),
@@ -554,7 +570,7 @@ export async function GET(req: Request) {
     ]),
   );
 
-  const fileName = reportFileName(r.title);
+  const fileName = reportFileName(r.title, r.subject?.name);
   const buf = await wb.xlsx.writeBuffer();
   return new NextResponse(buf as ArrayBuffer, {
     headers: {

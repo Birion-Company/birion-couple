@@ -514,7 +514,7 @@ export async function getDebtsToReceive(viewer: Viewer, until: string) {
   const rows = await attachSplits(
     (await getDb().select(txColumns).from(t).where(txScope(viewer, eq(t.kind, "loan"), eq(t.payerId, me), isNull(t.settlesId), lte(t.date, until))).orderBy(asc(t.date)).limit(60)) as BaseRow[],
   );
-  return rows
+  const items = rows
     .filter((r) => !r.blocked && !r.settled)
     .flatMap((r) =>
       r.splits
@@ -529,6 +529,26 @@ export async function getDebtsToReceive(viewer: Viewer, until: string) {
           series: r.seriesTotal ? `${r.seriesIndex}/${r.seriesTotal}` : "",
         })),
     );
+  if (items.length === 0) return items;
+  // O que a pessoa deve de verdade é o saldo com ela: acertos avulsos e o que você deve a ela abatem.
+  // Ex.: emprestou R$ 200, ela te pagou R$ 100 e você deve R$ 80 a ela → aparece só R$ 20 a receber.
+  const people = [...new Set(items.map((x) => x.personId))];
+  const all = await attachSplits(
+    (await getDb().select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, until)))) as BaseRow[],
+  );
+  const net = new Map<string, number>();
+  for (const r of all) for (const [other, v] of pairEffects(me, r)) if (people.includes(other)) net.set(other, (net.get(other) ?? 0) + v);
+  // Cada dívida, da mais nova para a mais antiga, fica com o que sobra do saldo (as mais antigas são
+  // as primeiras abatidas, como em Dívidas).
+  const left = new Map(people.map((id) => [id, Math.max(0, net.get(id) ?? 0)]));
+  const out: typeof items = [];
+  for (const x of [...items].reverse()) {
+    const room = left.get(x.personId) ?? 0;
+    const cents = Math.min(room, x.leftCents);
+    left.set(x.personId, room - cents);
+    if (cents > 0) out.unshift({ ...x, leftCents: cents });
+  }
+  return out;
 }
 
 /** Um lançamento, se esta pessoa puder vê-lo. */

@@ -7477,3 +7477,59 @@ s.was {
 .rep-table .rep-sub td:first-child {
   padding-left: 14px;
 }
+
+/* Extrato: de quem é (foto/iniciais e nome) e quem enviou. */
+.rep-people {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  margin-top: 6px;
+}
+.rep-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.rep-who strong {
+  display: block;
+  font-size: 10.5pt;
+  color: #0f1d38;
+}
+.rep-who em {
+  display: block;
+  font-style: normal;
+  font-size: 8.5pt;
+  color: #64748b;
+}
+.rep-face {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  color: #fff;
+  font-weight: 800;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Exportação: "De quem é o extrato" e o mês lado a lado (um embaixo do outro no celular). */
+.export-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+.export-fields > .field {
+  flex: 1 1 240px;
+  max-width: 320px;
+}
+@media (max-width: 640px) {
+  .export-fields > .field {
+    max-width: none;
+  }
+}
+/* Extrato de outra pessoa: sem faturas, as dívidas ocupam a largura toda. */
+.rep-one {
+  display: block;
+}

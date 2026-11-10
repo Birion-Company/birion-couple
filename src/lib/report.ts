@@ -1,4 +1,6 @@
 import "server-only";
+import { and, eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
 import type { AuthContext } from "./auth";
 import { getInvoicesDue } from "./card-queries";
 import { longMonth, todayIn } from "./cards";
@@ -18,6 +20,9 @@ import { stateLabel, txState } from "./tx-state";
 /**
  * Relatório de um mês (Ajustes → Exportação): os mesmos números do painel, organizados como um
  * extrato. Usado pela planilha (.xlsx) e pela versão para imprimir/salvar em PDF.
+ *
+ * Com `subjectId` (outra pessoa): o extrato DELA — os gastos dela por categoria, os lançamentos que a
+ * envolvem e a dívida entre ela e você, com o de quê. Para mandar a quem te deve e não tem login.
  */
 export type MonthReport = Awaited<ReturnType<typeof getMonthReport>>;
 
@@ -28,39 +33,106 @@ const KIND: Record<string, string> = {
   transfer: "Acerto",
 };
 
-export async function getMonthReport(auth: AuthContext, month: string) {
+/** Foto (base64 JPEG) de uma pessoa: a do perfil, se tem login; senão a cadastrada em Pessoas. */
+async function photoOf(householdId: string, participantId: string | null) {
+  if (!participantId) return null;
+  const db = getDb();
+  const [u] = await db
+    .select({ data: schema.users.avatarData })
+    .from(schema.memberships)
+    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+    .where(
+      and(
+        eq(schema.memberships.householdId, householdId),
+        eq(schema.memberships.participantId, participantId),
+      ),
+    )
+    .limit(1);
+  if (u?.data) return u.data;
+  const [p] = await db
+    .select({ data: schema.participants.photoData })
+    .from(schema.participants)
+    .where(
+      and(
+        eq(schema.participants.householdId, householdId),
+        eq(schema.participants.id, participantId),
+      ),
+    )
+    .limit(1);
+  return p?.data ?? null;
+}
+
+export async function getMonthReport(
+  auth: AuthContext,
+  month: string,
+  subjectId: string | null = null,
+) {
   const me = auth.participantId;
+  const lookups = await getLookupsFor(auth);
+  // Extrato de outra pessoa: só alguém da família, e não você mesmo.
+  const subject =
+    subjectId &&
+    subjectId !== me &&
+    lookups.participants.some((p) => p.id === subjectId)
+      ? subjectId
+      : null;
+  const focus = subject ?? me;
   const filters = parseFilters({ mes: month }, "mes");
-  const mine = { ...filters, person: me };
   // Tudo calculado na hora do download (nada fica guardado pronto).
-  const [lookups, list, dash, invoices, ledger, projected] = await Promise.all([
-    getLookupsFor(auth),
-    listTransactions(auth, filters, 5000),
-    getDashboard(auth, mine),
-    getInvoicesDue(auth, month, null),
-    getDebtLedger(auth, await getLookupsFor(auth)),
+  const [list, dash, invoices, ledger, allProjected] = await Promise.all([
+    listTransactions(
+      auth,
+      subject ? { ...filters, person: subject } : filters,
+      5000,
+    ),
+    getDashboard(auth, { ...filters, person: focus }),
+    subject
+      ? Promise.resolve([] as Awaited<ReturnType<typeof getInvoicesDue>>)
+      : getInvoicesDue(auth, month, null),
+    getDebtLedger(auth, lookups),
     projectedForMonth(auth, month),
   ]);
+  // Previsões (todo mês): no extrato de outra pessoa, só as que a envolvem.
+  const projected = subject
+    ? allProjected.filter(
+        (r) =>
+          r.payerId === subject ||
+          r.splits.some((x) => x.participantId === subject),
+      )
+    : allProjected;
   const current = todayIn().slice(0, 7);
   // Mês à frente: só o que é daquele mês (estimativa); senão, tudo o que está em aberto. Com o "de quê".
-  const debts: { id: string; net: number; items: DebtItem[] }[] =
+  const allDebts: { id: string; net: number; items: DebtItem[] }[] =
     month > current
       ? await getMonthDebts(auth, month)
       : ledger.people.map((p) => ({
           id: p.personId,
           net: p.net,
-          items: p.entries.map((e) => ({
-            description: e.tx.description,
-            date: e.tx.date,
-            cents: e.effect - (e.covered ?? 0) * Math.sign(e.effect),
-          })),
+          // Cada dívida pelo valor cheio, e cada pagamento avulso (acerto) numa linha própria, com
+          // sinal contrário: assim quem recebe o extrato vê de onde vem o total (a soma bate com ele).
+          items: [
+            ...p.entries.filter((e) => e.tx.kind !== "transfer").map((e) => ({ description: e.tx.description, date: e.tx.date, cents: e.effect })),
+            ...p.paid.filter((x) => x.how === "coberta").map((x) => ({ description: x.tx.description, date: x.tx.date, cents: x.cents })),
+            ...p.paid
+              .filter((x) => x.how === "acerto")
+              .map((x) => ({ description: x.cents > 0 ? `Pagamento recebido (${x.tx.description})` : `Pagamento feito (${x.tx.description})`, date: x.tx.date, cents: -x.cents })),
+          ],
         }));
+  // No extrato de outra pessoa, só a dívida entre ela e você.
+  const debts = subject ? allDebts.filter((d) => d.id === subject) : allDebts;
+  const person = (id: string | null) =>
+    lookups.participants.find((p) => p.id === id);
+  const myName = person(me)?.name ?? auth.userName;
+  // No seu extrato, você é "Você"; no de outra pessoa (que vai ler), cada um pelo nome.
   const name = (id: string | null) =>
     !id
       ? "—"
       : id === me
-        ? "Você"
-        : (lookups.participants.find((p) => p.id === id)?.name ?? "Alguém");
+        ? subject
+          ? myName
+          : "Você"
+        : (person(id)?.name ?? "Alguém");
+  const subjectName = subject ? (person(subject)?.name ?? "Alguém") : null;
   const cat = (id: string | null) =>
     id
       ? (lookups.categories.find((c) => c.id === id)?.name ?? "—")
@@ -73,8 +145,8 @@ export async function getMonthReport(auth: AuthContext, month: string) {
     .filter((r) => !r.settlesId)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
     .map((r) => {
-      const myShare = me
-        ? (r.splits.find((s) => s.participantId === me)?.amountCents ?? 0)
+      const myShare = focus
+        ? (r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0)
         : 0;
       const others = r.splits.filter(
         (s) => s.participantId !== r.payerId && s.amountCents > 0,
@@ -122,11 +194,36 @@ export async function getMonthReport(auth: AuthContext, month: string) {
     cents: c.cents,
   }));
   const spent = byCategory.reduce((a, c) => a + c.cents, 0);
+  const toReceive = rows
+    .filter((x) => x.sign > 0 && x.status === "A receber")
+    .reduce((a, x) => a + x.myShareCents, 0);
+  const openInv = invoices.filter((v) => !v.paid);
+  const invAll = openInv.reduce((a, v) => a + v.totalCents, 0);
+  const invMine = openInv.reduce((a, v) => a + v.mineCents, 0);
+  const [ownerPhoto, subjectPhoto] = await Promise.all([
+    photoOf(auth.householdId, me),
+    photoOf(auth.householdId, subject),
+  ]);
   return {
     month,
     title: `Extrato de ${longMonth(month).toLowerCase()}`,
     family: auth.householdName,
     person: auth.userName,
+    /** Quem gerou (nome, cor e foto) e, no extrato de outra pessoa, de quem é o extrato. */
+    owner: {
+      name: myName,
+      color: person(me)?.color ?? "#1AC4DB",
+      photo: ownerPhoto,
+    },
+    subject: subject
+      ? {
+          name: subjectName!,
+          color: person(subject)?.color ?? "#94A3B8",
+          photo: subjectPhoto,
+        }
+      : null,
+    /** Coluna "Sua parte" (ou "Parte de Fulano"). */
+    shareLabel: subject ? `Parte de ${subjectName}` : "Sua parte",
     currency: auth.currency,
     generatedAt: new Date(),
     estimate: month > current,
@@ -149,6 +246,69 @@ export async function getMonthReport(auth: AuthContext, month: string) {
       iOweCents: debts.filter((d) => d.net < 0).reduce((a, d) => a - d.net, 0),
       count: rows.length,
     },
+    /** Cartões do topo, prontos para mostrar: valor com sinal (+ entra / te devem, − sai / você deve). */
+    cards: subject
+      ? [
+          {
+            label: `Gastos de ${subjectName}`,
+            cents: -spent,
+            signed: true,
+            note: "só a parte de cada conta",
+          },
+          {
+            label: `${subjectName} deve a ${myName}`,
+            cents: debts
+              .filter((d) => d.net > 0)
+              .reduce((a, d) => a + d.net, 0),
+            signed: true,
+            note: "",
+          },
+          {
+            label: `${myName} deve a ${subjectName}`,
+            cents: -debts
+              .filter((d) => d.net < 0)
+              .reduce((a, d) => a - d.net, 0),
+            signed: true,
+            note: "",
+          },
+        ]
+      : [
+          { label: "Seus gastos", cents: -spent, signed: true, note: "" },
+          {
+            label: "Entradas",
+            cents: dash.income,
+            signed: true,
+            note:
+              toReceive > 0
+                ? `+ ${formatMoney(toReceive, auth.currency)} a receber`
+                : "",
+          },
+          {
+            label: "Faturas a pagar",
+            cents: invAll,
+            signed: false,
+            note:
+              invMine !== invAll
+                ? `sua parte ${formatMoney(invMine, auth.currency)}`
+                : "",
+          },
+          {
+            label: "Te devem",
+            cents: debts
+              .filter((d) => d.net > 0)
+              .reduce((a, d) => a + d.net, 0),
+            signed: true,
+            note: "",
+          },
+          {
+            label: "Você deve",
+            cents: -debts
+              .filter((d) => d.net < 0)
+              .reduce((a, d) => a - d.net, 0),
+            signed: true,
+            note: "",
+          },
+        ],
     invoices: invoices.map((v) => ({
       card: v.cardName,
       due: v.due,
@@ -167,6 +327,14 @@ export async function getMonthReport(auth: AuthContext, month: string) {
         name: name(d.id),
         cents: Math.abs(d.net),
         direction: d.net > 0 ? ("te deve" as const) : ("você deve" as const),
+        /** "Fulano te deve" / "Você deve a Fulano"; no extrato da pessoa, "Fulano deve a Felipe". */
+        label: subject
+          ? d.net > 0
+            ? `${name(d.id)} deve a ${myName}`
+            : `${myName} deve a ${name(d.id)}`
+          : d.net > 0
+            ? `${name(d.id)} te deve`
+            : `Você deve a ${name(d.id)}`,
         // De quê: "Aluguel (05/12) R$ 500,00" — do que deve para o que abate.
         items: d.items
           .filter((x) => x.cents !== 0)
@@ -183,9 +351,12 @@ export async function getMonthReport(auth: AuthContext, month: string) {
   };
 }
 
-/** Nome dos arquivos exportados: "Birion - Relatório da fatura de novembro de 2026". */
-export function reportFileName(title: string) {
-  return `Birion - Relatório da fatura ${title.replace(/^Extrato /, "")}`;
+/** Nome dos arquivos exportados: "Birion - Relatório da fatura de novembro de 2026" (ou "... de Fulano - ..."). */
+export function reportFileName(title: string, subjectName?: string | null) {
+  const month = title.replace(/^Extrato /, "");
+  return subjectName
+    ? `Birion - Relatório de ${subjectName} - fatura ${month}`
+    : `Birion - Relatório da fatura ${month}`;
 }
 /** Mesmo nome sem acentos (para o cabeçalho de download em navegadores antigos). */
 export function asciiName(s: string) {
