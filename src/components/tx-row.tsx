@@ -134,7 +134,17 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
     return `${n} deve`;
   };
   // Valor que ainda falta (já descontado o que pagou em parte); o riscado fica no valor da linha.
-  const owedNow = (x: (typeof who)[number]) => (x.state === "open" ? <> {money(x.cents - (x.partCents ?? 0))}</> : null);
+  const owedNow = (x: (typeof who)[number]) =>
+    x.state !== "open" ? null : x.partCents ? (
+      <>
+        {" "}
+        {money(x.cents - x.partCents)}
+        {/* Acerto parcial: avisa quanto já foi pago. */}
+        <span className="who-part"> · pagou {money(x.partCents)}</span>
+      </>
+    ) : (
+      <> {money(x.cents)}</>
+    );
   // Quem ainda deve vem primeiro (é o que a pessoa precisa ver logo), depois quem está confirmando,
   // quem já pagou e, por fim, a parte de quem pagou. Com muita gente, só os 3 primeiros + um resumo.
   const ORDER = { open: 0, pending: 1, paid: 2, own: 3 } as const;

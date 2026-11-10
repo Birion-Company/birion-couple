@@ -103,8 +103,10 @@ const competenceSql = sql`coalesce(
   date_trunc('month', "transactions"."date")::date
 )`;
 
-function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean } = {}): SQL {
-  const parts: (SQL | undefined)[] = [];
+function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean; withPayments?: boolean } = {}): SQL {
+  // Pagamento de uma dívida ("Recebi/Paguei") não é um movimento à parte: aparece dentro do lançamento
+  // que ele paga (abatendo o valor), não como uma linha nova nas listas. (As contas do painel ainda o usam.)
+  const parts: (SQL | undefined)[] = opts.withPayments ? [] : [isNull(t.settlesId)];
   if (f.competence) {
     // No cartão, a compra pode ser de até 2 meses antes do mês em que a fatura vence.
     parts.push(gte(t.date, `${addMonthsKey(f.competence, -2)}-01`), lte(t.date, endOfMonth(`${f.competence}-01`)));
@@ -557,7 +559,7 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
   await ensureRecurring(viewer.householdId);
   const db = getDb();
   const saved = await attachSplits(
-    (await db.select(txColumns).from(t).where(whereFor(viewer, f)).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
+    (await db.select(txColumns).from(t).where(whereFor(viewer, f, { withPayments: true })).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
   );
   let projected: TxRow[] = [];
   if (f.competence) {
@@ -627,7 +629,8 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
     income,
     byCategory: [...byCategory].map(([id, cents]) => ({ id, cents })).filter((c) => c.cents > 0).sort((a, b) => b.cents - a.cents),
     byPerson: [...byPerson].map(([id, cents]) => ({ id, cents })).sort((a, b) => b.cents - a.cents),
-    recent: rows.slice(0, 6),
+    // Pagamentos de dívida ficam dentro do lançamento que pagam, não como linha própria.
+    recent: rows.filter((r) => !r.settlesId).slice(0, 6),
     count: rows.length,
     /** Mês futuro: o que já está combinado (parcelas, previsões e o que se repete), do primeiro ao último dia. */
     planned: [...rows].filter((r) => r.date > today && r.kind !== "transfer").sort((a, b) => (a.date < b.date ? -1 : 1)),

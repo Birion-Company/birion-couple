@@ -6183,3 +6183,21 @@ s.was {
 .debt-none {
   padding: 12px 4px;
 }
+
+/* Dentro do selo de quem deve: quanto já pagou (acerto parcial). */
+.who-part {
+  font-weight: 600;
+  opacity: 0.8;
+}
+/* Selo nunca passa da largura da linha: se não couber, o texto quebra dentro dele. */
+.who-badge {
+  max-width: 100%;
+  white-space: normal;
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.who-pays,
+.who-pays .tx-paid {
+  min-width: 0;
+  max-width: 100%;
+}

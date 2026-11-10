@@ -68,33 +68,46 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
       </button>
     );
   }
+  // Não é um <form>: este botão também aparece dentro do formulário do lançamento, e um formulário
+  // dentro do outro fazia o "Confirmar" salvar o lançamento (e fechar) em vez de registrar o pagamento.
+  const confirm = () => {
+    if (cents <= 0) return toast("Digite quanto foi pago.", "error");
+    start(async () => {
+      const r = await payDebt({ transactionId: txId, participantId, amountCents: cents });
+      toastResult(r);
+      if (r.ok) {
+        setOpen(false);
+        router.refresh();
+        window.dispatchEvent(new Event("bf:tx-changed"));
+      }
+    });
+  };
   return (
-    <form
-      className="pay-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (cents <= 0) return toast("Digite quanto foi pago.", "error");
-        start(async () => {
-          const r = await payDebt({ transactionId: txId, participantId, amountCents: cents });
-          toastResult(r);
-          if (r.ok) {
-            setOpen(false);
-            router.refresh();
-            window.dispatchEvent(new Event("bf:tx-changed"));
-          }
-        });
-      }}
-    >
+    <div className="pay-form" role="group" aria-label="Registrar pagamento">
       <label className="pay-field">
         <span>Quanto pagou</span>
-        <input className="input" inputMode="decimal" autoFocus value={value} onChange={(e) => setValue(e.target.value.replace(/[^\d,.]/g, ""))} aria-label="Quanto pagou" />
+        <input
+          className="input"
+          inputMode="decimal"
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value.replace(/[^\d,.]/g, ""))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.stopPropagation();
+              confirm();
+            }
+          }}
+          aria-label="Quanto pagou"
+        />
       </label>
       <span className={`pay-diff ${diff > 0 ? "pos" : diff < 0 ? "neg" : "faint"}`}>
         {diff > 0 ? `+${formatMoney(diff, currency)} de lucro` : diff < 0 && cents > 0 ? `Ainda vai faltar ${formatMoney(-diff, currency)}` : cents > 0 ? "quita a dívida" : ""}
       </span>
-      <button className="btn small primary" disabled={pending}>Confirmar</button>
+      <button type="button" className="btn small primary" disabled={pending} onClick={confirm}>Confirmar</button>
       <button type="button" className="btn small ghost" onClick={() => setOpen(false)}>Cancelar</button>
-    </form>
+    </div>
   );
 }
 
