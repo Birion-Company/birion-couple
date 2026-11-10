@@ -434,6 +434,15 @@ export const getApprovalInbox = cache(async (viewer: Viewer) => {
   };
 });
 
+/**
+ * Primeiro mês em que a família pode ver no painel: o mês em que começou a usar o app.
+ * (Quando houver assinatura, vira o início da assinatura.)
+ */
+export const householdStartMonth = cache(async (householdId: string) => {
+  const [h] = await getDb().select({ createdAt: schema.households.createdAt }).from(schema.households).where(eq(schema.households.id, householdId));
+  return h ? todayIn("America/Sao_Paulo", h.createdAt).slice(0, 7) : todayIn().slice(0, 7);
+});
+
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();

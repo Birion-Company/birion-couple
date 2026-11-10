@@ -8,7 +8,7 @@ import { requireAuth } from "@/lib/auth";
 import { addMonthsKey, longMonth, monthsBetween, shortDate } from "@/lib/cards";
 import { defaultPanelMonth, getInvoicesDue } from "@/lib/card-queries";
 import { filtersToQuery, monthRange, MONTHS_AHEAD, parseFilters, thisMonthKey } from "@/lib/filters";
-import { countUnidentified, getDashboard, getDebtLedger, getMonthDebts, getLookupsFor, getOutlook } from "@/lib/queries";
+import { countUnidentified, getDashboard, getDebtLedger, getMonthDebts, householdStartMonth, getLookupsFor, getOutlook } from "@/lib/queries";
 import { MoneySummary } from "@/components/money-summary";
 import { MonthNav } from "@/components/month-nav";
 import { MonthOutlook } from "@/components/month-outlook";
@@ -21,10 +21,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   // O painel mostra um mês por vez (o atual, se não escolher outro), até 12 meses à frente.
   // O mês é o do pagamento (no cartão, o mês em que a fatura vence). O painel abre na fatura que falta pagar.
   // Tudo o que não depende de outra consulta vai junto, em paralelo.
-  const [current, lookups] = await Promise.all([defaultPanelMonth(auth), getLookupsFor(auth)]);
+  const [current, lookups, startedAt] = await Promise.all([defaultPanelMonth(auth), getLookupsFor(auth), householdStartMonth(auth.householdId)]);
+  // Dá para voltar até o primeiro mês em que a família usou o app (ou a fatura em aberto, se for antes).
+  const firstMonth = startedAt < current ? startedAt : current;
+  const lastMonth = addMonthsKey(thisMonthKey(), MONTHS_AHEAD);
   const parsed = parseFilters(sp, "mes");
-  // De hoje para frente: um mês anterior pedido na URL vira o atual.
-  const month = parsed.month && parsed.month > current ? parsed.month : current;
+  // Fora do período (antes de usar o app ou além de 12 meses): volta para o mês atual.
+  const month = parsed.month && parsed.month >= firstMonth && parsed.month <= lastMonth ? parsed.month : current;
   const filters = { ...parsed, period: "mes" as const, month: month === current ? null : month, competence: month, ...monthRange(month) };
   const [data, toIdentify, outlook, invoices, ledger] = await Promise.all([
     getDashboard(auth, filters),
@@ -72,7 +75,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         filters={filters}
         month={month}
         current={current}
-        max={addMonthsKey(thisMonthKey(), MONTHS_AHEAD)}
+        min={firstMonth}
+        max={lastMonth}
         hasCards={lookups.cards.some((c) => !c.archived)}
         detail={
           invoices.length
