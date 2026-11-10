@@ -494,6 +494,33 @@ export async function getAwaitingIncome(viewer: Viewer, until: string) {
     .limit(30);
 }
 
+/**
+ * Dívidas a seu favor que vencem até uma data (as atrasadas também): entram no "A receber" do painel.
+ * Uma linha por pessoa que ainda deve, com o que falta (já descontado o que pagou em parte).
+ */
+export async function getDebtsToReceive(viewer: Viewer, until: string) {
+  const me = viewer.participantId;
+  if (!me) return [];
+  const rows = await attachSplits(
+    (await getDb().select(txColumns).from(t).where(txScope(viewer, eq(t.kind, "loan"), eq(t.payerId, me), isNull(t.settlesId), lte(t.date, until))).orderBy(asc(t.date)).limit(60)) as BaseRow[],
+  );
+  return rows
+    .filter((r) => !r.blocked && !r.settled)
+    .flatMap((r) =>
+      r.splits
+        .filter((x) => x.participantId !== me && !x.paidById && x.amountCents - (x.partCents ?? 0) > 0)
+        .map((x) => ({
+          txId: r.id,
+          date: r.date,
+          description: r.description,
+          personId: x.participantId,
+          leftCents: x.amountCents - (x.partCents ?? 0),
+          pending: !!x.pendingPayId,
+          series: r.seriesTotal ? `${r.seriesIndex}/${r.seriesTotal}` : "",
+        })),
+    );
+}
+
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();

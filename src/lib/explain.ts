@@ -31,7 +31,8 @@ export function explainTx(i: ExplainInput): string {
 
   if (i.kind === "loan") {
     const to = i.splits[0]?.participantId;
-    return `Emprestado por ${who(i.payerId)} · ${open.length ? `${who(to)} deve devolver ${money(i.amountCents)}` : `${who(to)} já devolveu`}${done}`;
+    // Dívida pode ser empréstimo ou venda (ex.: um notebook comprado de você): nada de "emprestado".
+    return `${i.payerId === i.me ? "Dívida a seu favor" : `Dívida a favor de ${who(i.payerId)}`} · ${open.length ? `${who(to)} deve ${money(i.amountCents)}` : `${who(to)} já pagou`}${done}`;
   }
   if (i.kind === "transfer") {
     const to = i.splits[0]?.participantId;
@@ -80,7 +81,7 @@ export function explainParts(i: ExplainInput): { head: string; who: WhoPays[] } 
   // Dono primeiro (quem pagou), depois os outros.
   who.sort((a, b) => (a.state === "own" ? -1 : b.state === "own" ? 1 : 0));
   let head: string;
-  if (i.kind === "loan") head = `Emprestado por ${w(i.payerId)}`;
+  if (i.kind === "loan") head = i.payerId === i.me ? "Dívida a seu favor" : `Dívida a favor de ${w(i.payerId)}`;
   else if (i.kind === "income") head = !i.payerId ? "Falta dizer quem recebeu" : i.awaitingReceipt ? `${cap(w(i.payerId))} ainda vai receber` : `Recebido por ${w(i.payerId)}`;
   else if (!i.payerId) head = "Falta dizer quem pagou";
   else head = i.cardName ? `${cap(w(i.payerId))} comprou no cartão ${i.cardName}` : `Pago por ${w(i.payerId)}`;

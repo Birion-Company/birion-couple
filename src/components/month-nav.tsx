@@ -132,15 +132,13 @@ export function MonthNav({
       <button type="button" className="month-arrow" onClick={() => go(addMonthsKey(shown, 1))} aria-label={`Ver ${longMonth(addMonthsKey(shown, 1))}`}>
         <ChevronRight size={18} strokeWidth={2.2} />
       </button>
-      {/* Sempre no mesmo lugar (invisível no mês atual): a caixa não muda de tamanho entre um clique e outro. */}
+      {/* Sempre visível e no mesmo lugar: cinza (desligado) no mês atual; colorido quando dá para voltar. */}
       <button
         type="button"
         className={`month-today ${isTotal || diff !== 0 ? "" : "idle"}`}
         onClick={() => go(current)}
         disabled={!isTotal && diff === 0}
-        aria-hidden={!isTotal && diff === 0}
-        tabIndex={!isTotal && diff === 0 ? -1 : undefined}
-        title={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
+        title={!isTotal && diff === 0 ? "Você já está no mês atual" : `Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
         aria-label={`Voltar para ${isTotal || !hasCards ? monthName(current).toLowerCase() : "a fatura em aberto"}`}
       >
         <Undo2 size={15} strokeWidth={2.2} />

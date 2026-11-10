@@ -27,7 +27,7 @@ type Step = {
 
 const STEPS: Step[] = [
   { title: "Bem-vindo ao BIRION", text: "Contas divididas entre pessoas, sem planilha. Em 2 minutos você vê o principal.", demo: "people" },
-  { targets: ["new-fab", "tx-new"], title: "Novo lançamento", text: "Tudo começa no botão **+**. Toque nele sempre que gastar, receber ou emprestar." },
+  { targets: ["new-fab", "tx-new"], title: "Novo lançamento", text: "Tudo começa no botão **+**. Toque nele sempre que gastar, receber ou alguém ficar te devendo." },
   { route: "/transacoes/nova", targets: ["tx-kind"], title: "Tipo", text: "**Despesa**: algo pago. **Receita**: dinheiro para você — diga se **já recebeu** ou se **ainda vai receber**. **Dívida**: alguém fica devendo. **Acerto**: alguém pagou alguém." },
   { route: "/transacoes/nova", targets: ["tx-card", "tx-payer"], title: "Como foi pago", text: "Escolha o cartão. Logo embaixo aparece em qual **fatura** a compra entra — cada cartão fecha e vence num dia diferente." },
   { route: "/transacoes/nova", targets: ["tx-split"], title: "Quem deveria pagar", text: "Toque e pesquise o nome. Marcou mais gente? Divide. A **seta** mostra para onde o dinheiro vai ter que ir." },

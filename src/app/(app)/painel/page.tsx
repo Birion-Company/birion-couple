@@ -8,7 +8,7 @@ import { requireAuth } from "@/lib/auth";
 import { longMonth, monthsBetween, shortDate, todayIn } from "@/lib/cards";
 import { defaultPanelMonth, getInvoicesDue } from "@/lib/card-queries";
 import { filtersToQuery, monthRange, parseFilters } from "@/lib/filters";
-import { countUnidentified, getDashboard, getAwaitingIncome, getDebtLedger, getMonthDebts, navigableMonths, getLookupsFor, getOutlook } from "@/lib/queries";
+import { countUnidentified, getDashboard, getAwaitingIncome, getDebtLedger, getDebtsToReceive, getMonthDebts, navigableMonths, getLookupsFor, getOutlook } from "@/lib/queries";
 import { MoneySummary } from "@/components/money-summary";
 import { AwaitingIncome } from "@/components/awaiting-income";
 import { MonthNav } from "@/components/month-nav";
@@ -29,7 +29,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   // Fora do período (antes de usar o app ou depois do último mês com algo lançado): volta para o mês atual.
   const month = parsed.month && parsed.month >= firstMonth && parsed.month <= lastMonth ? parsed.month : current;
   const filters = { ...parsed, period: "mes" as const, month: month === current ? null : month, competence: month, ...monthRange(month) };
-  const [data, toIdentify, outlook, invoices, ledger, awaiting] = await Promise.all([
+  const [data, toIdentify, outlook, invoices, ledger, awaiting, debtsDue] = await Promise.all([
     getDashboard(auth, filters),
     countUnidentified(auth),
     getOutlook(auth, filters),
@@ -38,6 +38,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
     getDebtLedger(auth, lookups),
     // Receitas que ainda não caíram (até o fim do mês visto; as atrasadas também).
     getAwaitingIncome(auth, monthRange(month).to),
+    // Dívidas a seu favor que vencem até o fim do mês visto (as atrasadas também).
+    getDebtsToReceive(auth, monthRange(month).to),
   ]);
   // Mês à frente: estimativa só com o que é daquele mês (o de antes, imagina-se, já foi pago).
   const ahead = month > current;
@@ -129,7 +131,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         </div>
       )}
 
-      <AwaitingIncome items={awaiting} today={todayIn()} currency={cur} />
+      <AwaitingIncome items={awaiting} debts={debtsDue} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} today={todayIn()} currency={cur} />
 
       {mode === "me" ? (
         <>

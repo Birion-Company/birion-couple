@@ -7242,8 +7242,21 @@ s.was {
   }
 }
 /* Seletor de mês com tamanho fixo: setas e "voltar" ficam sempre no mesmo ponto. */
+/* No mês atual o "voltar" fica cinza e desligado; ao mudar de mês, ganha cor. */
 .month-nav.compact .month-today.idle {
-  visibility: hidden;
+  color: var(--text-3);
+  background: transparent;
+  border-color: var(--line);
+  opacity: 0.45;
+  cursor: default;
+}
+.month-nav.compact .month-today:not(.idle) {
+  color: #031018;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.month-nav.compact .month-today:not(.idle):hover {
+  filter: brightness(1.08);
 }
 .month-nav.compact .month-pick-btn {
   justify-content: center;
@@ -7281,9 +7294,6 @@ s.was {
     display: flex !important;
   }
   .topbar .tutorial-btn {
-    display: none;
-  }
-  .month-nav.compact .month-today {
     display: none;
   }
 }
@@ -7383,4 +7393,11 @@ s.was {
 .pay-extra .chip:has(input:focus-visible) {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+.awaiting-row:has(.pay-form) {
+  flex-wrap: wrap;
+}
+.awaiting-row .pay-form {
+  flex-basis: 100%;
+  justify-content: flex-end;
 }

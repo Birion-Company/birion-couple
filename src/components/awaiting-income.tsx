@@ -7,6 +7,10 @@ import { Check, Hourglass } from "lucide-react";
 import { setReceived } from "@/app/actions/transactions";
 import { formatMoney } from "@/lib/money";
 import { toastResult } from "./toaster";
+import { PayButton } from "./debt-payments";
+
+/** Parcela de dívida a seu favor (ex.: Teagar · Notebook 1/10), com o que ainda falta. */
+export type DebtDue = { txId: string; date: string; description: string; personId: string; leftCents: number; pending: boolean; series: string };
 
 type Item = { id: string; date: string; description: string; amountCents: number; seriesIndex: number | null; seriesTotal: number | null; seriesKind: string | null };
 
@@ -14,11 +18,24 @@ type Item = { id: string; date: string; description: string; amountCents: number
  * "A receber" no painel: receitas que ainda não caíram na conta. O app não supõe que você recebeu:
  * só conta nas entradas depois do "Recebi". Atrasadas (data já passou) aparecem em destaque.
  */
-export function AwaitingIncome({ items, today, currency }: { items: Item[]; today: string; currency: string }) {
+export function AwaitingIncome({
+  items,
+  debts = [],
+  names = {},
+  today,
+  currency,
+}: {
+  items: Item[];
+  /** Dívidas a seu favor que já venceram ou vencem no mês (também é dinheiro a receber). */
+  debts?: DebtDue[];
+  names?: Record<string, string>;
+  today: string;
+  currency: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  if (items.length === 0) return null;
-  const late = items.filter((x) => x.date < today);
+  if (items.length === 0 && debts.length === 0) return null;
+  const late = [...items, ...debts].filter((x) => x.date < today);
   const day = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   const daysLate = (iso: string) => Math.round((Date.parse(today) - Date.parse(iso)) / 86400000);
   return (
@@ -29,8 +46,27 @@ export function AwaitingIncome({ items, today, currency }: { items: Item[]; toda
         </h2>
         <span className="faint">{late.length ? `${late.length} atrasad${late.length === 1 ? "o" : "os"}` : "você recebeu?"}</span>
       </div>
-      <p className="faint awaiting-help">Só conta nas suas entradas depois que você confirmar.</p>
+      <p className="faint awaiting-help">Receitas e dívidas a seu favor. Só conta depois que você confirmar que recebeu.</p>
       <div className="rows">
+        {debts.map((x) => {
+          const isLate = x.date < today;
+          return (
+            <div key={x.txId + x.personId} className={`row awaiting-row ${isLate ? "late" : ""}`}>
+              <Link href={`/transacoes/${x.txId}`} className="grow" style={{ minWidth: 0 }}>
+                <span className="title">
+                  {names[x.personId] ?? "Alguém"} · {x.description}
+                  {x.series && <span className="tx-series">{x.series}</span>}
+                </span>
+                <span className="sub" style={{ display: "block" }}>
+                  Dívida · {isLate ? `venceu ${day(x.date)} · ${daysLate(x.date)} dia${daysLate(x.date) === 1 ? "" : "s"} de atraso` : x.date === today ? "vence hoje" : `vence ${day(x.date)}`}
+                  {x.pending ? " · pagamento esperando confirmação" : ""}
+                </span>
+              </Link>
+              <strong className="num awaiting-value">{formatMoney(x.leftCents, currency)}</strong>
+              {!x.pending && <PayButton txId={x.txId} participantId={x.personId} owedCents={x.leftCents} currency={currency} label="Recebi" />}
+            </div>
+          );
+        })}
         {items.map((x) => {
           const isLate = x.date < today;
           return (

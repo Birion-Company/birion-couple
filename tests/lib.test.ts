@@ -353,7 +353,7 @@ describe("frase embaixo do lançamento", () => {
     expect(t({ payerId: null, splits: [{ participantId: "c", amountCents: 9000 }] })).toBe("Falta dizer quem pagou · de quem é: Beltrano (R$ 90,00)");
   });
   test("empréstimo, acerto e receita", () => {
-    expect(t({ kind: "loan", amountCents: 5000, splits: [{ participantId: "c", amountCents: 5000 }] })).toBe("Emprestado por você · Beltrano deve devolver R$ 50,00");
+    expect(t({ kind: "loan", amountCents: 5000, splits: [{ participantId: "c", amountCents: 5000 }] })).toBe("Dívida a seu favor · Beltrano deve R$ 50,00");
     expect(t({ kind: "transfer", payerId: "c", amountCents: 3000, splits: [{ participantId: "f", amountCents: 3000 }] })).toBe("Beltrano pagou R$ 30,00 para você (acerto)");
     expect(t({ kind: "income", amountCents: 4000, splits: [{ participantId: "f", amountCents: 2000 }, { participantId: "c", amountCents: 2000 }] })).toBe(
       "Recebido por você · deve repassar para Beltrano (R$ 20,00)",

@@ -28,7 +28,7 @@ type Repeat = "once" | "installment" | "monthly";
 const KIND_HELP: Record<Kind, string> = {
   expense: "Algo pago. Quem tem parte fica devendo para quem pagou.",
   income: "Dinheiro que entrou: salário, venda, estorno.",
-  loan: "Alguém fica te devendo. Ex.: um empréstimo para Fulano.",
+  loan: "Alguém fica te devendo. Ex.: emprestou dinheiro ou vendeu algo para pagar depois (um notebook).",
   transfer: "Pagamento entre pessoas. Abate a dívida.",
 };
 
