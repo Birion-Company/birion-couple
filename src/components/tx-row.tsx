@@ -80,6 +80,23 @@ export function SettlesBadge({ tx, currency }: { tx: TxRow; currency: string }) 
   return <ProfitBadge paidCents={tx.amountCents} owedCents={s.owedCents - s.otherPaidCents} currency={currency} />;
 }
 
+/**
+ * Valor da linha. Numa dívida que já foi paga em parte, o valor original fica riscado e o que
+ * falta aparece em destaque logo abaixo (é o valor que importa agora).
+ */
+export function TxAmount({ tx, currency }: { tx: TxRow; currency: string }) {
+  const open = tx.kind === "loan" ? tx.splits.find((s) => !s.paidById && s.participantId !== tx.payerId && (s.partCents ?? 0) > 0) : undefined;
+  if (!open) return <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />;
+  return (
+    <span className="amount-partial">
+      <s className="was">
+        <Money cents={tx.amountCents} currency={currency} />
+      </s>
+      <Money cents={tx.amountCents - (open.partCents ?? 0)} currency={currency} className="amount-now" />
+    </span>
+  );
+}
+
 /** Foto (ou iniciais) de quem tinha que pagar, dentro do selo. */
 function WhoFace({ id, lookups }: { id: string; lookups: Lookups }) {
   const p = lookups.participants.find((x) => x.id === id);
@@ -116,16 +133,8 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
     if (x.state === "pending") return `${n} pagou ${money(x.cents)} · confirmando`;
     return `${n} deve`;
   };
-  // Pagou parte: o que já pagou riscado e, ao lado, o que falta (~~R$ 500,00~~ R$ 60,00).
-  const owedNow = (x: (typeof who)[number]) =>
-    x.state === "open" && x.partCents ? (
-      <>
-        {" "}
-        <s className="was" title={`Já pagou ${money(x.partCents)} de ${money(x.cents)}`}>{money(x.partCents)}</s> {money(x.cents - x.partCents)}
-      </>
-    ) : x.state === "open" ? (
-      <> {money(x.cents)}</>
-    ) : null;
+  // Valor que ainda falta (já descontado o que pagou em parte); o riscado fica no valor da linha.
+  const owedNow = (x: (typeof who)[number]) => (x.state === "open" ? <> {money(x.cents - (x.partCents ?? 0))}</> : null);
   return (
     <p className="sub tx-explain">
       {/* Acerto ligado a uma dívida: a frase diz o que ele paga; o "falta" vai junto dos selos. */}
@@ -178,7 +187,7 @@ export function TxRowLink({ tx, lookups, currency, me = null }: { tx: TxRow; loo
         <TxExplain tx={tx} lookups={lookups} me={me} currency={currency} />
       </div>
       <div className="amount">
-        <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />
+        <TxAmount tx={tx} currency={currency} />
         {status && <p className="sub tx-status">{status.name}</p>}
         <ProfitAmount tx={tx} currency={currency} />
       </div>

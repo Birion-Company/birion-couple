@@ -6033,3 +6033,18 @@ s.was {
   color: var(--neg);
   background: color-mix(in srgb, var(--neg) 12%, transparent);
 }
+
+/* Dívida paga em parte: valor original riscado e, embaixo, o que falta em destaque. */
+.amount-partial {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+.amount-partial s.was {
+  font-size: 0.8rem;
+}
+.amount-partial .amount-now {
+  font-weight: 700;
+  color: var(--text);
+}

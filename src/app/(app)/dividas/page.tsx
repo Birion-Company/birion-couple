@@ -192,12 +192,12 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
                       </p>
                     </Link>
                     <span className={`amount ${left > 0 ? "pos" : "neg"}`}>
-                      {/* Já pagou uma parte: o que já foi pago riscado, ao lado do que falta. */}
+                      {/* Já pagou uma parte: o valor original riscado, ao lado do que falta. */}
                       {(() => {
                         const sp = tx.splits.find((x) => (x.participantId === p.personId || x.participantId === auth.participantId) && x.participantId !== tx.payerId && x.partCents);
                         return sp ? (
-                          <s className="was" title="Já pagou">
-                            <Money cents={sp.partCents!} currency={cur} />
+                          <s className="was" title="Valor original">
+                            <Money cents={sp.amountCents} currency={cur} />
                           </s>
                         ) : null;
                       })()}{" "}

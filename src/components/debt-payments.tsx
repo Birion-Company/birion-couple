@@ -18,16 +18,13 @@ type Split = {
   pendingPayId?: string | null;
 };
 
-/**
- * Valor de uma parte. Se já pagou uma parte dela: o que já foi pago riscado e, ao lado, o que falta.
- * Ex.: devia 560, pagou 500 → ~~500~~ 60; pagou mais 30 → ~~530~~ 30.
- */
+/** Valor de uma parte. Se já pagou uma parte dela: o valor original riscado e, ao lado, o que falta. */
 export function OwedAmount({ cents, partCents = 0, currency }: { cents: number; partCents?: number; currency: string }) {
   if (!partCents) return <>{formatMoney(cents, currency)}</>;
   return (
     <>
-      <s className="was" title={`Já pagou ${formatMoney(partCents, currency)} de ${formatMoney(cents, currency)}`}>
-        {formatMoney(partCents, currency)}
+      <s className="was" title={`Já pagou ${formatMoney(partCents, currency)}`}>
+        {formatMoney(cents, currency)}
       </s>{" "}
       <strong>{formatMoney(cents - partCents, currency)}</strong>
     </>

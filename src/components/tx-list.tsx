@@ -10,8 +10,8 @@ import { deleteTransactions } from "@/app/actions/transactions";
 import { missingInfo } from "@/lib/explain";
 import type { Lookups, TxRow } from "@/lib/queries";
 import { toastResult } from "./toaster";
-import { ProfitAmount, StatusDot, amountTone, TxExplain, txLook, txMeta, txProfit } from "./tx-row";
-import { CategoryIcon, Money, formatDate } from "./ui";
+import { ProfitAmount, StatusDot, TxAmount, TxExplain, txLook, txMeta, txProfit } from "./tx-row";
+import { CategoryIcon, formatDate } from "./ui";
 
 function groupByMonth(rows: TxRow[]) {
   const groups: { key: string; label: string; rows: TxRow[] }[] = [];
@@ -146,7 +146,7 @@ export function TxList({
                         )}
                       </div>
                       <span className="amount">
-                        <Money cents={tx.amountCents} currency={currency} className={amountTone(tx.kind)} />
+                        <TxAmount tx={tx} currency={currency} />
                         {status && <span className="sub tx-status">{status.name}</span>}
                         <ProfitAmount tx={tx} currency={currency} />
                       </span>
