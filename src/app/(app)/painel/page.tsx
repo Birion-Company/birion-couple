@@ -5,10 +5,10 @@ import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
 import { CategoryIcon, Money, formatDate } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
-import { addMonthsKey, longMonth, monthsBetween, shortDate } from "@/lib/cards";
+import { longMonth, monthsBetween, shortDate } from "@/lib/cards";
 import { defaultPanelMonth, getInvoicesDue } from "@/lib/card-queries";
-import { filtersToQuery, monthRange, MONTHS_AHEAD, parseFilters, thisMonthKey } from "@/lib/filters";
-import { countUnidentified, getDashboard, getDebtLedger, getMonthDebts, householdStartMonth, getLookupsFor, getOutlook } from "@/lib/queries";
+import { filtersToQuery, monthRange, parseFilters } from "@/lib/filters";
+import { countUnidentified, getDashboard, getDebtLedger, getMonthDebts, navigableMonths, getLookupsFor, getOutlook } from "@/lib/queries";
 import { MoneySummary } from "@/components/money-summary";
 import { MonthNav } from "@/components/month-nav";
 import { MonthOutlook } from "@/components/month-outlook";
@@ -21,12 +21,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   // O painel mostra um mês por vez (o atual, se não escolher outro), até 12 meses à frente.
   // O mês é o do pagamento (no cartão, o mês em que a fatura vence). O painel abre na fatura que falta pagar.
   // Tudo o que não depende de outra consulta vai junto, em paralelo.
-  const [current, lookups, startedAt] = await Promise.all([defaultPanelMonth(auth), getLookupsFor(auth), householdStartMonth(auth.householdId)]);
-  // Dá para voltar até o primeiro mês em que a família usou o app (ou a fatura em aberto, se for antes).
-  const firstMonth = startedAt < current ? startedAt : current;
-  const lastMonth = addMonthsKey(thisMonthKey(), MONTHS_AHEAD);
+  const [current, lookups] = await Promise.all([defaultPanelMonth(auth), getLookupsFor(auth)]);
+  // Do primeiro mês de uso até o último mês com algo lançado (ex.: a última parcela do celular).
+  const { first: firstMonth, last: lastMonth } = await navigableMonths(auth.householdId, current);
   const parsed = parseFilters(sp, "mes");
-  // Fora do período (antes de usar o app ou além de 12 meses): volta para o mês atual.
+  // Fora do período (antes de usar o app ou depois do último mês com algo lançado): volta para o mês atual.
   const month = parsed.month && parsed.month >= firstMonth && parsed.month <= lastMonth ? parsed.month : current;
   const filters = { ...parsed, period: "mes" as const, month: month === current ? null : month, competence: month, ...monthRange(month) };
   const [data, toIdentify, outlook, invoices, ledger] = await Promise.all([

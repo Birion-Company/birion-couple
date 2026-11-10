@@ -73,7 +73,7 @@ export default async function AuditPage() {
               <tr>
                 <th>Pessoa</th>
                 <th>Família</th>
-                <th>Papel</th>
+                <th>Perfil</th>
                 <th>Cadastro</th>
                 <th>Última ação</th>
                 <th className="num">Ações</th>

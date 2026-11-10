@@ -7,10 +7,10 @@ import { TxList } from "@/components/tx-list";
 import { Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { MonthNav } from "@/components/month-nav";
-import { addMonthsKey } from "@/lib/cards";
+
 import { defaultPanelMonth } from "@/lib/card-queries";
-import { MONTHS_AHEAD, filtersToQuery, parseFilters, thisMonthKey } from "@/lib/filters";
-import { getLookupsFor, getRecurringFor, householdStartMonth, listTransactions } from "@/lib/queries";
+import { filtersToQuery, parseFilters } from "@/lib/filters";
+import { getLookupsFor, getRecurringFor, listTransactions, navigableMonths } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Lançamentos" };
 
@@ -19,10 +19,9 @@ const PAGE = 100;
 export default async function TransactionsPage({ searchParams }: PageProps<"/transacoes">) {
   const auth = await requireAuth();
   const sp = await searchParams;
-  // Um mês por vez, igual ao painel: abre na fatura em aberto; vai do primeiro mês de uso até 12 à frente.
-  const [current, started] = await Promise.all([defaultPanelMonth(auth), householdStartMonth(auth.householdId)]);
-  const firstMonth = started < current ? started : current;
-  const lastMonth = addMonthsKey(thisMonthKey(), MONTHS_AHEAD);
+  // Um mês por vez, igual ao painel: abre na fatura em aberto; vai do primeiro mês de uso ao último com algo lançado.
+  const current = await defaultPanelMonth(auth);
+  const { first: firstMonth, last: lastMonth } = await navigableMonths(auth.householdId, current);
   const asked = typeof sp.mes === "string" ? sp.mes : null;
   const month = asked && asked >= firstMonth && asked <= lastMonth ? asked : current;
   const filters = parseFilters({ ...sp, mes: month }, "mes");

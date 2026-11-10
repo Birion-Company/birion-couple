@@ -4,10 +4,10 @@ import { ArrowRight, CheckCircle2, ChevronDown, HandCoins } from "lucide-react";
 import { PayButton, ProfitBadge, UndoButton } from "@/components/debt-payments";
 import { Avatar, Money, formatDate } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
-import { addMonthsKey, competenceMonth, longMonth, seriesLabel } from "@/lib/cards";
-import { closingDays, getDebtLedger, getLookupsFor, householdStartMonth } from "@/lib/queries";
+import { competenceMonth, longMonth, seriesLabel } from "@/lib/cards";
+import { closingDays, getDebtLedger, getLookupsFor, navigableMonths } from "@/lib/queries";
 import { MonthNav } from "@/components/month-nav";
-import { MONTHS_AHEAD, parseFilters, thisMonthKey } from "@/lib/filters";
+import { parseFilters, thisMonthKey } from "@/lib/filters";
 import { formatMoney } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Dívidas" };
@@ -25,12 +25,10 @@ export default async function DebtsPage({ searchParams }: PageProps<"/dividas">)
 
   // Mês de cada dívida: no cartão, o mês da fatura (como no painel).
   const monthOf = (tx: { date: string; cardId: string | null }) => competenceMonth(tx.date, tx.cardId ? closing.get(tx.cardId) : null);
-  // Mesmo navegador do painel: um mês por vez, do primeiro mês de uso até 12 meses à frente.
+  // Mesmo navegador do painel: um mês por vez, do primeiro mês de uso ao último com algo lançado.
   const sp = await searchParams;
   const current = thisMonthKey();
-  const started = await householdStartMonth(auth.householdId);
-  const firstMonth = started < current ? started : current;
-  const lastMonth = addMonthsKey(current, MONTHS_AHEAD);
+  const { first: firstMonth, last: lastMonth } = await navigableMonths(auth.householdId, current);
   const raw = typeof sp.mes === "string" ? sp.mes : null;
   // "Ver total": todos os meses juntos, por pessoa, com as parcelas que ainda vão vencer.
   const isTotal = raw === "total";

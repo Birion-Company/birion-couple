@@ -445,6 +445,25 @@ export const householdStartMonth = cache(async (householdId: string) => {
   return h ? todayIn("America/Sao_Paulo", h.createdAt).slice(0, 7) : todayIn().slice(0, 7);
 });
 
+/**
+ * Até onde o usuário pode navegar nos meses: do primeiro mês de uso até o último mês que tem algo
+ * lançado (parcelas, contas, compras com data futura; no cartão, pelo mês da fatura). Uma conta
+ * "todo mês" sem fim dá 12 meses à frente. Nunca antes da fatura em aberto.
+ */
+export const navigableMonths = cache(async (householdId: string, current: string) => {
+  const db = getDb();
+  const [[row], [rec], started] = await Promise.all([
+    db.select({ last: sql<string | null>`to_char(max(${competenceSql}), 'YYYY-MM')` }).from(t).where(and(eq(t.householdId, householdId), isNull(t.settlesId))),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(schema.recurringSeries)
+      .where(and(eq(schema.recurringSeries.householdId, householdId), eq(schema.recurringSeries.active, true))),
+    householdStartMonth(householdId),
+  ]);
+  const candidates = [current, row?.last ?? current, rec.n > 0 ? addMonthsKey(todayIn().slice(0, 7), 12) : current];
+  return { first: started < current ? started : current, last: candidates.sort().at(-1)! };
+});
+
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();

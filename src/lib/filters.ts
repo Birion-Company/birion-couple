@@ -1,4 +1,4 @@
-import { addMonthsKey, todayIn } from "./cards";
+import { todayIn } from "./cards";
 import { stateFromParam } from "./tx-state";
 /** Filtros compartilhados pelo painel e pela lista de transações. Vivem na URL. */
 
@@ -54,10 +54,11 @@ export const MONTHS_AHEAD = 12;
 
 export const thisMonthKey = () => todayIn().slice(0, 7);
 
-/** Mês válido e no máximo 12 meses à frente; senão, nulo. */
+/** Mês válido ("AAAA-MM"); senão, nulo. */
 export function clampMonth(v: string | null | undefined): string | null {
   if (!v || !/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) return null;
-  return v > addMonthsKey(thisMonthKey(), MONTHS_AHEAD) ? addMonthsKey(thisMonthKey(), MONTHS_AHEAD) : v;
+  // O limite (até o último mês com algo lançado) é conferido em cada página (navigableMonths).
+  return v;
 }
 
 /** Primeiro e último dia de um mês "AAAA-MM". */

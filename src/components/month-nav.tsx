@@ -9,7 +9,7 @@ import { filtersToQuery, type Filters } from "@/lib/filters";
 
 /**
  * Navegador de mês do painel: o mês que está sendo visto, em destaque, com setas. O sistema olha de hoje
- * para frente: começa na fatura em aberto (ou no mês atual) e vai até 12 meses à frente, sem voltar. Tudo no painel muda junto; o selo diz se é o mês atual, passado ou previsão.
+ * para frente: começa na fatura em aberto (ou no mês atual) e vai até o último mês com algo lançado. Tudo no painel muda junto; o selo diz se é o mês atual, passado ou previsão.
  */
 export function MonthNav({
   filters,
@@ -60,10 +60,10 @@ export function MonthNav({
   }, []);
 
   const go = (key: string) => {
-    if (key > max) return;
+    // Depois do último mês com algo lançado também não há o que ver: avisa (abaixo).
     setPicking(false);
     // Antes de começar a usar o app não há dados: avisa em vez de abrir um mês vazio.
-    if (key < min) return setBlocked(key);
+    if (key < min || key > max) return setBlocked(key);
     setTarget(key);
     start(() => router.push(pathname + filtersToQuery({ ...filters, month: key === current ? null : key, period: "mes" }, "mes"), { scroll: false }));
   };
@@ -116,7 +116,7 @@ export function MonthNav({
             {pending ? <Loader2 size={18} className="spin" aria-label="Carregando" /> : <ChevronDown size={18} strokeWidth={2.2} className="month-pick-chevron" aria-hidden />}
           </button>
         </h2>
-        {blocked && <BlockedMonth month={blocked} min={min} onClose={() => setBlocked(null)} />}
+        {blocked && <BlockedMonth month={blocked} min={min} max={max} onClose={() => setBlocked(null)} />}
         {picking && (
           <MonthPicker
             value={isTotal ? "" : shown}
@@ -143,9 +143,7 @@ export function MonthNav({
         type="button"
         className="month-arrow"
         onClick={() => go(addMonthsKey(shown, 1))}
-        disabled={shown >= max}
-        aria-label={shown >= max ? "Dá para ver até 12 meses à frente" : `Ver ${longMonth(addMonthsKey(shown, 1))}`}
-        title={shown >= max ? "Dá para ver até 12 meses à frente" : undefined}
+        aria-label={`Ver ${longMonth(addMonthsKey(shown, 1))}`}
       >
         <ChevronRight size={22} strokeWidth={2} />
       </button>
@@ -198,23 +196,22 @@ function MonthPicker({
           <ChevronLeft size={18} />
         </button>
         <strong className="num">{year}</strong>
-        <button type="button" className="icon-btn" disabled={year >= maxYear} onClick={() => setYear((y) => y + 1)} aria-label="Próximo ano">
+        <button type="button" className="icon-btn" onClick={() => (year >= maxYear ? onPick(`${year + 1}-01`) : setYear((y) => y + 1))} aria-label="Próximo ano">
           <ChevronRight size={18} />
         </button>
       </div>
       <div className="mp-grid">
         {MONTHS.map((m, i) => {
           const key = `${year}-${String(i + 1).padStart(2, "0")}`;
-          const off = key > max;
           const before = key < min;
+          const after = key > max;
           return (
             <button
               key={key}
               type="button"
-              className={`mp-month ${key === value ? "on" : ""} ${key === current ? "now" : ""} ${before ? "before" : ""}`}
-              disabled={off}
+              className={`mp-month ${key === value ? "on" : ""} ${key === current ? "now" : ""} ${before || after ? "before" : ""}`}
               aria-current={key === value ? "true" : undefined}
-              title={key < min ? "Antes disso você ainda não usava o app" : key > max ? "Dá para ver até 12 meses à frente" : undefined}
+              title={before ? "Antes disso você ainda não usava o app" : after ? "Ainda não há nada lançado para esse mês" : undefined}
               onClick={() => onPick(key)}
             >
               {m}
@@ -222,7 +219,7 @@ function MonthPicker({
           );
         })}
       </div>
-      <p className="faint mp-note">Do mês em que você começou a usar o app até 12 meses à frente.</p>
+      <p className="faint mp-note">Do mês em que você começou a usar o app até o último mês com algo lançado (ex.: a última parcela).</p>
       {/* Todos os meses de uma vez, com o valor à vista antes de abrir. */}
       {total && (
         <button type="button" className="mp-total" onClick={total.onPick}>
@@ -238,8 +235,9 @@ function MonthPicker({
   );
 }
 
-/** Aviso ao tentar abrir um mês de antes de a família começar a usar o app. */
-function BlockedMonth({ month, min, onClose }: { month: string; min: string; onClose: () => void }) {
+/** Aviso ao tentar abrir um mês sem dados: antes de usar o app ou depois do último mês com algo lançado. */
+function BlockedMonth({ month, min, max, onClose }: { month: string; min: string; max: string; onClose: () => void }) {
+  const ahead = month > max;
   const ok = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     ok.current?.focus();
@@ -255,10 +253,17 @@ function BlockedMonth({ month, min, onClose }: { month: string; min: string; onC
           <CalendarX size={22} strokeWidth={1.9} />
         </span>
         <h2 id="blocked-title">Esse mês não tem dados</h2>
-        <p id="blocked-text">
-          Não dá para voltar para {name(month)}: você ainda não usava o app, então esse mês não foi alimentado. O primeiro mês que dá para ver é{" "}
-          <strong>{name(min)}</strong>.
-        </p>
+        {ahead ? (
+          <p id="blocked-text">
+            Ainda não há nada lançado para {name(month)}: nenhuma parcela, conta fixa ou compra cai nesse mês. O último mês com algo lançado é{" "}
+            <strong>{name(max)}</strong>.
+          </p>
+        ) : (
+          <p id="blocked-text">
+            Não dá para voltar para {name(month)}: você ainda não usava o app, então esse mês não foi alimentado. O primeiro mês que dá para ver é{" "}
+            <strong>{name(min)}</strong>.
+          </p>
+        )}
         <button ref={ok} type="button" className="btn primary" onClick={onClose}>
           Entendi
         </button>
