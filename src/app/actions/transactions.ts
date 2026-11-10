@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
@@ -104,7 +104,23 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     if (notAllowed) return { ok: false, error: notAllowed };
   }
 
-  if (data.series && id) return { ok: false, error: "Parcelamento só pode ser escolhido ao criar o lançamento." };
+  // Lançamento avulso que vai virar série (ex.: Spotify antigo → "Todo mês"): salva as mudanças e depois converte.
+  let convertTo: { kind: "installment" | "monthly"; count: number | null } | null = null;
+  if (data.series && id) {
+    const [row] = await getDb()
+      .select({ seriesId: schema.transactions.seriesId, settlesId: schema.transactions.settlesId })
+      .from(schema.transactions)
+      .where(and(eq(schema.transactions.id, id), eq(schema.transactions.householdId, auth.householdId)));
+    if (row?.seriesId) return { ok: false, error: "Este lançamento já faz parte de uma série. Mude o número de parcelas no quadro da série." };
+    if (row?.settlesId) return { ok: false, error: "Um pagamento de dívida não pode se repetir." };
+    const paid = await getDb()
+      .select({ p: schema.transactionSplits.paidById })
+      .from(schema.transactionSplits)
+      .where(and(eq(schema.transactionSplits.transactionId, id), isNotNull(schema.transactionSplits.paidById)));
+    if (paid.length) return { ok: false, error: "Alguém já pagou a parte neste lançamento. Desfaça o pagamento antes de transformar em série." };
+    convertTo = data.series;
+    data.series = null;
+  }
   if (data.series && data.kind === "transfer") return { ok: false, error: "Acertos não podem ser parcelados." };
   if (data.series && data.kind === "loan" && data.series.kind !== "installment") return { ok: false, error: "Dívida só pode ser parcelada (não “todo mês”)." };
   if (data.series?.kind === "installment" && data.series.count === null) return { ok: false, error: "Escolha em quantas parcelas." };
@@ -343,6 +359,11 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     }
     return txId!;
   });
+  if (convertTo && id) {
+    const r = await convertToSeries(auth, id, convertTo);
+    revalidatePath("/", "layout");
+    return { ok: true, id, message: r };
+  }
   // Contato escondido (parado e quite) volta às listas, porque tem lançamento novo.
   await reviveContacts(auth.householdId, [...new Set([data.payerId, ...splits.map((x) => x.participantId)].filter((x): x is string => !!x))]);
   revalidatePath("/", "layout");
@@ -351,6 +372,72 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     id: savedId,
     message: id ? (data.applyToSeries ? "Parcela atualizada e alterações levadas para as outras." : "Lançamento atualizado.") : "Lançamento salvo." + askNote,
   };
+}
+
+/**
+ * Transforma um lançamento avulso em série: ele vira o 1º (parcela 1/N ou o 1º mês) e os seguintes são
+ * criados a partir dele. De hoje para frente: parcelas seguintes que já venceram não entram.
+ * "Todo mês" sem fim guarda o modelo e os próximos meses aparecem quando chegam.
+ */
+async function convertToSeries(auth: AuthContext, id: string, series: { kind: "installment" | "monthly"; count: number | null }) {
+  const db = getDb();
+  const t = schema.transactions;
+  const [tx] = await db.select().from(t).where(and(eq(t.id, id), eq(t.householdId, auth.householdId)));
+  const splits = (await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, id))).map((x) => ({
+    participantId: x.participantId,
+    amountCents: x.amountCents,
+  }));
+  let rules: { closingDay: number; dueDay: number } | null = null;
+  if (tx.cardId) {
+    const [c] = await db.select({ closingDay: schema.creditCards.closingDay, dueDay: schema.creditCards.dueDay }).from(schema.creditCards).where(eq(schema.creditCards.id, tx.cardId));
+    rules = c ?? null;
+  }
+  const base = {
+    householdId: auth.householdId,
+    description: tx.description,
+    kind: tx.kind,
+    payerId: tx.payerId,
+    categoryId: tx.categoryId,
+    projectId: tx.projectId,
+    cardId: tx.cardId,
+    notes: tx.notes,
+    source: "manual",
+    createdBy: tx.createdBy ?? auth.userId,
+  };
+  const msg = await db.transaction(async (q) => {
+    if (series.kind === "monthly" && series.count === null) {
+      const [rec] = await q
+        .insert(schema.recurringSeries)
+        .values({ ...base, amountCents: tx.amountCents, splits, startDate: tx.date, nextIndex: 2, createdBy: base.createdBy })
+        .returning({ id: schema.recurringSeries.id });
+      await q.update(t).set({ seriesId: rec.id, seriesKind: "monthly", seriesIndex: 1, seriesTotal: null }).where(eq(t.id, id));
+      return "Agora se repete todo mês, a partir deste. Os próximos meses aparecem quando chegarem.";
+    }
+    const count = series.count!;
+    const parts = buildSeries(tx.date, series.kind, count, tx.amountCents, splits);
+    const seriesId = randomUUID();
+    // O próprio lançamento vira o 1º (no parcelado, com o valor da 1ª parcela).
+    await q.update(t).set({ seriesId, seriesKind: series.kind, seriesIndex: 1, seriesTotal: count, amountCents: parts[0].amountCents, updatedAt: new Date() }).where(eq(t.id, id));
+    await q.delete(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, id));
+    await q.insert(schema.transactionSplits).values(parts[0].splits.map((x) => ({ ...x, transactionId: id })));
+    const today = todayIn();
+    const next = parts.slice(1).filter((p) => !isPastInstallment(p.date, rules, today));
+    if (next.length) {
+      const rows = await q
+        .insert(t)
+        .values(next.map((p) => ({ ...base, date: p.date, amountCents: p.amountCents, invoicePaid: false, seriesId, seriesKind: series.kind, seriesIndex: p.index, seriesTotal: count })))
+        .returning({ id: t.id, seriesIndex: t.seriesIndex });
+      const idOf = new Map(rows.map((r) => [r.seriesIndex, r.id]));
+      await q.insert(schema.transactionSplits).values(next.flatMap((p) => p.splits.map((x) => ({ ...x, transactionId: idOf.get(p.index)! }))));
+    }
+    const skipped = parts.length - 1 - next.length;
+    return series.kind === "installment"
+      ? `Agora é a parcela 1 de ${count}.${skipped ? ` ${skipped} já venceram e não entraram.` : ""}`
+      : `Agora se repete por ${count} meses.${skipped ? ` ${skipped} já passaram e não entraram.` : ""}`;
+  });
+  // Cria os meses que já chegaram (depois de gravar o modelo da repetição).
+  if (series.kind === "monthly" && series.count === null) await materializeRecurring(auth.householdId);
+  return msg;
 }
 
 async function loadExisting(householdId: string, id: string) {

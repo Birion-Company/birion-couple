@@ -188,7 +188,8 @@ export function TxForm({
     c.ownerId && c.ownerId !== me ? `Cartão ${c.name} (de ${people.find((p) => p.id === c.ownerId)?.name ?? "outra pessoa"})` : `Cartão ${c.name}`;
   const n = Math.min(Math.max(Number(count) || 0, 0), repeat === "installment" ? 48 : 60);
   // Empréstimo também pode ser parcelado ("emprestei 5.600, ele paga em 10x"); acerto não.
-  const canRepeat = !initial && kind !== "transfer";
+  // Novo, ou um avulso que ainda não é série (ex.: um Spotify antigo que passa a ser "Todo mês").
+  const canRepeat = (!initial || (!initial.seriesId && !initial.settlesId && !initial.splits.some((x) => x.paidById))) && kind !== "transfer";
   const isSeries = canRepeat && repeat !== "once" && !(kind === "loan" && repeat === "monthly");
   const isForever = isSeries && repeat === "monthly" && forever;
   // Quantas parcelas já venceram (a fatura delas já passou ou são de meses anteriores).

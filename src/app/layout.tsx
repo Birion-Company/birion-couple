@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { THEME_SCRIPT } from "@/components/theme-toggle";
@@ -27,7 +28,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="pt-BR" className={inter.variable} data-theme="dark" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#030a14" />
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* Aplica o tema salvo antes de desenhar a página (sem piscar claro → escuro). */}
+        <Script id="bf-theme" strategy="beforeInteractive">
+          {THEME_SCRIPT}
+        </Script>
       </head>
       <body>
         {children}
