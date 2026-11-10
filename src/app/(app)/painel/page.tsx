@@ -23,7 +23,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   // Tudo o que não depende de outra consulta vai junto, em paralelo.
   const [current, lookups] = await Promise.all([defaultPanelMonth(auth), getLookupsFor(auth)]);
   const parsed = parseFilters(sp, "mes");
-  const month = parsed.month ?? current;
+  // De hoje para frente: um mês anterior pedido na URL vira o atual.
+  const month = parsed.month && parsed.month > current ? parsed.month : current;
   const filters = { ...parsed, period: "mes" as const, month: month === current ? null : month, competence: month, ...monthRange(month) };
   const [data, toIdentify, outlook, invoices, ledger] = await Promise.all([
     getDashboard(auth, filters),

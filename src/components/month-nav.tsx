@@ -7,8 +7,8 @@ import { addMonthsKey, longMonth, monthsBetween } from "@/lib/cards";
 import { filtersToQuery, type Filters } from "@/lib/filters";
 
 /**
- * Navegador de mês do painel: o mês que está sendo visto, em destaque, com setas para trás e para frente
- * (até 12 meses à frente). Tudo no painel muda junto; o selo diz se é o mês atual, passado ou previsão.
+ * Navegador de mês do painel: o mês que está sendo visto, em destaque, com setas. O sistema olha de hoje
+ * para frente: começa na fatura em aberto (ou no mês atual) e vai até 12 meses à frente, sem voltar. Tudo no painel muda junto; o selo diz se é o mês atual, passado ou previsão.
  */
 export function MonthNav({
   filters,
@@ -35,7 +35,8 @@ export function MonthNav({
   const shown = pending && target ? target : month;
 
   const go = (key: string) => {
-    if (key > max) return;
+    // De hoje para frente: não volta para antes da fatura em aberto (ou do mês atual).
+    if (key > max || key < current) return;
     setTarget(key);
     start(() => router.push(pathname + filtersToQuery({ ...filters, month: key === current ? null : key, period: "mes" }, "mes"), { scroll: false }));
   };
@@ -62,7 +63,14 @@ export function MonthNav({
         if (e.key === "ArrowRight") go(addMonthsKey(shown, 1));
       }}
     >
-      <button type="button" className="month-arrow" onClick={() => go(addMonthsKey(shown, -1))} aria-label={`Ver ${longMonth(addMonthsKey(shown, -1))}`}>
+      <button
+        type="button"
+        className="month-arrow"
+        onClick={() => go(addMonthsKey(shown, -1))}
+        disabled={shown <= current}
+        aria-label={shown <= current ? "O painel mostra de hoje para frente" : `Ver ${longMonth(addMonthsKey(shown, -1))}`}
+        title={shown <= current ? "O painel mostra de hoje para frente" : undefined}
+      >
         <ChevronLeft size={22} strokeWidth={2} />
       </button>
       <div className="month-center" aria-live="polite">

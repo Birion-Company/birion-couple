@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { ArrowRight, CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
 import { deleteSeries, deleteTransactions, saveTransaction } from "@/app/actions/transactions";
-import { addMonthsIso, invoiceDates, invoiceOf, monthLabel, shortDate } from "@/lib/cards";
+import { addMonthsIso, buildSeries, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
@@ -191,6 +191,11 @@ export function TxForm({
   const canRepeat = !initial && kind !== "transfer";
   const isSeries = canRepeat && repeat !== "once" && !(kind === "loan" && repeat === "monthly");
   const isForever = isSeries && repeat === "monthly" && forever;
+  // Quantas parcelas já venceram (a fatura delas já passou ou são de meses anteriores).
+  const pastCount =
+    isSeries && repeat === "installment" && n >= 2 && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? buildSeries(date, "installment", n, Math.max(n, 1), []).filter((p) => isPastInstallment(p.date, kind === "expense" ? card : null, today())).length
+      : 0;
 
   const initialSplitIds =
     initial?.splits.map((s) => s.participantId) ??
@@ -550,6 +555,14 @@ export function TxForm({
                   </label>
                   {seriesHint && <p className="series-hint num">{seriesHint}</p>}
                 </div>
+              )}
+              {/* O sistema olha de hoje para frente: parcelas que já venceram não entram (contam como pagas). */}
+              {pastCount > 0 && (
+                <p className="faint past-installments">
+                  {pastCount >= n
+                    ? "Todas as parcelas já venceram: não há nada daqui para frente para lançar."
+                    : `${pastCount} ${pastCount === 1 ? "parcela já venceu e não entra" : "parcelas já venceram e não entram"}. Começa na ${pastCount + 1}ª de ${n}.`}
+                </p>
               )}
             </div>
           )}

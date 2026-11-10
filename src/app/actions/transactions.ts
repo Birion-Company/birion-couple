@@ -8,7 +8,7 @@ import { getDb, schema } from "@/db";
 import { canEditTx, canManageCard, checkEditable, NOT_YOURS } from "@/lib/access";
 import { diff, involved, logActivity, snapshots, type TxSnapshot } from "@/lib/activity";
 import { requireAuth, type AuthContext } from "@/lib/auth";
-import { buildSeries, invoiceDates, invoiceOf, invoiceRange, monthLabel, shortDate, todayIn } from "@/lib/cards";
+import { buildSeries, dayInMonth, invoiceDates, invoiceOf, invoiceRange, isPastInstallment, monthLabel, shortDate, todayIn } from "@/lib/cards";
 import { materializeRecurring } from "@/lib/recurring-server";
 import { approvalContext } from "@/lib/approvals";
 import { ruleCategory } from "@/lib/rules-server";
@@ -129,15 +129,17 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   }
 
   let invoicePaid = false;
+  let cardRules: { closingDay: number; dueDay: number } | null = null;
   if (data.cardId) {
     // Cada pessoa tem os próprios cartões: no cartão, quem pagou é sempre o dono dele.
     const [card] = await getDb()
-      .select({ ownerId: schema.creditCards.ownerId, closingDay: schema.creditCards.closingDay })
+      .select({ ownerId: schema.creditCards.ownerId, closingDay: schema.creditCards.closingDay, dueDay: schema.creditCards.dueDay })
       .from(schema.creditCards)
       .where(and(eq(schema.creditCards.id, data.cardId), eq(schema.creditCards.householdId, auth.householdId)));
     if (!card) return { ok: false, error: "Cartão inválido." };
     if (card.ownerId) data.payerId = card.ownerId;
     if (!canManageCard(auth, card)) return { ok: false, error: "Você só pode lançar nos seus cartões." };
+    cardRules = card;
     const invoice = invoiceOf(data.date, card.closingDay);
     if (existing && existing.cardId === data.cardId && invoiceOf(existing.date, card.closingDay) === invoice) {
       invoicePaid = existing.invoicePaid;
@@ -196,6 +198,9 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
 
   // Todo mês, sem fim: guarda o modelo e cria os lançamentos até o mês corrente.
   if (data.series?.kind === "monthly" && data.series.count === null) {
+    // De hoje para frente: começou num mês passado → começa neste mês (mesmo dia), sem criar os anteriores.
+    const thisMonth = todayIn().slice(0, 7);
+    if (data.date < `${thisMonth}-01`) data.date = dayInMonth(thisMonth, Number(data.date.slice(8, 10)));
     const [rec] = await db
       .insert(schema.recurringSeries)
       .values({
@@ -231,8 +236,13 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   if (data.series) {
     const series = { kind: data.series.kind, count: data.series.count! };
     const seriesId = randomUUID();
-    const parts = buildSeries(data.date, series.kind, series.count, data.amountCents, splits);
-    if (parts.some((p) => p.amountCents <= 0)) return { ok: false, error: "Valor pequeno demais para tantas parcelas." };
+    const all = buildSeries(data.date, series.kind, series.count, data.amountCents, splits);
+    if (all.some((p) => p.amountCents <= 0)) return { ok: false, error: "Valor pequeno demais para tantas parcelas." };
+    // O sistema olha de hoje para frente: parcelas que já venceram não entram (a numeração continua: 7/24…).
+    const today = todayIn();
+    const parts = all.filter((p) => !isPastInstallment(p.date, cardRules, today));
+    if (parts.length === 0) return { ok: false, error: "Todas as parcelas já venceram: não há nada daqui para frente para lançar." };
+    const skipped = all.length - parts.length;
     const firstId = await db.transaction(async (tx) => {
       const rows = await tx
         .insert(schema.transactions)
@@ -258,14 +268,21 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
         .values(parts.flatMap((p) => p.splits.map((s) => ({ ...s, transactionId: idOf.get(p.index)! }))));
       await logActivity(tx, auth, {
         action: "created",
-        transactionId: idOf.get(1)!,
+        transactionId: idOf.get(parts[0].index)!,
         data: { tx: snapshot, seriesKind: series.kind, seriesCount: series.count },
         audience: involved(snapshot),
       });
-      return idOf.get(1)!;
+      return idOf.get(parts[0].index)!;
     });
     revalidatePath("/", "layout");
-    const what = series.kind === "installment" ? `${series.count} parcelas lançadas.` : `Lançado para ${series.count} meses.`;
+    const what =
+      series.kind === "installment"
+        ? skipped
+          ? `${parts.length} parcelas lançadas (da ${parts[0].index}ª à ${series.count}ª). As ${skipped} que já venceram ficaram de fora.`
+          : `${series.count} parcelas lançadas.`
+        : skipped
+          ? `Lançado para ${parts.length} meses, a partir deste (os ${skipped} que já passaram ficaram de fora).`
+          : `Lançado para ${series.count} meses.`;
     return { ok: true, id: firstId, message: what + askNote };
   }
 

@@ -231,3 +231,12 @@ export function seriesLabel(kind: string | null, index: number | null, total: nu
   if (!total) return kind === "monthly" ? "Todo mês" : null;
   return kind === "installment" ? `Parcela ${index}/${total}` : `Mês ${index}/${total}`;
 }
+
+/**
+ * Parcela que já venceu (compra parcelada lançada com data no passado): no cartão, a fatura dela
+ * já venceu; sem cartão, é de um mês anterior ao atual. Serve para lançar só daqui para frente.
+ */
+export function isPastInstallment(date: string, card: CardRules | null | undefined, today: string) {
+  if (card) return invoiceDates(invoiceOf(date, card.closingDay), card).due < today;
+  return date < `${today.slice(0, 7)}-01`;
+}
