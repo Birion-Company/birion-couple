@@ -233,11 +233,12 @@ export default async function CardsPage() {
               <InvoiceRows invoices={invoices.filter((i) => i.key !== s.dueInvoice && i.key !== s.open).slice(4)} cardId={card.id} currency={cur} me={me} faces={faces} canPay={admin || card.ownerId === me} />
             </details>
           )}
-          {series.length > 0 && (
+          {/* "Todo mês" sem fim já está em Contas fixas (Lançamentos): aqui só o que tem fim (parcelados). */}
+          {series.some((x) => x.total !== null) && (
             <>
-              <h3 className="card-subhead">Parcelados e recorrentes em andamento</h3>
+              <h3 className="card-subhead">Parcelados em andamento</h3>
               <div className="rows">
-                {series.map((x) => (
+                {series.filter((x) => x.total !== null).map((x) => (
                   <Link key={x.id} className="row series-row" href={`/transacoes/${x.nextId}`}>
                     <Repeat size={16} strokeWidth={1.7} className="faint" aria-hidden />
                     <div className="grow">
