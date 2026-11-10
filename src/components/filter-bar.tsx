@@ -99,7 +99,7 @@ export function FilterBar({ filters, participants, categories, projects, cards =
 
   return (
     <div className="filter-bar" style={{ opacity: pending ? 0.6 : 1, transition: "opacity .15s" }}>
-      <div className="filters" role="group" aria-label="Período e filtros">
+      <div className={`filters ${open ? "open" : ""}`} role="group" aria-label="Período e filtros">
         {showPeriod && !filters.month && (
         <Select
           variant="chip"
@@ -130,19 +130,9 @@ export function FilterBar({ filters, participants, categories, projects, cards =
         <button type="button" className={`chip ${extras ? "on" : ""}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           <SlidersHorizontal size={14} strokeWidth={1.7} /> Filtros{extras ? ` (${extras})` : ""}
         </button>
-        {active && (
-          <button
-            type="button"
-            className="chip"
-            onClick={() => go({ ...(showPeriod ? { month: null, period: defaultPeriod, from: null, to: null } : {}), person: null, everyone: false, role: null, category: null, project: null, status: null, card: null, q: null })}
-          >
-            <X size={14} strokeWidth={1.6} /> Limpar
-          </button>
-        )}
-      </div>
-      {open && (
-        <div className="filters-more">
-          <div className="filters" role="group" aria-label="Mais filtros">
+        {/* Os filtros abrem para o lado, na mesma linha (no celular, rola para o lado). */}
+        {open && (
+          <span className="filters-inline" role="group" aria-label="Mais filtros">
             {/* Uma linha só, cada filtro num menu recolhido (pessoa e categoria com pesquisa). */}
             {people.length > 1 && (
               <ChipSelect
@@ -183,9 +173,18 @@ export function FilterBar({ filters, participants, categories, projects, cards =
             {cards.length > 0 && (
               <ChipSelect label="Cartão" allLabel="Todos os cartões" value={filters.card} options={cards} onChange={(v) => go({ card: v })} />
             )}
-          </div>
-        </div>
-      )}
+          </span>
+        )}
+        {active && (
+          <button
+            type="button"
+            className="chip"
+            onClick={() => go({ ...(showPeriod ? { month: null, period: defaultPeriod, from: null, to: null } : {}), person: null, everyone: false, role: null, category: null, project: null, status: null, card: null, q: null })}
+          >
+            <X size={14} strokeWidth={1.6} /> Limpar
+          </button>
+        )}
+      </div>
     </div>
   );
 }

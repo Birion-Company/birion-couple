@@ -6938,3 +6938,33 @@ s.was {
     grid-column: 1 / -1;
   }
 }
+
+/* Filtros: abrem para o lado, na mesma linha do botão "Filtros" (se não couber, rola para o lado). */
+.filters.open {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+.filters-inline {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+  animation: filters-slide 0.18s ease-out;
+}
+@keyframes filters-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .filters-inline {
+    animation: none;
+  }
+}
