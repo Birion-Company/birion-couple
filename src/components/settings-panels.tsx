@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Copy, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, Plus, Search, Trash2, X } from "lucide-react";
 import {
   addRule,
-  applyRule,
   createInvite,
   deleteHousehold,
   deletePreset,
@@ -104,45 +103,41 @@ export function HouseholdForm({ name, currency, isOwner }: { name: string; curre
   );
 }
 
+/** "joão" acha "João": compara sem acento e sem maiúsculas. */
+const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Categorização automática: as regras ("uber" → Transporte) agrupadas por categoria, cada grupo
+ * recolhido ("Transporte · 12 regras"); abrir mostra as palavras, com × para remover. Uma pesquisa
+ * acha a palavra ou a categoria. Ao adicionar, a regra já vale para o que existe e para o que vier.
+ */
 export function RulesEditor({ rules, categories }: { rules: { id: string; pattern: string; categoryId: string }[]; categories: Opt[] }) {
   const [pending, act] = useAct();
   const [pattern, setPattern] = useState("");
   const [categoryId, setCategoryId] = useState(categories.find((c) => !c.archived)?.id ?? "");
-  const cat = new Map(categories.map((c) => [c.id, c]));
+  const [query, setQuery] = useState("");
+  const q = fold(query.trim());
+  // Grupos por categoria, na ordem das categorias; com pesquisa, só o que bate.
+  const groups = categories
+    .map((c) => {
+      const all = rules.filter((r) => r.categoryId === c.id);
+      const shown = !q || fold(c.name).includes(q) ? all : all.filter((r) => fold(r.pattern).includes(q));
+      return { c, all, shown };
+    })
+    .filter((g) => g.shown.length > 0);
   return (
-    <div className="card">
-      <p className="faint" style={{ marginBottom: 10 }}>
-        Ex.: “uber” → Transporte. Vale para o que já existe e para o que vier.
-      </p>
-      <div className="rows">
-        {rules.map((r) => (
-          <div key={r.id} className="row">
-            <div className="grow">
-              <p className="title">contém “{r.pattern}”</p>
-              <p className="sub" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Dot color={cat.get(r.categoryId)?.color ?? "#ccc"} /> {cat.get(r.categoryId)?.name}
-              </p>
-            </div>
-            <button className="btn ghost small" disabled={pending} onClick={() => act(() => applyRule(r.id))} title="Passa para esta categoria todos os lançamentos que já existem com esse texto">
-              <RefreshCw size={14} /> Aplicar de novo
-            </button>
-            <button className="icon-btn" disabled={pending} onClick={() => act(() => deleteRule(r.id))} aria-label={`Remover regra ${r.pattern}`}>
-              <Trash2 size={16} strokeWidth={1.6} />
-            </button>
-          </div>
-        ))}
-      </div>
+    <div className="card rules-card">
       <form
-        className="actions"
-        style={{ marginTop: 10 }}
+        className="actions rules-add"
         onSubmit={(e) => {
           e.preventDefault();
           act(() => addRule({ pattern, categoryId }), () => setPattern(""));
         }}
       >
-        <input className="input" style={{ flex: "1 1 160px" }} placeholder="Texto na descrição" value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label="Texto na descrição" />
+        <input className="input" style={{ flex: "1 1 160px" }} placeholder="Texto na descrição (ex.: uber)" value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label="Texto na descrição" />
         <Select
           ariaLabel="Categoria"
+          searchable
           style={{ flex: "1 1 140px", width: "auto" }}
           value={categoryId}
           onChange={setCategoryId}
@@ -152,6 +147,38 @@ export function RulesEditor({ rules, categories }: { rules: { id: string; patter
           <Plus size={16} /> Adicionar
         </button>
       </form>
+      <p className="faint rules-help">Quando a descrição tiver o texto, o lançamento vai para a categoria. Vale para o que já existe e para o que vier.</p>
+      {rules.length > 0 && (
+        <label className="rules-search">
+          <Search size={15} strokeWidth={1.8} aria-hidden />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pesquisar palavra ou categoria" aria-label="Pesquisar regras" />
+        </label>
+      )}
+      {rules.length === 0 && <p className="faint">Nenhuma regra ainda.</p>}
+      {q && groups.length === 0 && <p className="faint">Nada com “{query}”.</p>}
+      <div className="rules-groups">
+        {groups.map(({ c, all, shown }) => (
+          <details key={c.id + (q ? "-q" : "")} className="rules-group" open={!!q}>
+            <summary>
+              <Dot color={c.color ?? "#ccc"} />
+              <span className="grow">{c.name}</span>
+              <span className="faint num">
+                {all.length} {all.length === 1 ? "regra" : "regras"}
+              </span>
+            </summary>
+            <div className="rules-chips">
+              {shown.map((r) => (
+                <span key={r.id} className="rule-chip">
+                  {r.pattern}
+                  <button type="button" disabled={pending} onClick={() => act(() => deleteRule(r.id))} aria-label={`Remover regra ${r.pattern}`}>
+                    <X size={13} strokeWidth={2.2} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
     </div>
   );
 }

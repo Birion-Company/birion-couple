@@ -189,17 +189,6 @@ export async function addRule(input: { pattern: string; categoryId: string }): P
   return done(`Regra criada. ${r}`);
 }
 
-/** Aplica de novo uma regra que já existe em todos os lançamentos que batem com ela. */
-export async function applyRule(id: string): Promise<ActionResult> {
-  const auth = await requireAuth();
-  const [rule] = await getDb()
-    .select({ pattern: schema.categoryRules.pattern, categoryId: schema.categoryRules.categoryId })
-    .from(schema.categoryRules)
-    .where(and(eq(schema.categoryRules.id, id), eq(schema.categoryRules.householdId, auth.householdId)));
-  if (!rule) return fail("Regra não encontrada.");
-  return done(await applyRuleNow(auth, rule.pattern, rule.categoryId));
-}
-
 /** Passa para a categoria da regra todos os lançamentos (que a pessoa pode editar) cuja descrição contém o texto. */
 async function applyRuleNow(auth: AuthContext, pattern: string, categoryId: string): Promise<string> {
   const db = getDb();

@@ -878,6 +878,36 @@ export async function getInvites(householdId: string) {
     .orderBy(desc(schema.invites.createdAt));
 }
 
+/**
+ * Ajustes → Projetos: o resumo de cada projeto (o que se gastou, sua parte, quantos lançamentos,
+ * de quando a quando, as categorias e os últimos lançamentos). Só o que a pessoa pode ver.
+ */
+export async function getProjectStats(viewer: Viewer) {
+  const rows = await attachSplits(
+    (await getDb().select(txColumns).from(t).where(txScope(viewer, isNotNull(t.projectId), isNull(t.settlesId))).orderBy(desc(t.date))) as BaseRow[],
+  );
+  const me = viewer.participantId;
+  const out = new Map<string, { totalCents: number; mineCents: number; count: number; first: string; last: string; byCategory: Map<string | null, number>; recent: TxRow[] }>();
+  for (const r of rows) {
+    if (r.kind !== "expense") continue;
+    const p = out.get(r.projectId!) ?? { totalCents: 0, mineCents: 0, count: 0, first: r.date, last: r.date, byCategory: new Map<string | null, number>(), recent: [] as TxRow[] };
+    p.totalCents += r.amountCents;
+    p.mineCents += me ? r.splits.find((x) => x.participantId === me)?.amountCents ?? 0 : 0;
+    p.count += 1;
+    if (r.date < p.first) p.first = r.date;
+    if (r.date > p.last) p.last = r.date;
+    p.byCategory.set(r.categoryId, (p.byCategory.get(r.categoryId) ?? 0) + r.amountCents);
+    if (p.recent.length < 8) p.recent.push(r);
+    out.set(r.projectId!, p);
+  }
+  return new Map(
+    [...out].map(([id, p]) => [
+      id,
+      { ...p, byCategory: [...p.byCategory].map(([categoryId, cents]) => ({ categoryId, cents })).sort((a, b) => b.cents - a.cents) },
+    ]),
+  );
+}
+
 export async function getRules(householdId: string) {
   const db = getDb();
   return db.select().from(schema.categoryRules).where(eq(schema.categoryRules.householdId, householdId)).orderBy(asc(schema.categoryRules.pattern));
