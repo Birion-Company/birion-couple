@@ -7664,3 +7664,16 @@ s.was {
   color: var(--brand-strong);
   text-decoration: underline;
 }
+
+/* Cartões: fatura vencida e não paga (fica em destaque até ser marcada como paga). */
+.card-stat.overdue {
+  border-color: color-mix(in srgb, var(--neg) 60%, transparent);
+  background: color-mix(in srgb, var(--neg) 9%, var(--tile-bg));
+}
+.card-stat.overdue .label strong {
+  color: var(--neg);
+}
+/* Só a fatura aberta (nenhuma fechada a pagar): um bloco na largura toda. */
+.card-stats.single {
+  grid-template-columns: 1fr;
+}

@@ -185,11 +185,24 @@ describe("cartão de crédito", () => {
     const s = cardSchedule(cartaoA, "2026-11-18");
     expect(s).toMatchObject({ open: "2026-12", closingDate: "2026-12-15", dueInvoice: "2026-11", dueDate: "2026-11-22", daysToDue: 4 });
     // Depois do vencimento, a próxima a vencer é a aberta.
-    expect(cardSchedule(cartaoA, "2026-11-25")).toMatchObject({ dueInvoice: "2026-12", dueDate: "2026-12-22" });
+    expect(cardSchedule(cartaoA, "2026-11-25")).toMatchObject({ dueInvoice: "2026-12", dueDate: "2026-12-22", overdue: false });
+  });
+  test("fatura vencida e não paga continua a pagar (não pula para a próxima)", () => {
+    // Novembro venceu dia 22 e não foi marcada como paga: continua sendo a fatura a pagar, em atraso.
+    const naoPaga = (k: string) => k === "2026-11";
+    expect(cardSchedule(cartaoA, "2026-11-25", naoPaga)).toMatchObject({ dueInvoice: "2026-11", dueDate: "2026-11-22", daysToDue: -3, overdue: true, open: "2026-12" });
+    // Marcada como paga: aí sim a próxima é a aberta.
+    expect(cardSchedule(cartaoA, "2026-11-25", () => false)).toMatchObject({ dueInvoice: "2026-12", overdue: false });
+    // O aviso vira "venceu e não foi paga", mesmo fora da antecedência, até ser paga.
+    const card = { ...cartaoA, id: "c", name: "Cartão A", color: "#000000", alertDays: 3 };
+    const alerts = cardAlerts(card, "2026-11-25", (k) => (k === "2026-11" ? 50000 : 0));
+    expect(alerts.map((a) => [a.type, a.daysLeft, a.key.includes("overdue")])).toEqual([["due", -3, true]]);
+    expect(cardAlerts(card, "2026-11-25", () => 0)).toEqual([]);
   });
   test("avisos dentro da antecedência", () => {
     const card = { ...cartaoA, id: "c", name: "Cartão A", color: "#000000", alertDays: 3 };
-    const total = () => 50000;
+    // Só a partir da fatura de novembro há o que pagar (a de outubro já foi paga).
+    const total = (k: string) => (k >= "2026-11" ? 50000 : 0);
     expect(cardAlerts(card, "2026-11-13", total).map((a) => [a.type, a.daysLeft])).toEqual([["closing", 2]]);
     expect(cardAlerts(card, "2026-11-20", total).map((a) => [a.type, a.daysLeft])).toEqual([["due", 2]]);
     expect(cardAlerts(card, "2026-11-05", total)).toEqual([]);

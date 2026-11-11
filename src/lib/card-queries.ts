@@ -121,7 +121,13 @@ export async function getCardOverview(viewer: Viewer) {
       const totals = totalsByInvoice(mine, card.closingDay);
       const shares = sharesByInvoice(mine, card.closingDay);
       const owed = owedByInvoice(mine, card.closingDay);
-      const s = cardSchedule(card, today);
+      // Fatura paga: tem compras e todas foram marcadas como pagas.
+      const paidOf = (key: string) => {
+        const inv = mine.filter((r) => invoiceOf(r.date, card.closingDay) === key);
+        return inv.length > 0 && inv.every((r) => r.invoicePaid);
+      };
+      // Vencida sem pagar continua como a fatura a pagar (não pula para a próxima).
+      const s = cardSchedule(card, today, (k) => (totals.get(k) ?? 0) > 0 && !paidOf(k));
       // Faturas: a que vai vencer (se já fechou), a aberta e as próximas com parcelas lançadas.
       const lastWithData = [...totals.keys()].sort().pop() ?? s.open;
       const keys: string[] = [];
@@ -129,11 +135,6 @@ export async function getCardOverview(viewer: Viewer) {
         keys.push(k);
         if (keys.length >= 13) break;
       }
-      // Fatura paga: tem compras e todas foram marcadas como pagas.
-      const paidOf = (key: string) => {
-        const inv = mine.filter((r) => invoiceOf(r.date, card.closingDay) === key);
-        return inv.length > 0 && inv.every((r) => r.invoicePaid);
-      };
       const invoices = keys.map((key) => ({
         key,
         ...invoiceDates(key, card),

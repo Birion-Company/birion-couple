@@ -68,7 +68,9 @@ export async function runCardAlertPushes(): Promise<number> {
       const when = a.daysLeft === 0 ? "hoje" : a.daysLeft === 1 ? "amanhã" : `em ${a.daysLeft} dias`;
       const part = a.mineCents !== undefined && a.mineCents !== a.amountCents ? ` · sua parte ${money(a.mineCents)}` : "";
       const msg =
-        a.type === "closing"
+        a.type === "due" && a.daysLeft < 0
+          ? { title: `Fatura do ${a.cardName} venceu e não foi paga`, body: `Venceu ${shortDate(a.date)}: ${money(a.amountCents)} em atraso${part}. Já pagou? Marque como paga em Cartões.` }
+          : a.type === "closing"
           ? { title: `Fatura do ${a.cardName} fecha ${when}`, body: `Fecha ${shortDate(a.date)}, com ${money(a.amountCents)} até agora${part}.` }
           : { title: `Fatura do ${a.cardName} vence ${when}`, body: `Vence ${shortDate(a.date)}: ${money(a.amountCents)} para pagar${part}.` };
       if (await sendPushOnce(owner.userId, `cartao:${a.key}`, { ...msg, url: "/cartoes" })) sent++;

@@ -66,6 +66,10 @@ function ago(iso: string) {
 }
 
 function cardText(a: CardAlert) {
+  if (a.type === "due" && a.daysLeft < 0) {
+    const late = -a.daysLeft;
+    return `${a.cardName}: fatura venceu ${shortDate(a.date)} e não foi paga (${late} ${late === 1 ? "dia" : "dias"} de atraso)`;
+  }
   const d = a.daysLeft === 0 ? "hoje" : a.daysLeft === 1 ? "amanhã" : `em ${a.daysLeft} dias`;
   return `${a.cardName}: fatura ${a.type === "closing" ? "fecha" : "vence"} ${d} (${shortDate(a.date)})`;
 }
@@ -287,7 +291,7 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
                           <div style={{ minWidth: 0 }}>
                             <p className="title">{cardText(a)}</p>
                             <p className="sub num">
-                              {formatMoney(a.amountCents, currency)} {a.type === "due" ? "a pagar" : "até agora"}
+                              {formatMoney(a.amountCents, currency)} {a.type === "due" ? (a.daysLeft < 0 ? "em atraso" : "a pagar") : "até agora"}
                               {a.mineCents !== undefined && a.mineCents !== a.amountCents && <> · sua parte {formatMoney(a.mineCents, currency)}</>}
                             </p>
                             <p className="sub">

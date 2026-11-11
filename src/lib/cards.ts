@@ -99,20 +99,37 @@ export function suggestDueDay(closingDay: number) {
  * Situação do cartão hoje: a fatura aberta (onde entram as compras de hoje) e a próxima fatura
  * a vencer (a última que fechou, enquanto não passou do vencimento; depois disso, a aberta).
  */
-export function cardSchedule(rules: CardRules, today: string) {
+export function cardSchedule(rules: CardRules, today: string, unpaid?: (invoice: string) => boolean) {
   const open = invoiceOf(today, rules.closingDay);
   const openDates = invoiceDates(open, rules);
   const closed = addMonthsKey(open, -1);
   const closedDates = invoiceDates(closed, rules);
-  const dueInvoice = closedDates.due >= today ? closed : open;
-  const due = dueInvoice === closed ? closedDates.due : openDates.due;
+  let dueInvoice = closedDates.due >= today ? closed : open;
+  let due = dueInvoice === closed ? closedDates.due : openDates.due;
+  // Fatura que já venceu e não foi paga continua sendo "a pagar" (vencida) até ser marcada como paga:
+  // o app não pula para a próxima só porque a data passou.
+  let overdue = false;
+  if (unpaid) {
+    for (const k of [addMonthsKey(open, -2), closed]) {
+      const d = invoiceDates(k, rules).due;
+      if (d < today && unpaid(k)) {
+        dueInvoice = k;
+        due = d;
+        overdue = true;
+        break;
+      }
+    }
+  }
   return {
     open,
     closingDate: openDates.closing,
     daysToClosing: daysBetween(today, openDates.closing),
     dueInvoice,
     dueDate: due,
+    /** Negativo quando a fatura está vencida (dias de atraso). */
     daysToDue: daysBetween(today, due),
+    /** A fatura a pagar já venceu e não foi marcada como paga. */
+    overdue,
   };
 }
 
@@ -124,6 +141,7 @@ export type CardAlert = {
   color: string;
   type: "closing" | "due";
   date: string;
+  /** Negativo: a fatura venceu há tantos dias e não foi paga. */
   daysLeft: number;
   amountCents: number;
   /** Parte de quem está vendo nesta fatura (o resto é de outras pessoas, que devem para quem paga). */
@@ -138,7 +156,8 @@ export function cardAlerts(
   mineOf?: (invoice: string) => number,
 ): CardAlert[] {
   if (card.alertDays === null || card.alertDays < 0) return [];
-  const s = cardSchedule(card, today);
+  // totalOf só conta o que não foi pago: fatura com valor = fatura em aberto.
+  const s = cardSchedule(card, today, (k) => totalOf(k) > 0);
   const out: CardAlert[] = [];
   // Fatura sem nada não precisa de aviso.
   if (s.daysToClosing <= card.alertDays) {
@@ -147,10 +166,11 @@ export function cardAlerts(
       out.push({ key: `${card.id}:closing:${s.closingDate}`, cardId: card.id, cardName: card.name, color: card.color, type: "closing", date: s.closingDate, daysLeft: s.daysToClosing, amountCents: amount, mineCents: mineOf?.(s.open) });
     }
   }
-  if (s.daysToDue <= card.alertDays) {
+  // Vencida e não paga: avisa sempre (até ser marcada como paga), com outra chave para avisar de novo.
+  if (s.overdue || s.daysToDue <= card.alertDays) {
     const amount = totalOf(s.dueInvoice);
     if (amount > 0) {
-      out.push({ key: `${card.id}:due:${s.dueDate}`, cardId: card.id, cardName: card.name, color: card.color, type: "due", date: s.dueDate, daysLeft: s.daysToDue, amountCents: amount, mineCents: mineOf?.(s.dueInvoice) });
+      out.push({ key: `${card.id}:${s.overdue ? "overdue" : "due"}:${s.dueDate}`, cardId: card.id, cardName: card.name, color: card.color, type: "due", date: s.dueDate, daysLeft: s.daysToDue, amountCents: amount, mineCents: mineOf?.(s.dueInvoice) });
     }
   }
   return out;
