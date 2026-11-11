@@ -7983,3 +7983,8 @@ s.was {
 .reset-link:disabled {
   opacity: 0.5;
 }
+/* Boas-vindas (primeiro acesso pelo Google): observação embaixo, menor. */
+.auth-bottom.welcome-note {
+  font-size: 14px;
+  line-height: 1.4;
+}

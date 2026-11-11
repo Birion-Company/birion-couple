@@ -7,7 +7,7 @@ import * as z from "zod";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getDb, schema } from "@/db";
 import { createHouseholdForUser, hasRoomForMember } from "@/lib/household";
-import { AUDIT_HID, NO_HOUSEHOLD, getHomeless } from "@/lib/auth";
+import { AUDIT_HID, NO_HOUSEHOLD, getHomeless, requireAuth } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
@@ -184,5 +184,33 @@ export async function createNewHousehold(_: FormState, form: FormData): Promise<
     createHouseholdForUser(tx, { userId: me.userId, userName: me.name, householdName: raw || defaultHouseholdName(me.name) }),
   );
   await createSession({ uid: me.userId, hid });
+  redirect("/painel?bemvindo=1");
+}
+
+const WelcomeSchema = z.object({
+  name,
+  household: z.string().trim().min(1, { error: "Dê um nome para a família." }).max(HOUSEHOLD_NAME_MAX, { error: `O nome da família pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.` }),
+});
+
+/**
+ * Primeiro acesso pelo Google: a pessoa confirma como quer ser chamada (vem o nome do Google) e o nome
+ * da família. Atualiza o nome da conta, o da pessoa dentro da família e o da família.
+ */
+export async function finishWelcome(_: FormState, form: FormData): Promise<FormState> {
+  const auth = await requireAuth();
+  const fields = { name: String(form.get("name") ?? ""), household: String(form.get("household") ?? "") };
+  const parsed = WelcomeSchema.safeParse(fields);
+  if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    await tx.update(schema.users).set({ name: parsed.data.name }).where(eq(schema.users.id, auth.userId));
+    if (auth.participantId) {
+      await tx
+        .update(schema.participants)
+        .set({ name: parsed.data.name })
+        .where(and(eq(schema.participants.id, auth.participantId), eq(schema.participants.householdId, auth.householdId)));
+    }
+    if (auth.role === "owner") await tx.update(schema.households).set({ name: parsed.data.household }).where(eq(schema.households.id, auth.householdId));
+  });
   redirect("/painel?bemvindo=1");
 }

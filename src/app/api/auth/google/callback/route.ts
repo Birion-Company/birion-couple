@@ -58,10 +58,11 @@ export async function GET(request: NextRequest) {
     });
     uid = ids.uid;
     hid = ids.hid;
+    // Conta nova pelo Google: primeiro pergunta como quer ser chamada (tela de boas-vindas).
     welcome = true;
   }
   await createSession({ uid, hid });
-  const res = NextResponse.redirect(new URL(hid === NO_HOUSEHOLD ? "/nova-familia" : welcome ? "/painel?bemvindo=1" : "/painel", origin));
+  const res = NextResponse.redirect(new URL(hid === NO_HOUSEHOLD ? "/nova-familia" : welcome ? "/boas-vindas" : "/painel", origin));
   res.cookies.delete({ name: GOOGLE_COOKIE, path: "/api/auth/google" });
   return res;
 }
