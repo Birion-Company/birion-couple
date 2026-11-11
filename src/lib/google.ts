@@ -18,6 +18,16 @@ export function newPkce() {
   return { verifier, challenge, state };
 }
 
+/**
+ * Endereço público do site para o login com Google. No Netlify, o pedido chega com o endereço interno
+ * do deploy (abc123--birion-finance.netlify.app); o certo é o domínio principal (URL = https://birion.com.br),
+ * que é o que está autorizado no Google.
+ */
+export function publicOrigin(requestOrigin: string) {
+  const site = process.env.URL;
+  return process.env.NODE_ENV === "production" && site ? site.replace(/\/$/, "") : requestOrigin;
+}
+
 export function redirectUri(origin: string) {
   return `${origin}/api/auth/google/callback`;
 }

@@ -4,14 +4,14 @@ import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { getDb, schema } from "@/db";
-import { exchangeCode, GOOGLE_COOKIE } from "@/lib/google";
+import { exchangeCode, GOOGLE_COOKIE, publicOrigin } from "@/lib/google";
 import { defaultHouseholdName } from "@/lib/defaults";
 import { createHouseholdForUser } from "@/lib/household";
 import { createSession } from "@/lib/session";
 
 /** Volta do Google: entra na conta com o mesmo e-mail ou cria uma família nova. */
 export async function GET(request: NextRequest) {
-  const origin = request.nextUrl.origin;
+  const origin = publicOrigin(request.nextUrl.origin);
   const fail = (code: string) => {
     const res = NextResponse.redirect(new URL(`/entrar?erro=${code}`, origin));
     res.cookies.delete({ name: GOOGLE_COOKIE, path: "/api/auth/google" });

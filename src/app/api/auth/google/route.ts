@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { GOOGLE_COOKIE, googleConfig, newPkce, redirectUri } from "@/lib/google";
+import { GOOGLE_COOKIE, googleConfig, newPkce, publicOrigin, redirectUri } from "@/lib/google";
 
 export async function GET(request: NextRequest) {
-  const origin = request.nextUrl.origin;
+  const origin = publicOrigin(request.nextUrl.origin);
   const cfg = googleConfig();
   if (!cfg) return NextResponse.redirect(new URL("/entrar?erro=google-indisponivel", origin));
   const { verifier, challenge, state } = newPkce();
