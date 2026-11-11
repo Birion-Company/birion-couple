@@ -7846,29 +7846,64 @@ s.was {
   font-weight: 700;
 }
 
-/* Texto do tipo com passo a passo (ex.: "Emprestou o cartão?" seguido de 1, 2, 3). */
+/* Texto do tipo com passo a passo (ex.: "Emprestou o cartão?" seguido de 1, 2, 3):
+   um bloco com a mesma cara dos campos (cantos, borda fina), com ícone de dica e respiro igual. */
+.kind-help {
+  display: grid;
+  gap: 10px;
+  margin: 2px 0 6px;
+}
 .kind-help p {
   margin: 0;
 }
 .kind-steps {
-  margin-top: 6px;
-  padding: 8px 10px;
-  border-left: 3px solid var(--brand-strong);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--brand-strong) 7%, transparent);
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--brand-strong) 35%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-strong) 6%, var(--surface));
 }
 .kind-steps strong {
-  display: block;
-  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.86rem;
 }
 .kind-steps ol {
+  display: grid;
+  gap: 4px;
   margin: 0;
-  padding-left: 18px;
+  padding-left: 20px;
 }
 .kind-steps li {
-  margin: 1px 0;
+  padding-left: 2px;
 }
 .kind-steps li::marker {
   color: var(--brand-strong);
   font-weight: 700;
+}
+
+/* Editar despesa: botão Estorno e o campo "Quanto voltou?". */
+.refund-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.refund-panel {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.refund-panel .input {
+  width: 130px;
+}
+.refund-note {
+  flex-basis: 100%;
+  font-size: 0.78rem;
 }

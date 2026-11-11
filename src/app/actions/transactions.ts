@@ -1110,3 +1110,46 @@ export async function skipCategory(ids: string[]): Promise<ActionResult> {
   revalidatePath("/", "layout");
   return { ok: true, message: changed.length === 1 ? "Pronto: fica sem categoria e saiu de A identificar." : `${changed.length} lançamentos ficam sem categoria e saíram de A identificar.` };
 }
+
+/**
+ * Estorno de uma despesa (dinheiro que voltou da compra): abate o valor da própria despesa e divide o
+ * desconto entre as pessoas na mesma proporção (quem tinha parte passa a dever menos). Estorno do valor
+ * inteiro exclui a despesa. Não é receita: não entra nas entradas de ninguém.
+ */
+export async function refundExpense(transactionId: string, amountCents: number): Promise<ActionResult> {
+  const auth = await requireAuth();
+  if (!uuid.safeParse(transactionId).success) return { ok: false, error: "Lançamento inválido." };
+  if (!Number.isInteger(amountCents) || amountCents <= 0) return { ok: false, error: "Digite quanto foi estornado." };
+  const notAllowed = await checkEditable(auth, [transactionId]);
+  if (notAllowed) return { ok: false, error: notAllowed };
+  const db = getDb();
+  const t = schema.transactions;
+  const [tx] = await db
+    .select({ id: t.id, kind: t.kind, amountCents: t.amountCents, notes: t.notes, description: t.description })
+    .from(t)
+    .where(and(eq(t.id, transactionId), eq(t.householdId, auth.householdId)));
+  if (!tx) return { ok: false, error: "Lançamento não encontrado." };
+  if (tx.kind !== "expense") return { ok: false, error: "Só dá para estornar uma despesa." };
+  if (amountCents > tx.amountCents) return { ok: false, error: `O estorno não pode passar do valor da despesa (${formatMoney(tx.amountCents, auth.currency)}).` };
+  const splits = await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, transactionId));
+  if (splits.some((s) => s.paidById)) return { ok: false, error: "Alguém já pagou a parte desta despesa. Desfaça o pagamento antes de estornar." };
+  // Estorno total: a compra foi desfeita, então o lançamento sai.
+  if (amountCents === tx.amountCents) return deleteTransactions([transactionId]);
+  const left = tx.amountCents - amountCents;
+  const scaled = scaleSplits(splits, left);
+  const note = `Estorno de ${formatMoney(amountCents, auth.currency)} em ${shortDate(todayIn())} (era ${formatMoney(tx.amountCents, auth.currency)}).`;
+  await db.transaction(async (q) => {
+    await q
+      .update(t)
+      .set({ amountCents: left, notes: tx.notes ? `${tx.notes}\n${note}` : note, updatedAt: new Date() })
+      .where(eq(t.id, transactionId));
+    for (const s of scaled) {
+      await q
+        .update(schema.transactionSplits)
+        .set({ amountCents: s.amountCents })
+        .where(and(eq(schema.transactionSplits.transactionId, transactionId), eq(schema.transactionSplits.participantId, s.participantId)));
+    }
+  });
+  revalidatePath("/", "layout");
+  return { ok: true, message: `Estorno de ${formatMoney(amountCents, auth.currency)}: “${tx.description}” agora é ${formatMoney(left, auth.currency)}.` };
+}

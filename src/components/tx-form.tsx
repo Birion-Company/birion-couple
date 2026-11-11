@@ -6,8 +6,8 @@ import { SettlesBadge } from "./tx-row";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { ArrowRight, CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
-import { deleteSeries, deleteTransactions, saveTransaction, stopRecurring } from "@/app/actions/transactions";
+import { ArrowRight, CreditCard, Lightbulb, Lock, Repeat, RotateCcw, Trash2 } from "lucide-react";
+import { deleteSeries, deleteTransactions, refundExpense, saveTransaction, stopRecurring } from "@/app/actions/transactions";
 import { addMonthsIso, buildSeries, cardSchedule, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
@@ -34,7 +34,13 @@ const KIND_HELP: Record<Kind, { text: string; steps?: { title: string; items: st
       items: ["Em “Como foi pago”, escolha o seu cartão.", "Em “Quem deveria pagar”, deixe só quem usou.", "Marque “Não precisa de categoria”."],
     },
   },
-  income: { text: "Dinheiro que entrou: salário, venda, estorno." },
+  income: {
+    text: "Dinheiro que entrou: salário, venda, bolsa.",
+    steps: {
+      title: "É um estorno?",
+      items: ["Não lance como receita.", "Abra a despesa da compra.", "Toque em “Estorno” e diga quanto voltou."],
+    },
+  },
   loan: {
     text: "Alguém fica te devendo, sem ser compra no cartão.",
     steps: {
@@ -398,6 +404,27 @@ export function TxForm({
     });
   };
 
+  // Estorno: dinheiro que voltou da compra. Abate da própria despesa (não é receita).
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundValue, setRefundValue] = useState(initial ? centsToInput(initial.amountCents) : "");
+  const refund = () => {
+    if (!initial) return;
+    const v = parseAmountToCents(refundValue, ",") ?? 0;
+    if (v <= 0) return toast("Digite quanto foi estornado.", "error");
+    start(async () => {
+      const r = await refundExpense(initial.id, v);
+      toastResult(r);
+      if (!r.ok) return;
+      setRefundOpen(false);
+      // Estorno total exclui a despesa: sai do formulário. Parcial: recarrega com o valor novo.
+      if (v >= initial.amountCents) leave(returnTo ?? "/transacoes");
+      else {
+        router.refresh();
+        window.dispatchEvent(new Event("bf:tx-changed"));
+      }
+    });
+  };
+
   const removeSeries = (scope: "next" | "all") => {
     if (!initial) return;
     const monthly = initial.seriesKind === "monthly";
@@ -594,7 +621,9 @@ export function TxForm({
             <p>{KIND_HELP[kind].text}</p>
             {KIND_HELP[kind].steps && (
               <div className="kind-steps">
-                <strong>{KIND_HELP[kind].steps!.title}</strong>
+                <strong>
+                  <Lightbulb size={15} strokeWidth={2} aria-hidden /> {KIND_HELP[kind].steps!.title}
+                </strong>
                 <ol>
                   {KIND_HELP[kind].steps!.items.map((x) => (
                     <li key={x}>{x}</li>
@@ -951,6 +980,45 @@ export function TxForm({
         {/* Canto inferior esquerdo: cadastrar ou convidar pessoas (vale para qualquer campo de pessoa). */}
         <div className="actions">
         <PeopleMenu suggestions={contactNames} canInvite={canInvite} onAdd={(p) => setExtra((x) => [...x.filter((y) => y.id !== p.id), p])} />
+        {initial && initial.kind === "expense" && (
+          <div className="refund-wrap">
+            <button type="button" className="btn ghost" onClick={() => setRefundOpen((o) => !o)} disabled={pending} aria-expanded={refundOpen}>
+              <RotateCcw size={16} strokeWidth={1.7} /> Estorno
+            </button>
+            {refundOpen && (
+              <div className="refund-panel" role="group" aria-label="Estorno">
+                <label className="pay-field">
+                  <span>Quanto voltou?</span>
+                  <input
+                    className="input"
+                    inputMode="decimal"
+                    autoFocus
+                    value={refundValue}
+                    onChange={(e) => setRefundValue(e.target.value.replace(/[^\d,.]/g, ""))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        refund();
+                      }
+                    }}
+                    aria-label="Valor do estorno"
+                  />
+                </label>
+                <span className="faint refund-note">
+                  {(parseAmountToCents(refundValue, ",") ?? 0) >= initial.amountCents
+                    ? "Estorno total: a despesa sai."
+                    : "Abate da despesa; a parte de cada um diminui junto."}
+                </span>
+                <button type="button" className="btn small primary" onClick={refund} disabled={pending}>
+                  Confirmar
+                </button>
+                <button type="button" className="btn small ghost" onClick={() => setRefundOpen(false)}>
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {initial ? (
           <div className="delete-wrap">
             <button
