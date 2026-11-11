@@ -7,11 +7,26 @@ import "./globals.css";
 
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"], display: "swap" });
 
+// Prévia do link (WhatsApp, Instagram, iMessage…): a logo (opengraph-image.png) e o diferencial.
+const SHARE_TITLE = "BIRION FINANCE · Suas finanças, simples e práticas";
+const SHARE_DESCRIPTION =
+  "Finanças simples e práticas. No plano Família, todo mundo vê quem pagou e quem deve, sem planilha.";
+
 export const metadata: Metadata = {
+  // Endereço do site publicado (o Netlify define URL); serve para a imagem da prévia ter o link completo.
+  metadataBase: new URL(process.env.URL ?? "https://birion-finance.netlify.app"),
   title: { default: "BIRION FINANCE", template: "%s · BIRION FINANCE" },
-  description: "Finanças da família em um só lugar: quem pagou, quem deve e o que falta pagar.",
+  description: SHARE_DESCRIPTION,
   applicationName: "BIRION FINANCE",
   appleWebApp: { capable: true, title: "BIRION", statusBarStyle: "default" },
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "BIRION FINANCE",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image", title: SHARE_TITLE, description: SHARE_DESCRIPTION },
 };
 
 // Sem zoom (no celular confunde) e a cor da barra do celular vem do tema escolhido no app (ver THEME_SCRIPT).
