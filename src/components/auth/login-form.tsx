@@ -15,15 +15,18 @@ const ERRORS: Record<string, string> = {
   "sem-familia": "Esta conta não participa de nenhuma família.",
 };
 
-export function LoginForm({ errorCode }: { errorCode?: string }) {
+export function LoginForm({ errorCode, notice }: { errorCode?: string; notice?: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(login, undefined);
   const error = state?.error ?? (errorCode ? ERRORS[errorCode] : undefined);
   return (
     <>
-      <AuthHeader title="Olá, seja bem-vindo!" subtitle="Faça login para acessar sua planilha financeira" error={error} />
+      <AuthHeader title="Olá, seja bem-vindo!" subtitle={notice ?? "Faça login para acessar sua planilha financeira"} error={error} />
       <form action={action} className="auth-form">
         <AuthInput label="Seu e-mail" name="email" type="email" autoComplete="email" defaultValue={state?.fields?.email} icon={User} />
         <AuthInput label="Sua senha" name="password" type="password" autoComplete="current-password" icon={Lock} />
+        <Link href="/esqueci-senha" className="auth-forgot">
+          Esqueci minha senha
+        </Link>
         <button className="auth-submit" disabled={pending}>
           <LogIn size={24} strokeWidth={2} /> {pending ? "Entrando…" : "Entrar"}
         </button>

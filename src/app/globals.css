@@ -7907,3 +7907,79 @@ s.was {
   flex-basis: 100%;
   font-size: 0.78rem;
 }
+
+/* Login: "Esqueci minha senha" logo abaixo da senha, à direita. */
+.auth-forgot {
+  align-self: flex-end;
+  margin: -4px 2px 2px auto;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--au-accent-text);
+}
+.auth-forgot:hover {
+  text-decoration: underline;
+}
+/* Esqueci minha senha: os 3 passos, o campo do código e os links de reenviar. */
+.reset-steps {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.reset-steps li {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--au-text-2) 50%, transparent);
+  color: var(--au-text-2);
+  font-size: 14px;
+  font-weight: 700;
+}
+.reset-steps li.on {
+  border-color: var(--au-accent-text);
+  color: var(--au-accent-text);
+}
+.reset-steps li.done {
+  border-color: var(--au-accent-text);
+  background: var(--au-accent-text);
+  color: #0f1d38;
+}
+.reset-code {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--au-text-2) 35%, transparent);
+  background: transparent;
+  color: var(--au-text);
+  font: inherit;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.6em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.reset-code:focus {
+  outline: none;
+  border-color: var(--au-accent-text);
+}
+.reset-again {
+  text-align: center;
+  font-size: 15px;
+  color: var(--au-text-2);
+}
+.reset-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--au-accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.reset-link:disabled {
+  opacity: 0.5;
+}

@@ -9,6 +9,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/entrar">) 
   if (await getAuth()) redirect("/painel");
   if (await getAuditor()) redirect("/auditoria");
   if (await getHomeless()) redirect("/nova-familia");
-  const { erro } = await searchParams;
-  return <LoginForm errorCode={typeof erro === "string" ? erro : undefined} />;
+  const { erro, senha } = await searchParams;
+  return (
+    <LoginForm
+      errorCode={typeof erro === "string" ? erro : undefined}
+      notice={senha === "nova" ? "Senha nova criada. Entre com ela." : undefined}
+    />
+  );
 }

@@ -414,3 +414,23 @@ export const txApprovals = pgTable(
   },
   (t) => [primaryKey({ columns: [t.key, t.participantId] }), index("tx_approvals_household_idx").on(t.householdId)],
 );
+
+/**
+ * "Esqueci minha senha": código de 4 dígitos mandado por e-mail. Só o hash do código fica guardado;
+ * vale 15 minutos, aceita poucas tentativas e serve uma vez só.
+ */
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    codeHash: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    attempts: integer().notNull().default(0),
+    usedAt: timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("password_resets_user_idx").on(t.userId)],
+);
