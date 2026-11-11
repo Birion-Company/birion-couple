@@ -7845,3 +7845,30 @@ s.was {
   color: var(--brand-strong);
   font-weight: 700;
 }
+
+/* Texto do tipo com passo a passo (ex.: "Emprestou o cartão?" seguido de 1, 2, 3). */
+.kind-help p {
+  margin: 0;
+}
+.kind-steps {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--brand-strong);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--brand-strong) 7%, transparent);
+}
+.kind-steps strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.kind-steps ol {
+  margin: 0;
+  padding-left: 18px;
+}
+.kind-steps li {
+  margin: 1px 0;
+}
+.kind-steps li::marker {
+  color: var(--brand-strong);
+  font-weight: 700;
+}

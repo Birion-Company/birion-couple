@@ -25,12 +25,24 @@ type Kind = "expense" | "income" | "loan" | "transfer";
 type Repeat = "once" | "installment" | "monthly";
 
 /** O que cada tipo significa, mostrado embaixo da escolha. */
-const KIND_HELP: Record<Kind, string> = {
-  expense:
-    "Algo pago, como mercado ou aluguel. **Emprestou o cartão?** Em “Como foi pago”, escolha o seu cartão; em “Quem deveria pagar”, só quem usou; e marque “Não precisa de categoria”.",
-  income: "Dinheiro que entrou: salário, venda, estorno.",
-  loan: "**Emprestou dinheiro?** É aqui, ou se vendeu algo para receber depois. A pessoa paga até “Receber até”, que já vem no vencimento da sua fatura.",
-  transfer: "Pagamento entre pessoas. Abate a dívida.",
+/** Texto de cada tipo e, quando ajuda, um passo a passo curto (ex.: emprestou o cartão). */
+const KIND_HELP: Record<Kind, { text: string; steps?: { title: string; items: string[] } }> = {
+  expense: {
+    text: "Algo pago, como mercado ou aluguel.",
+    steps: {
+      title: "Emprestou o cartão?",
+      items: ["Em “Como foi pago”, escolha o seu cartão.", "Em “Quem deveria pagar”, deixe só quem usou.", "Marque “Não precisa de categoria”."],
+    },
+  },
+  income: { text: "Dinheiro que entrou: salário, venda, estorno." },
+  loan: {
+    text: "Alguém fica te devendo, sem ser compra no cartão.",
+    steps: {
+      title: "Emprestou dinheiro?",
+      items: ["Escolha em “Quem deve” quem pegou o dinheiro.", "Confira “Receber até”: já vem no vencimento da sua fatura."],
+    },
+  },
+  transfer: { text: "Pagamento entre pessoas. Abate a dívida." },
 };
 
 export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" | "description">> & { toId?: string };
@@ -578,10 +590,19 @@ export function TxForm({
               </button>
             ))}
           </div>
-          <p className="kind-help">
-            {/* **texto** fica em destaque. */}
-            {KIND_HELP[kind].split(/(\*\*[^*]+\*\*)/).map((part, i) => (part.startsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part))}
-          </p>
+          <div className="kind-help">
+            <p>{KIND_HELP[kind].text}</p>
+            {KIND_HELP[kind].steps && (
+              <div className="kind-steps">
+                <strong>{KIND_HELP[kind].steps!.title}</strong>
+                <ol>
+                  {KIND_HELP[kind].steps!.items.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
 
           <label className="field" data-tour="tx-amount">
             <span>{amountLabel}</span>
