@@ -8,3 +8,17 @@
 # Adaptador oficial do Next.js no Netlify (SSR, Server Actions). Sem versão fixa: o Netlify mantém atualizado.
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Endereço oficial é https://birion.com.br: quem abrir o endereço do Netlify (birion-finance.netlify.app)
+# vai direto para a mesma página no domínio próprio. As versões de teste (deploy previews) não são afetadas.
+[[redirects]]
+  from = "https://birion-finance.netlify.app/*"
+  to = "https://birion.com.br/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://birion-finance.netlify.app/*"
+  to = "https://birion.com.br/:splat"
+  status = 301
+  force = true
