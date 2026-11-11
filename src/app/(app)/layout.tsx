@@ -18,7 +18,7 @@ function Brand() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/brand/mark.png" alt="" />
       <span>
-        BIRION FINANCE
+        Birion Finance
         
       </span>
     </div>

@@ -31,8 +31,8 @@ const STEPS: Step[] = [
   // ---------- Começo ----------
   {
     chapter: "Começo",
-    title: "Bem-vindo ao BIRION",
-    text: "O BIRION organiza o dinheiro que você divide com outras pessoas: quem pagou, quem deve, quanto sai de cartão e o que ainda vai entrar. Este guia passa por **cada tela** e mostra para que serve cada campo. Dá para sair quando quiser e voltar pelo botão **Tutorial**.",
+    title: "Bem-vindo ao Birion",
+    text: "O Birion organiza o dinheiro que você divide com outras pessoas: quem pagou, quem deve, quanto sai de cartão e o que ainda vai entrar. Este guia passa por **cada tela** e mostra para que serve cada campo. Dá para sair quando quiser e voltar pelo botão **Tutorial**.",
     demo: "people",
   },
   // ---------- Painel ----------

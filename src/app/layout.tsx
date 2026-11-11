@@ -8,21 +8,21 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"], display: "swap" });
 
 // Prévia do link (WhatsApp, Instagram, iMessage…): a logo (opengraph-image.png) e o diferencial.
-const SHARE_TITLE = "BIRION FINANCE · Suas finanças, simples e práticas";
+const SHARE_TITLE = "Birion Finance - Suas finanças, simples e práticas";
 const SHARE_DESCRIPTION =
   "Finanças simples e práticas. No plano Família, todo mundo vê quem pagou e quem deve, sem planilha.";
 
 export const metadata: Metadata = {
   // Endereço do site publicado (o Netlify define URL); serve para a imagem da prévia ter o link completo.
   metadataBase: new URL(process.env.URL ?? "https://birion-finance.netlify.app"),
-  title: { default: "BIRION FINANCE", template: "%s · BIRION FINANCE" },
+  title: { default: "Birion Finance", template: "%s - Birion Finance" },
   description: SHARE_DESCRIPTION,
-  applicationName: "BIRION FINANCE",
-  appleWebApp: { capable: true, title: "BIRION", statusBarStyle: "default" },
+  applicationName: "Birion Finance",
+  appleWebApp: { capable: true, title: "Birion", statusBarStyle: "default" },
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: "BIRION FINANCE",
+    siteName: "Birion Finance",
     title: SHARE_TITLE,
     description: SHARE_DESCRIPTION,
   },

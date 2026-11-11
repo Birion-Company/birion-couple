@@ -10,7 +10,7 @@ export default async function AuditLayout({ children }: { children: React.ReactN
     <div className="audit-shell">
       <header className="audit-top">
         <Link href="/auditoria" className="audit-brand">
-          <Eye size={18} strokeWidth={1.8} aria-hidden /> BIRION · Auditoria
+          <Eye size={18} strokeWidth={1.8} aria-hidden /> Birion - Auditoria
         </Link>
         <span className="audit-ro">Só leitura</span>
         <span className="grow" />

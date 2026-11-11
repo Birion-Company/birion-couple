@@ -109,7 +109,7 @@ export function PushSettings() {
           <li>
             Escolha <SquarePlus size={14} aria-hidden /> <strong>Adicionar à Tela de Início</strong>.
           </li>
-          <li>Abra o BIRION pelo ícone novo e volte aqui, no sino, para ativar.</li>
+          <li>Abra o Birion pelo ícone novo e volte aqui, no sino, para ativar.</li>
         </ol>
       </div>
     );

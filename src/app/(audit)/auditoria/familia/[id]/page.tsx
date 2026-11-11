@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui";
 import { requireAuditor } from "@/lib/auth";
 import { auditHousehold } from "@/lib/audit";
 
-export const metadata: Metadata = { title: "Família · Auditoria" };
+export const metadata: Metadata = { title: "Família - Auditoria" };
 
 const when = (d: Date | string) =>
   new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });

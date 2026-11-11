@@ -27,7 +27,7 @@ export default async function AuditPage() {
       <div className="page-head">
         <div>
           <h1>Auditoria</h1>
-          <p className="muted">Quem usa o BIRION e o que cada pessoa fez. Nada aqui pode ser alterado.</p>
+          <p className="muted">Quem usa o Birion e o que cada pessoa fez. Nada aqui pode ser alterado.</p>
         </div>
       </div>
 
