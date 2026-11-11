@@ -38,7 +38,11 @@ const KIND_HELP: Record<Kind, { text: string; steps?: { title: string; items: st
     text: "Dinheiro que entrou: salário, venda, bolsa.",
     steps: {
       title: "É um estorno?",
-      items: ["Não lance como receita.", "Abra a despesa da compra.", "Toque em “Estorno” e diga quanto voltou."],
+      items: [
+        "Não lance como receita.",
+        "Em Lançamentos, abra a despesa da compra (a que já foi lançada).",
+        "Na edição, toque no botão “Estorno”, embaixo, ao lado de Excluir, e diga quanto voltou.",
+      ],
     },
   },
   loan: {
