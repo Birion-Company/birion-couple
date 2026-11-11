@@ -27,9 +27,9 @@ type Repeat = "once" | "installment" | "monthly";
 /** O que cada tipo significa, mostrado embaixo da escolha. */
 const KIND_HELP: Record<Kind, string> = {
   expense:
-    "Algo pago (mercado, aluguel). Quem tem parte fica devendo para quem pagou. **Emprestou o cartão?** Lance aqui mesmo: no campo Cartão, escolha o seu; em “Quem deveria pagar”, deixe só a pessoa que usou; e marque “Não precisa de categoria” (o gasto não é seu). Ela te paga no vencimento da fatura.",
+    "Algo pago, como mercado ou aluguel. **Emprestou o cartão?** Em “Como foi pago”, escolha o seu cartão; em “Quem deveria pagar”, só quem usou; e marque “Não precisa de categoria”.",
   income: "Dinheiro que entrou: salário, venda, estorno.",
-  loan: "**Emprestou dinheiro?** É aqui (ou vendeu algo para pagar depois, como um notebook). A pessoa te paga até “Receber até”, que já vem no vencimento da fatura do seu cartão.",
+  loan: "**Emprestou dinheiro?** É aqui, ou se vendeu algo para receber depois. A pessoa paga até “Receber até”, que já vem no vencimento da sua fatura.",
   transfer: "Pagamento entre pessoas. Abate a dívida.",
 };
 
