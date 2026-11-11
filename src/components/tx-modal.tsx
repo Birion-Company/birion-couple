@@ -62,10 +62,20 @@ export function TxModalHost({ lookups, currency, me }: { lookups: Lookups; curre
       if (e.key === "Escape" && !document.querySelector(".bf-select-list")) close();
     };
     window.addEventListener("keydown", onKey);
+    // Trava a página de trás (no celular, inclusive no iPhone): só a janela de edição rola.
+    // A página fica "presa" no ponto onde estava e volta para ele ao fechar.
+    const y = window.scrollY;
+    const body = document.body.style;
+    const prev = { position: body.position, top: body.top, left: body.left, right: body.right, width: body.width };
     document.body.classList.add("modal-open");
+    document.documentElement.classList.add("modal-open");
+    Object.assign(body, { position: "fixed", top: `-${y}px`, left: "0", right: "0", width: "100%" });
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.classList.remove("modal-open");
+      document.documentElement.classList.remove("modal-open");
+      Object.assign(body, prev);
+      window.scrollTo({ top: y, behavior: "instant" });
     };
   }, [id, close]);
 

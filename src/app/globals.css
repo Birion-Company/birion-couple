@@ -5336,10 +5336,15 @@ input[type="checkbox"].switch:checked::after {
 }
 
 /* Editar lançamento numa janela (por cima da página). */
-body.modal-open {
+body.modal-open,
+html.modal-open {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 .tx-modal-backdrop {
+  /* Rolar até o fim da janela não "vaza" para a página de trás. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   position: fixed;
   inset: 0;
   z-index: 70;
@@ -7833,4 +7838,10 @@ s.was {
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* Texto do tipo: "Emprestou dinheiro?" / "Emprestou o cartão?" em azul, para chamar atenção. */
+.kind-help strong {
+  color: var(--brand-strong);
+  font-weight: 700;
 }
