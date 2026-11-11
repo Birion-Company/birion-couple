@@ -22,6 +22,7 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
   // Quem deveria pagar: nenhuma pessoa marcada = não mudar.
   const [owers, setOwers] = useState<string[]>([]);
   const [category, setCategory] = useState(KEEP);
+  const [noCategory, setNoCategory] = useState(false);
   const [project, setProject] = useState(KEEP);
   const [card, setCard] = useState(KEEP);
   const [changeDate, setChangeDate] = useState(false);
@@ -41,7 +42,8 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
   if (kind !== KEEP) patch.kind = kind as "expense" | "income";
   if (payer !== KEEP) patch.payerId = payer || null;
   if (owers.length) patch.splitIds = owers;
-  if (category !== KEEP) patch.categoryId = category || null;
+  if (noCategory) patch.noCategory = true;
+  else if (category !== KEEP) patch.categoryId = category || null;
   if (project !== KEEP) patch.projectId = project || null;
   if (card !== KEEP) patch.cardId = card || null;
   if (changeDate && date) patch.date = date;
@@ -121,14 +123,19 @@ export function BulkEditDialog({ ids, lookups, onClose, onDone }: { ids: string[
               </label>
             </div>
             <div className="field-row">
-              <label className="field">
+              <div className="field">
                 <span>Categoria</span>
                 <Select
-                  value={category}
+                  value={noCategory ? KEEP : category}
                   onChange={setCategory}
+                  disabled={noCategory}
                   options={[keep, { value: "", label: "Sem categoria" }, ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))]}
                 />
-              </label>
+                <span className="check no-category">
+                  <input id="bulk-no-category" type="checkbox" checked={noCategory} onChange={(e) => setNoCategory(e.target.checked)} />
+                  <label htmlFor="bulk-no-category">Não precisa de categoria</label>
+                </span>
+              </div>
               {lookups.projects.some((p) => !p.archived) && (
                 <label className="field">
                   <span>Projeto</span>

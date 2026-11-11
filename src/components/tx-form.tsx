@@ -243,9 +243,9 @@ export function TxForm({
   // Receita: já caiu na conta? Sem escolher, segue a data (futura = ainda vou receber); editando, mantém como estava.
   const [receivedChoice, setReceivedChoice] = useState<boolean | null>(initial ? !initial.awaitingReceipt : null);
   const [payerId, setPayerId] = useState(initial?.payerId ?? (prefill?.kind === "income" ? me : null) ?? prefill?.payerId ?? firstPerson);
-  // "__nenhuma__" = "Não precisa de categoria" (despesa sem categoria de propósito; não vai para A identificar).
-  const NO_CATEGORY = "__nenhuma__";
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? (initial?.noCategory ? "__nenhuma__" : ""));
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  // "Não precisa de categoria": despesa sem categoria de propósito (não vai para A identificar).
+  const [noCategory, setNoCategory] = useState(!!initial?.noCategory && !initial?.categoryId);
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const cards = lookups.cards.filter((c) => !c.archived || c.id === initial?.cardId);
@@ -325,8 +325,8 @@ export function TxForm({
         kind,
         payerId: payerId || null,
         // Só despesa tem categoria.
-        categoryId: kind === "expense" && categoryId !== NO_CATEGORY ? categoryId || null : null,
-        noCategory: kind === "expense" && categoryId === NO_CATEGORY,
+        categoryId: kind === "expense" && !noCategory ? categoryId || null : null,
+        noCategory: kind === "expense" && noCategory,
         projectId: projectId || null,
         cardId: kind === "expense" ? cardId || null : null,
         notes,
@@ -777,18 +777,28 @@ export function TxForm({
 
           <div className="field-row">
             {kind === "expense" && (
-              <label className="field" data-tour="tx-category">
+              <div className="field" data-tour="tx-category">
                 <span>Categoria</span>
                 <Select
-                  value={categoryId}
+                  value={noCategory ? "" : categoryId}
                   onChange={setCategoryId}
+                  disabled={noCategory || readOnly}
                   options={[
-                    { value: "", label: "Sem categoria" },
-                    { value: NO_CATEGORY, label: "Não precisa de categoria" },
+                    { value: "", label: noCategory ? "Sem categoria (de propósito)" : "Sem categoria" },
                     ...lookups.categories.filter((c) => !c.archived || c.id === categoryId).map((c) => ({ value: c.id, label: c.name, color: c.color })),
                   ]}
                 />
-              </label>
+                <span className="check no-category">
+                  <input
+                    id="tx-no-category"
+                    type="checkbox"
+                    checked={noCategory}
+                    disabled={readOnly}
+                    onChange={(e) => setNoCategory(e.target.checked)}
+                  />
+                  <label htmlFor="tx-no-category">Não precisa de categoria</label>
+                </span>
+              </div>
             )}
           </div>
 

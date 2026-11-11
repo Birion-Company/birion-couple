@@ -10,7 +10,7 @@ import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Avatar } from "./ui";
 
-type Row = { key: number; date: string; description: string; amount: string; categoryId: string };
+type Row = { key: number; date: string; description: string; amount: string; categoryId: string; noCategory?: boolean };
 
 function today() {
   const d = new Date();
@@ -48,7 +48,7 @@ export function BatchForm({ lookups, currency, me }: { lookups: Lookups; currenc
         splitIds,
         cardId: kind === "expense" ? cardId || null : null,
         projectId: null,
-        rows: filled.map((x) => ({ date: x.date, description: x.description.trim(), amountCents: parseAmountToCents(x.amount, ",")!, categoryId: kind === "expense" ? x.categoryId || null : null })),
+        rows: filled.map((x) => ({ date: x.date, description: x.description.trim(), amountCents: parseAmountToCents(x.amount, ",")!, categoryId: kind === "expense" && !x.noCategory ? x.categoryId || null : null, noCategory: kind === "expense" && !!x.noCategory })),
       });
       toastResult(r);
       if (r.ok) {
@@ -130,12 +130,19 @@ export function BatchForm({ lookups, currency, me }: { lookups: Lookups; currenc
                 aria-label={`Valor da linha ${i + 1}`}
               />
               {kind === "expense" ? (
-                <Select
-                  ariaLabel={`Categoria da linha ${i + 1}`}
-                  value={r.categoryId}
-                  onChange={(v) => set(r.key, { categoryId: v })}
-                  options={[{ value: "", label: "Sem categoria" }, ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))]}
-                />
+                <div className="cat-cell">
+                  <Select
+                    ariaLabel={`Categoria da linha ${i + 1}`}
+                    value={r.noCategory ? "" : r.categoryId}
+                    disabled={r.noCategory}
+                    onChange={(v) => set(r.key, { categoryId: v })}
+                    options={[{ value: "", label: "Sem categoria" }, ...lookups.categories.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name, color: c.color }))]}
+                  />
+                  <span className="check no-category small">
+                    <input id={`nocat-${r.key}`} type="checkbox" checked={!!r.noCategory} onChange={(e) => set(r.key, { noCategory: e.target.checked })} />
+                    <label htmlFor={`nocat-${r.key}`}>Não precisa de categoria</label>
+                  </span>
+                </div>
               ) : (
                 <span />
               )}

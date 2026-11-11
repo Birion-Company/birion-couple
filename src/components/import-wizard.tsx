@@ -40,6 +40,8 @@ export function ImportWizard({
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [include, setInclude] = useState<Set<string>>(new Set());
   const [cats, setCats] = useState<Record<string, string>>({});
+  // Linhas marcadas como "Não precisa de categoria".
+  const [noCats, setNoCats] = useState<Record<string, boolean>>({});
   const people = lookups.participants.filter((p) => !p.archived);
   const firstPerson = me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "";
   const [payerId, setPayerId] = useState(firstPerson);
@@ -106,7 +108,7 @@ export function ImportWizard({
       const r = await commitImport({
         fileName: file?.name ?? "arquivo",
         format: preview.format!,
-        rows: chosen.map((x) => ({ key: x.key, date: x.date, description: x.description, amountCents: x.amountCents, categoryId: x.amountCents < 0 ? cats[x.key] || null : null })),
+        rows: chosen.map((x) => ({ key: x.key, date: x.date, description: x.description, amountCents: x.amountCents, categoryId: x.amountCents < 0 && !noCats[x.key] ? cats[x.key] || null : null, noCategory: x.amountCents < 0 && !!noCats[x.key] })),
         payerId: payerId || null,
         splitIds,
         projectId: projectId || null,
@@ -439,13 +441,20 @@ export function ImportWizard({
                     </p>
                     {/* Receita (entrada) não tem categoria. */}
                     {r.amountCents < 0 && (
-                      <Select
-                        ariaLabel={`Categoria de ${r.description}`}
-                        value={cats[r.key] ?? ""}
-                        onChange={(v) => setCats((c) => ({ ...c, [r.key]: v }))}
-                        options={catOptions}
-                        style={{ minHeight: 32, padding: "4px 10px", fontSize: "0.8rem", marginTop: 6, maxWidth: 220 }}
-                      />
+                      <div className="cat-cell">
+                        <Select
+                          ariaLabel={`Categoria de ${r.description}`}
+                          value={noCats[r.key] ? "" : cats[r.key] ?? ""}
+                          disabled={!!noCats[r.key]}
+                          onChange={(v) => setCats((c) => ({ ...c, [r.key]: v }))}
+                          options={catOptions}
+                          style={{ minHeight: 32, padding: "4px 10px", fontSize: "0.8rem", marginTop: 6, maxWidth: 220 }}
+                        />
+                        <span className="check no-category small">
+                          <input id={`imp-nocat-${r.key}`} type="checkbox" checked={!!noCats[r.key]} onChange={(e) => setNoCats((c) => ({ ...c, [r.key]: e.target.checked }))} />
+                          <label htmlFor={`imp-nocat-${r.key}`}>Não precisa de categoria</label>
+                        </span>
+                      </div>
                     )}
                   </div>
                   <span className={`amount ${r.amountCents > 0 ? "pos" : ""}`}>

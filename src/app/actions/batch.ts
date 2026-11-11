@@ -40,6 +40,8 @@ const PatchSchema = z.object({
   kind: z.enum(["expense", "income"]).optional(),
   settled: z.boolean().optional(),
   categoryId: nullableId.optional(),
+  /** "Não precisa de categoria": tira a categoria e não volta para A identificar. */
+  noCategory: z.boolean().optional(),
   projectId: nullableId.optional(),
   cardId: nullableId.optional(),
   payerId: nullableId.optional(),
@@ -53,6 +55,7 @@ const FIELD_NAMES: Record<keyof BulkPatch, string> = {
   kind: "tipo",
   settled: "acertado",
   categoryId: "categoria",
+  noCategory: "sem categoria",
   projectId: "projeto",
   cardId: "cartão",
   payerId: "quem pagou",
@@ -114,6 +117,9 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
       if (p.settled !== undefined && s.kind !== "transfer") next.settled = p.settled;
       // Receita não tem categoria.
       if (p.categoryId !== undefined && !between && next.kind === "expense") next.categoryId = p.categoryId;
+      // "Não precisa de categoria": fica sem categoria de propósito (escolher uma categoria desfaz).
+      const noCategory = p.noCategory && !between && next.kind === "expense" ? true : p.categoryId ? false : undefined;
+      if (noCategory) next.categoryId = null;
       if (next.kind === "income") next.categoryId = null;
       if (p.projectId !== undefined) next.projectId = p.projectId;
       if (p.date !== undefined) next.date = p.date;
@@ -152,6 +158,7 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
           kind: next.kind,
           settled: next.settled ?? false,
           categoryId: next.categoryId,
+          ...(noCategory !== undefined ? { noCategory } : {}),
           projectId: next.projectId,
           date: next.date,
           payerId: next.payerId,
@@ -199,6 +206,8 @@ const ManySchema = z.object({
         description: z.string().trim().min(1, { error: "Toda linha precisa de descrição." }).max(200),
         amountCents: z.number().int().positive({ error: "Todo valor precisa ser maior que zero." }).max(1_000_000_000),
         categoryId: nullableId,
+        /** "Não precisa de categoria" (não vai para A identificar e não usa as regras). */
+        noCategory: z.boolean().optional(),
       }),
     )
     .min(1, { error: "Adicione pelo menos uma linha." })
@@ -228,7 +237,7 @@ export async function createMany(input: ManyInput): Promise<ActionResult & { cou
 
   // Linhas sem categoria usam as regras de Ajustes → Categorias.
   const rules = await loadRules(hid);
-  for (const r of d.rows) r.categoryId = d.kind === "income" ? null : r.categoryId ?? matchCategory(r.description, rules);
+  for (const r of d.rows) r.categoryId = d.kind === "income" || r.noCategory ? null : r.categoryId ?? matchCategory(r.description, rules);
 
   const db = getDb();
   const count = await db.transaction(async (tx) => {
@@ -243,6 +252,7 @@ export async function createMany(input: ManyInput): Promise<ActionResult & { cou
           kind: d.kind,
           payerId: d.payerId,
           categoryId: r.categoryId,
+          noCategory: d.kind === "expense" && !r.categoryId && !!r.noCategory,
           projectId: d.projectId,
           cardId: d.kind === "income" ? null : d.cardId,
           source: "manual",

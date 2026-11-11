@@ -7790,3 +7790,30 @@ s.was {
     min-width: 0;
   }
 }
+
+/* "Não precisa de categoria": caixa de marcar logo embaixo do campo Categoria (em todo lugar). */
+.check.no-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.check.no-category input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-strong);
+}
+.check.no-category label {
+  cursor: pointer;
+}
+.check.no-category.small {
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+.cat-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}

@@ -121,6 +121,8 @@ const CommitSchema = z.object({
         description: z.string().max(300),
         amountCents: z.number().int(),
         categoryId: z.uuid().nullable(),
+        /** "Não precisa de categoria" nesta linha. */
+        noCategory: z.boolean().optional(),
       }),
     )
     .min(1, { error: "Escolha pelo menos uma linha." })
@@ -243,6 +245,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
             payerId: data.payerId,
             // Receita não tem categoria.
             categoryId: r.amountCents < 0 ? r.categoryId : null,
+            noCategory: r.amountCents < 0 && !r.categoryId && !!r.noCategory,
             projectId: data.projectId,
             // Entrada (receita) não fica em cartão.
             cardId: r.amountCents < 0 ? data.cardId ?? null : null,
