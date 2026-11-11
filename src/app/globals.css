@@ -7817,3 +7817,20 @@ s.was {
   flex-direction: column;
   min-width: 0;
 }
+
+/* Dívida: "Receber até" já vem no vencimento da fatura (dica embaixo da data). */
+.lend-date-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+}
+.lend-date-hint .link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-strong);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

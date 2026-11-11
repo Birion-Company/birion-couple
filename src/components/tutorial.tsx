@@ -86,7 +86,7 @@ const STEPS: Step[] = [
     route: "/transacoes/nova",
     targets: ["tx-kind"],
     title: "Tipo",
-    text: "**Despesa**: algo que foi pago (mercado, aluguel). **Receita**: dinheiro que entra, como salário ou bolsa. **Dívida**: alguém fica te devendo sem ser uma conta dividida (emprestou dinheiro, vendeu algo para pagar depois). **Acerto**: alguém pagou alguém para quitar o que devia.",
+    text: "**Despesa**: algo que foi pago (mercado, aluguel). **Receita**: dinheiro que entra, como salário ou bolsa. **Dívida**: **emprestou dinheiro** (ou vendeu algo para pagar depois); a data vira “Receber até”, no vencimento da fatura. **Emprestou o cartão?** É Despesa no seu cartão, só da pessoa. **Acerto**: alguém pagou alguém para quitar o que devia.",
     demo: "kinds",
   },
   {

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { ArrowRight, CreditCard, Lock, Repeat, Trash2 } from "lucide-react";
 import { deleteSeries, deleteTransactions, saveTransaction, stopRecurring } from "@/app/actions/transactions";
-import { addMonthsIso, buildSeries, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate } from "@/lib/cards";
+import { addMonthsIso, buildSeries, cardSchedule, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
@@ -26,9 +26,10 @@ type Repeat = "once" | "installment" | "monthly";
 
 /** O que cada tipo significa, mostrado embaixo da escolha. */
 const KIND_HELP: Record<Kind, string> = {
-  expense: "Algo pago. Quem tem parte fica devendo para quem pagou.",
+  expense:
+    "Algo pago (mercado, aluguel). Quem tem parte fica devendo para quem pagou. **Emprestou o cartão?** É aqui: escolha o seu cartão, só a pessoa em “Quem deveria pagar” e marque “Não precisa de categoria”. Ela te paga no vencimento da fatura.",
   income: "Dinheiro que entrou: salário, venda, estorno.",
-  loan: "Alguém fica te devendo. Ex.: emprestou dinheiro ou vendeu algo para pagar depois (um notebook).",
+  loan: "**Emprestou dinheiro?** É aqui (ou vendeu algo para pagar depois, como um notebook). A pessoa te paga até “Receber até”, que já vem no vencimento da fatura do seu cartão.",
   transfer: "Pagamento entre pessoas. Abate a dívida.",
 };
 
@@ -240,6 +241,8 @@ export function TxForm({
   );
   const [description, setDescription] = useState(initial?.description ?? prefill?.description ?? "");
   const [date, setDate] = useState(initial?.date ?? today());
+  // A pessoa mudou a data à mão: as sugestões automáticas (receber até a fatura) não mexem mais nela.
+  const [dateTouched, setDateTouched] = useState(!!initial);
   // Receita: já caiu na conta? Sem escolher, segue a data (futura = ainda vou receber); editando, mantém como estava.
   const [receivedChoice, setReceivedChoice] = useState<boolean | null>(initial ? !initial.awaitingReceipt : null);
   const [payerId, setPayerId] = useState(initial?.payerId ?? (prefill?.kind === "income" ? me : null) ?? prefill?.payerId ?? firstPerson);
@@ -292,6 +295,32 @@ export function TxForm({
     // Novo lançamento: só você marcado (a conta é sua até você marcar mais alguém).
     (prefill?.toId ? [prefill.toId] : prefill?.kind === "loan" ? [] : firstPerson ? [firstPerson] : []);
   const [splitIds, setSplitIds] = useState<string[]>(initialSplitIds);
+
+  // ---------- Dívida: quando a pessoa devolve ----------
+  const myCards = cards.filter((c) => !c.archived && me && c.ownerId === me);
+  // Quando a pessoa devolve: no vencimento da próxima fatura do seu cartão (é para pagar a fatura);
+  // sem cartão, no último dia do mês.
+  const lendDue = (() => {
+    const t = today();
+    const dues = myCards.map((c) => ({ date: cardSchedule(c, t).dueDate, name: c.name })).sort((a, b) => (a.date < b.date ? -1 : 1));
+    if (dues[0]) return { date: dues[0].date, label: `Vencimento da fatura do ${dues[0].name}` };
+    const [y, m] = t.split("-").map(Number);
+    const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    return { date: last, label: "Fim do mês" };
+  })();
+  const chooseKind = (v: Kind) => {
+    setKind(v);
+    // Receita é dinheiro que entrou para você: não dá para lançar entrada no nome de outra pessoa.
+    if (v === "income" && me && incomeIsMine) setPayerId(me);
+    if (v === "transfer" || v === "loan") {
+      setSplitIds((s) => s.filter((x) => x !== payerId).slice(0, 1));
+      setRepeat("once");
+    }
+    // Dívida nova: a data vira "receber até" o vencimento da fatura (se a pessoa não escolheu outra).
+    if (v === "loan" && !initial && !dateTouched) setDate(lendDue.date);
+    if (v !== "loan" && !initial && !dateTouched) setDate(today());
+  };
+
   const equalBefore = useMemo(() => {
     if (!initial) return true;
     const parts = splitEqually(initial.amountCents, initial.splits.length);
@@ -543,21 +572,16 @@ export function TxForm({
                 key={v}
                 type="button"
                 aria-pressed={kind === v}
-                onClick={() => {
-                  setKind(v);
-                  // Receita é dinheiro que entrou para você: não dá para lançar entrada no nome de outra pessoa.
-                  if (v === "income" && me && incomeIsMine) setPayerId(me);
-                  if (v === "transfer" || v === "loan") {
-                    setSplitIds((s) => s.filter((x) => x !== payerId).slice(0, 1));
-                    setRepeat("once");
-                  }
-                }}
+                onClick={() => chooseKind(v)}
               >
                 {l}
               </button>
             ))}
           </div>
-          <p className="kind-help">{KIND_HELP[kind]}</p>
+          <p className="kind-help">
+            {/* **texto** fica em destaque. */}
+            {KIND_HELP[kind].split(/(\*\*[^*]+\*\*)/).map((part, i) => (part.startsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part))}
+          </p>
 
           <label className="field" data-tour="tx-amount">
             <span>{amountLabel}</span>
@@ -585,8 +609,32 @@ export function TxForm({
           </label>
 
           <label className="field" data-tour="tx-date">
-            <span>{isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
-            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <span>{kind === "loan" ? (isSeries ? "Receber a 1ª parcela até" : "Receber até") : isSeries ? (repeat === "installment" ? "Data da compra" : "Primeiro mês") : "Data"}</span>
+            <input
+              className="input"
+              type="date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setDateTouched(true);
+              }}
+              required
+            />
+            {/* Dívida: a pessoa paga no fim do mês (no vencimento da fatura), igual a quem usou o seu cartão. */}
+            {kind === "loan" && !initial && (
+              <span className="faint lend-date-hint">
+                {date === lendDue.date
+                  ? `${lendDue.label}. Até lá a dívida fica “a vencer”; depois aparece em A receber.`
+                  : (
+                    <>
+                      Sugestão: {lendDue.label} ({shortDate(lendDue.date)}).{" "}
+                      <button type="button" className="link-btn" onClick={() => setDate(lendDue.date)}>
+                        Usar
+                      </button>
+                    </>
+                  )}
+              </span>
+            )}
           </label>
 
           {/* Receita: o app não supõe que o dinheiro caiu — você diz. "A receber" só conta depois do "Recebi". */}
