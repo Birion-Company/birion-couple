@@ -52,7 +52,18 @@ const KIND_HELP: Record<Kind, { text: string; steps?: { title: string; items: st
       items: ["Escolha em “Quem deve” quem pegou o dinheiro.", "Confira “Receber até”: já vem no vencimento da sua fatura."],
     },
   },
-  transfer: { text: "Pagamento entre pessoas. Abate a dívida." },
+  transfer: {
+    text: "Dinheiro que passou de uma pessoa para outra para pagar o que devia. Abate a dívida entre as duas.",
+    steps: {
+      title: "Alguém te pagou (ou você pagou alguém)?",
+      items: [
+        "Em “Quem pagou o acerto”, escolha quem deu o dinheiro.",
+        "Em “Para quem”, escolha quem recebeu.",
+        "Pronto: o valor abate a dívida entre os dois, das contas mais antigas para as mais novas.",
+        "Foi o pagamento de uma conta só? Abra a despesa e use “Recebi” (ou “Paguei”) lá dentro.",
+      ],
+    },
+  },
 };
 
 export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" | "description">> & { toId?: string };
