@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExportGuide } from "@/components/export-guide";
 import { DeleteImportButton } from "@/components/import-history";
 import { ImportWizard } from "@/components/import-wizard";
 import { PresetsPanel } from "@/components/settings-panels";
@@ -22,6 +23,8 @@ export default async function ImportSettingsPage() {
         currency={auth.currency}
         me={auth.participantId}
       />
+      {/* Como tirar o CSV ou o OFX do banco (recolhível). */}
+      <ExportGuide />
       {batches.length > 0 && (
         <section className="card section" aria-labelledby="hist">
           <h2 id="hist" style={{ marginBottom: 8 }}>Importações recentes</h2>

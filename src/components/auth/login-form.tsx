@@ -38,6 +38,9 @@ export function LoginForm({ errorCode, notice }: { errorCode?: string; notice?: 
       <p className="auth-bottom">
         Não tem uma conta? <Link href="/criar-conta">Cadastre-se</Link>
       </p>
+      <p className="auth-legal">
+        <Link href="/privacidade">Política de privacidade</Link>
+      </p>
     </>
   );
 }

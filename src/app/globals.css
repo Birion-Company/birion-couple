@@ -7988,3 +7988,125 @@ s.was {
   font-size: 14px;
   line-height: 1.4;
 }
+
+/* Política de privacidade (página pública, leitura confortável). */
+.legal {
+  min-height: 100vh;
+  padding: 32px 16px 64px;
+  background: var(--bg);
+  color: var(--text);
+}
+.legal-page {
+  max-width: 720px;
+  margin: 0 auto;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.legal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.legal-brand span {
+  color: var(--brand-strong);
+}
+.legal-page h1 {
+  margin: 0 0 4px;
+  font-size: 1.9rem;
+}
+.legal-date {
+  margin: 0 0 20px;
+  color: var(--text-3);
+  font-size: 0.9rem;
+}
+.legal-page h2 {
+  margin: 28px 0 8px;
+  font-size: 1.2rem;
+}
+.legal-page ul {
+  padding-left: 20px;
+}
+.legal-page li {
+  margin: 6px 0;
+}
+.legal-page a {
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+.legal-back {
+  margin-top: 32px;
+}
+/* Rodapé das telas de entrada: link da política de privacidade. */
+.auth-legal {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 13px;
+}
+.auth-legal a {
+  color: var(--au-text-2);
+  text-decoration: underline;
+}
+
+/* Importação: guia de como tirar o CSV/OFX do banco (dois blocos recolhíveis). */
+.guide-item {
+  margin-bottom: 10px;
+  padding: 0;
+}
+.guide-item summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.guide-item summary::-webkit-details-marker {
+  display: none;
+}
+.guide-item summary .grow {
+  display: grid;
+  gap: 2px;
+}
+.guide-item summary .faint {
+  font-size: 0.82rem;
+}
+.guide-item[open] .impact-chevron {
+  transform: rotate(180deg);
+}
+.guide-banks {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+.guide-bank {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.guide-bank ol {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 0.88rem;
+}
+.guide-bank li {
+  margin: 2px 0;
+}
+.guide-bank li::marker {
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+.guide-bank .faint {
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+.guide-tip {
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.legal-page .legal-brand {
+  color: var(--text);
+}
