@@ -7677,3 +7677,96 @@ s.was {
 .card-stats.single {
   grid-template-columns: 1fr;
 }
+
+/* Esqueleto de carregamento (troca de tela): blocos cinza com um brilho passando. */
+.page-skeleton {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+.sk {
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--line) 0%, color-mix(in srgb, var(--line) 45%, transparent) 50%, var(--line) 100%);
+  background-size: 200% 100%;
+  animation: sk-shine 1.2s ease-in-out infinite;
+  opacity: 0.7;
+}
+.sk-title {
+  width: 40%;
+  height: 30px;
+}
+.sk-sub {
+  width: 25%;
+  height: 14px;
+  margin-bottom: 8px;
+}
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.sk-card {
+  height: 92px;
+}
+.sk-block {
+  height: 180px;
+}
+.sk-row {
+  height: 56px;
+}
+@media (max-width: 640px) {
+  .sk-grid {
+    grid-template-columns: 1fr;
+  }
+  .sk-title {
+    width: 60%;
+  }
+}
+@keyframes sk-shine {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk {
+    animation: none;
+  }
+}
+
+/* Barrinha de carregamento no topo: aparece no toque e vai enchendo até a tela chegar. */
+.nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 120;
+  width: 0;
+  height: 3px;
+  background: var(--brand-strong);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--brand-strong) 60%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-progress.on {
+  opacity: 1;
+  animation: nav-progress 6s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+}
+@keyframes nav-progress {
+  from {
+    width: 0;
+  }
+  10% {
+    width: 35%;
+  }
+  to {
+    width: 92%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress.on {
+    animation: none;
+    width: 60%;
+  }
+}

@@ -102,8 +102,6 @@ export function ExportPanel({
         <a
           className="export-option"
           href={`/exportar/${month}?imprimir=1${q}`}
-          target="_blank"
-          rel="noopener"
         >
           <FileText size={28} strokeWidth={1.6} aria-hidden />
           <span>

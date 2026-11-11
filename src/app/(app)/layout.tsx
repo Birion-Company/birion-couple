@@ -10,6 +10,7 @@ import { getActivityFeed } from "@/lib/activity";
 import { getCardAlerts } from "@/lib/card-queries";
 import { countUnidentified, getApprovalInbox, getLookups, getLookupsFor } from "@/lib/queries";
 import { TxModalHost } from "@/components/tx-modal";
+import { NavProgress } from "@/components/nav-progress";
 
 function Brand() {
   return (
@@ -59,6 +60,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             <UserMenu name={auth.userName} avatarUrl={avatarUrl} compact />
           </span>
         </header>
+        <NavProgress />
         <main className="main">{children}</main>
       </div>
       <BottomNav toIdentify={toIdentify} toConfirm={toConfirm} />
