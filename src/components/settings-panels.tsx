@@ -7,7 +7,7 @@ import { Copy, Plus, Search, Trash2, X } from "lucide-react";
 import {
   addRule,
   createInvite,
-  deleteHousehold,
+  deleteMyData,
   deletePreset,
   deleteRule,
   removeMember,
@@ -335,40 +335,45 @@ export function PresetsPanel({ presets }: { presets: { id: string; name: string 
   );
 }
 
-export function DangerZone({ householdName }: { householdName: string }) {
+/** Excluir meus dados: apaga tudo que a pessoa lançou (some para todos os envolvidos). A conta continua. */
+export function DangerZone() {
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   return (
     <section className="card" aria-labelledby="danger">
-      <h2 id="danger" style={{ marginBottom: 4 }}>Excluir a família</h2>
+      <h2 id="danger" style={{ marginBottom: 4 }}>Excluir meus dados</h2>
       <p className="faint" style={{ marginBottom: 12 }}>
-        Apaga tudo desta família: lançamentos, pessoas, cartões e ajustes. Não dá para desfazer. As contas continuam, mas ficam bloqueadas até
-        criar uma família nova, que começa do zero.
+        Apaga tudo que <strong>você lançou</strong> nesta família: despesas, receitas, dívidas, acertos, contas que repetem e importações. Some para
+        todo mundo: se você lançou que alguém te devia, essa dívida some também para essa pessoa. Sua conta e a família continuam. Não dá para desfazer.
       </p>
       {!open ? (
-        <button className="btn danger" onClick={() => setOpen(true)}>Excluir a família…</button>
+        <button className="btn danger" onClick={() => setOpen(true)}>Excluir meus dados…</button>
       ) : (
         <form
           className="form"
           onSubmit={(e) => {
             e.preventDefault();
             start(async () => {
-              const r = await deleteHousehold(typed);
-              if (r && !r.ok) toastResult(r);
+              const r = await deleteMyData(typed);
+              toastResult(r);
+              if (r.ok) {
+                setOpen(false);
+                setTyped("");
+              }
             });
           }}
         >
           <label className="field">
             <span>
-              Para confirmar, digite o nome da família: <strong>{householdName}</strong>
+              Para confirmar, digite <strong>EXCLUIR</strong>
             </span>
             <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
           </label>
           <div className="actions" style={{ justifyContent: "flex-end" }}>
             <button type="button" className="btn ghost" onClick={() => setOpen(false)} disabled={pending}>Cancelar</button>
-            <button className="btn danger" disabled={pending || typed.trim() !== householdName.trim()}>
-              {pending ? "Apagando…" : "Apagar"}
+            <button className="btn danger" disabled={pending || typed.trim().toUpperCase() !== "EXCLUIR"}>
+              {pending ? "Apagando…" : "Apagar tudo que eu lancei"}
             </button>
           </div>
         </form>

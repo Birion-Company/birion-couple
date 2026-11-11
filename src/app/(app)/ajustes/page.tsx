@@ -9,7 +9,8 @@ export default async function SettingsPage() {
   return (
     <div className="grid">
       <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={auth.role === "owner"} />
-      {auth.role === "owner" && <DangerZone householdName={auth.householdName} />}
+      {/* Qualquer pessoa pode apagar o que ela mesma lançou (não existe mais "excluir a família"). */}
+      <DangerZone />
     </div>
   );
 }

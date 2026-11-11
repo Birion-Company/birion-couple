@@ -7,7 +7,7 @@ import { AuthHeader } from "./auth-header";
 import { AuthInput } from "./auth-input";
 
 /** Primeiro acesso pelo Google: como a pessoa quer ser chamada e o nome da família (dá para mudar depois). */
-export function WelcomeForm({ name, household, canRenameHousehold }: { name: string; household: string; canRenameHousehold: boolean }) {
+export function WelcomeForm({ name, household, canRenameHousehold, convite }: { name: string; household: string; canRenameHousehold: boolean; convite?: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(finishWelcome, undefined);
   return (
     <>
@@ -17,6 +17,7 @@ export function WelcomeForm({ name, household, canRenameHousehold }: { name: str
         error={state?.error}
       />
       <form action={action} className="auth-form">
+        {convite && <input type="hidden" name="convite" value={convite} />}
         <AuthInput label="Seu nome" name="name" autoComplete="name" defaultValue={state?.fields?.name ?? name} icon={User} />
         {canRenameHousehold ? (
           <AuthInput label="Nome da família" name="household" autoComplete="off" defaultValue={state?.fields?.household ?? household} icon={Home} />

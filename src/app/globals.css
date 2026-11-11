@@ -8110,3 +8110,34 @@ s.was {
 .legal-page .legal-brand {
   color: var(--text);
 }
+
+/* Convite: aviso de que a pessoa sai da família atual (e vira "sem login" lá). */
+.invite-note {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--au-accent-text) 35%, transparent);
+  background: color-mix(in srgb, var(--au-accent-text) 8%, transparent);
+  color: var(--au-text-2);
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: left;
+}
+.invite-note p + p {
+  margin-top: 6px;
+}
+.invite-note strong {
+  color: var(--au-text);
+}
+.auth-google.invite-create {
+  justify-content: center;
+  gap: 10px;
+  text-decoration: none;
+}
+a.auth-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-decoration: none;
+}

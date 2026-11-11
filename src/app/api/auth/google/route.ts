@@ -6,6 +6,9 @@ export async function GET(request: NextRequest) {
   const cfg = googleConfig();
   if (!cfg) return NextResponse.redirect(new URL("/entrar?erro=google-indisponivel", origin));
   const { verifier, challenge, state } = newPkce();
+  // Veio de um convite: depois do Google, volta para aceitar a família.
+  const convite = request.nextUrl.searchParams.get("convite") ?? "";
+  const invite = /^[A-Za-z0-9_-]{6,80}$/.test(convite) ? convite : "";
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.search = new URLSearchParams({
     client_id: cfg.clientId,
@@ -18,7 +21,7 @@ export async function GET(request: NextRequest) {
     prompt: "select_account",
   }).toString();
   const res = NextResponse.redirect(url);
-  res.cookies.set(GOOGLE_COOKIE, `${state}.${verifier}`, {
+  res.cookies.set(GOOGLE_COOKIE, `${state}.${verifier}.${invite}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

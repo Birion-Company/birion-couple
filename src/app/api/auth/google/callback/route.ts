@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     return res;
   };
   const params = request.nextUrl.searchParams;
-  const [state, verifier] = (request.cookies.get(GOOGLE_COOKIE)?.value ?? "").split(".");
+  const [state, verifier, convite] = (request.cookies.get(GOOGLE_COOKIE)?.value ?? "").split(".");
   const code = params.get("code");
   if (params.get("error")) return fail("google-cancelado");
   if (!code || !state || !verifier || params.get("state") !== state) return fail("google-falhou");
@@ -62,7 +62,10 @@ export async function GET(request: NextRequest) {
     welcome = true;
   }
   await createSession({ uid, hid });
-  const res = NextResponse.redirect(new URL(hid === NO_HOUSEHOLD ? "/nova-familia" : welcome ? "/boas-vindas" : "/painel", origin));
+  // Veio de um convite: conta nova confirma o nome primeiro; depois (ou se já tinha conta) aceita a família.
+  const invite = convite && /^[A-Za-z0-9_-]{6,80}$/.test(convite) ? convite : "";
+  const next = welcome ? (invite ? `/boas-vindas?convite=${invite}` : "/boas-vindas") : invite ? `/convite/${invite}` : hid === NO_HOUSEHOLD ? "/nova-familia" : "/painel";
+  const res = NextResponse.redirect(new URL(next, origin));
   res.cookies.delete({ name: GOOGLE_COOKIE, path: "/api/auth/google" });
   return res;
 }

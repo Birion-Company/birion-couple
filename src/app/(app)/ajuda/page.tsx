@@ -132,7 +132,8 @@ const SECTIONS: Section[] = [
     id: "ajustes",
     title: "Ajustes, aba por aba",
     items: [
-      { term: "Família", text: "Nome da família e moeda. Embaixo, apagar a família: tudo some e a conta fica bloqueada até criar uma família nova." },
+      { term: "Família", text: "Nome da família e moeda. Embaixo, Excluir meus dados: apaga tudo que você lançou (some para todos os envolvidos); a conta e a família continuam." },
+      { term: "Mudar de família", text: "Ao aceitar o convite de outra família, você sai da atual: lá você continua como pessoa sem login, com tudo que já foi lançado. Se você administrava, o cargo passa para quem entrou primeiro." },
       { term: "Pessoas", text: "Família (com login, até 10) e contatos (sem login). Pesquise, cadastre, esconda ou convide." },
       { term: "Categorias", text: "Mercado, Moradia, Saúde… Arraste para ordenar. Embaixo, a categorização automática: “uber” → Transporte." },
       { term: "Acesso", text: "Links de convite e quem administra a família." },

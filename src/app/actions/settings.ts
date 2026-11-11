@@ -7,14 +7,12 @@ import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { canEditTx } from "@/lib/access";
 import { involved, logActivity, snapshots } from "@/lib/activity";
-import { NO_HOUSEHOLD, requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
+import { requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
 import { ruleMatches } from "@/lib/rules-server";
 import { findOrCreateContact, hasRoomForContact } from "@/lib/contacts";
 import { ICON_KEYS } from "@/lib/category-icons";
 import { HOUSEHOLD_NAME_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
-import { createSession } from "@/lib/session";
-import { redirect } from "next/navigation";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
@@ -51,13 +49,32 @@ export async function updateHousehold(input: { name: string; currency: string })
  * Apaga a família e todos os dados dela. Contas de login que não participam de outra família
  * também são apagadas. Exige digitar o nome da família para confirmar.
  */
-export async function deleteHousehold(confirmName: string): Promise<ActionResult> {
-  const auth = await requireOwner();
-  if (confirmName.trim() !== auth.householdName.trim()) return fail("O nome digitado não confere.");
-  // Apaga a família e tudo dela; as contas continuam, mas sem família (bloqueadas até criar outra).
-  await getDb().delete(schema.households).where(eq(schema.households.id, auth.householdId));
-  await createSession({ uid: auth.userId, hid: NO_HOUSEHOLD });
-  redirect("/nova-familia");
+/**
+ * Excluir meus dados: apaga tudo que esta pessoa lançou na família (lançamentos, contas que repetem e
+ * importações). Some para todo mundo: se ela lançou que o Fulano devia R$ 2, essa dívida some também para
+ * o Fulano. A conta e a família continuam.
+ */
+export async function deleteMyData(confirm: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  if (confirm.trim().toUpperCase() !== "EXCLUIR") return fail("Digite EXCLUIR para confirmar.");
+  const db = getDb();
+  const t = schema.transactions;
+  const removed = await db.transaction(async (tx) => {
+    const rows = await tx
+      .delete(t)
+      .where(and(eq(t.householdId, auth.householdId), eq(t.createdBy, auth.userId)))
+      .returning({ id: t.id });
+    await tx
+      .delete(schema.recurringSeries)
+      .where(and(eq(schema.recurringSeries.householdId, auth.householdId), eq(schema.recurringSeries.createdBy, auth.userId)));
+    await tx
+      .delete(schema.importBatches)
+      .where(and(eq(schema.importBatches.householdId, auth.householdId), eq(schema.importBatches.createdBy, auth.userId)));
+    await tx.delete(schema.activities).where(and(eq(schema.activities.householdId, auth.householdId), eq(schema.activities.actorUserId, auth.userId)));
+    return rows.length;
+  });
+  revalidatePath("/", "layout");
+  return done(removed === 0 ? "Você não tinha lançamentos nesta família." : `Pronto: ${removed} ${removed === 1 ? "lançamento apagado" : "lançamentos apagados"}.`);
 }
 
 // ---------- Listas configuráveis ----------

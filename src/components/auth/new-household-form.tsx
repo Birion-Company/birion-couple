@@ -13,7 +13,7 @@ export function NewHouseholdForm({ name }: { name: string }) {
     <>
       <AuthHeader
         title={`Olá, ${name.split(" ")[0]}`}
-        subtitle="Sua família foi apagada. Sua conta continua, mas para usar o app você precisa criar uma família nova — ela começa do zero."
+        subtitle="Sua conta não está em nenhuma família. Crie uma família nova (ela começa do zero) ou aceite o convite de alguém."
         error={state?.error}
       />
       <form action={action} className="auth-form">

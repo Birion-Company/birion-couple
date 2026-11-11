@@ -1,12 +1,12 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { and, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import * as z from "zod";
-import { defaultHouseholdName, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "@/lib/defaults";
+import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { getDb, schema } from "@/db";
-import { createHouseholdForUser, hasRoomForMember } from "@/lib/household";
+import { createHouseholdForUser } from "@/lib/household";
 import { AUDIT_HID, NO_HOUSEHOLD, getHomeless, requireAuth } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
 
@@ -23,6 +23,13 @@ const SignupSchema = z.object({
   email,
   password,
 });
+
+
+/** Código de convite vindo do formulário (entrar ou criar conta a partir de um convite). */
+function inviteFrom(form: FormData) {
+  const c = String(form.get("convite") ?? "");
+  return /^[A-Za-z0-9_-]{6,80}$/.test(c) ? c : null;
+}
 
 export async function signup(_: FormState, form: FormData): Promise<FormState> {
   const fields = Object.fromEntries(["name", "email"].map((k) => [k, String(form.get(k) ?? "")]));
@@ -42,7 +49,9 @@ export async function signup(_: FormState, form: FormData): Promise<FormState> {
     return { uid: user.id, hid };
   });
   await createSession(ids);
-  redirect("/painel?bemvindo=1");
+  // Criou a conta a partir de um convite: vai direto para aceitar a família.
+  const invite = inviteFrom(form);
+  redirect(invite ? `/convite/${invite}` : "/painel?bemvindo=1");
 }
 
 export async function login(_: FormState, form: FormData): Promise<FormState> {
@@ -81,13 +90,15 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     .where(eq(schema.memberships.userId, user.id))
     .orderBy(schema.memberships.createdAt)
     .limit(1);
+  // Entrou a partir de um convite: volta para aceitar a família.
+  const invite = inviteFrom(form);
   // Sem família (a dela foi apagada): entra, mas só pode criar uma família nova.
   if (!membership) {
     await createSession({ uid: user.id, hid: NO_HOUSEHOLD });
-    redirect("/nova-familia");
+    redirect(invite ? `/convite/${invite}` : "/nova-familia");
   }
   await createSession({ uid: user.id, hid: membership.hid });
-  redirect("/painel");
+  redirect(invite ? `/convite/${invite}` : "/painel");
 }
 
 export async function logout() {
@@ -96,85 +107,6 @@ export async function logout() {
 }
 
 /** Entrar numa família por convite: cria a conta (ou usa a existente, conferindo a senha). */
-export async function acceptInvite(_: FormState, form: FormData): Promise<FormState> {
-  const code = String(form.get("code") ?? "");
-  const fields = { name: String(form.get("name") ?? ""), email: String(form.get("email") ?? "") };
-  const parsed = z.object({ name, email, password }).safeParse({ ...fields, password: form.get("password") });
-  if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
-  const db = getDb();
-  const [invite] = await db
-    .select()
-    .from(schema.invites)
-    .where(and(eq(schema.invites.code, code), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date())))
-    .limit(1);
-  if (!invite) return { error: "Este convite não vale mais. Peça um novo para quem administra a família.", fields };
-  const [member] = await db
-    .select({ hid: schema.memberships.householdId })
-    .from(schema.memberships)
-    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
-    .where(and(eq(schema.memberships.householdId, invite.householdId), eq(schema.users.email, parsed.data.email)))
-    .limit(1);
-  if (!member && !(await hasRoomForMember(db, invite.householdId))) {
-    return { error: `Esta família já está no limite de ${MEMBERS_MAX} pessoas com login.`, fields };
-  }
-
-  const [existing] = await db.select().from(schema.users).where(eq(schema.users.email, parsed.data.email)).limit(1);
-  let userId: string;
-  if (existing) {
-    if (!(await bcrypt.compare(parsed.data.password, existing.passwordHash))) {
-      return { error: "Já existe uma conta com este e-mail e a senha não confere.", fields };
-    }
-    userId = existing.id;
-  } else {
-    const [u] = await db
-      .insert(schema.users)
-      .values({ email: parsed.data.email, name: parsed.data.name, passwordHash: await bcrypt.hash(parsed.data.password, 10) })
-      .returning({ id: schema.users.id });
-    userId = u.id;
-  }
-  await db.transaction(async (tx) => {
-    const [already] = await tx
-      .select()
-      .from(schema.memberships)
-      .where(and(eq(schema.memberships.householdId, invite.householdId), eq(schema.memberships.userId, userId)))
-      .limit(1);
-    if (!already) {
-      // Convite feito a partir de um contato: a conta assume essa pessoa (com o histórico e as dívidas dela),
-      // se ela ainda não tem login. Senão, cria a pessoa nova.
-      const [contact] = invite.participantId
-        ? await tx
-            .select({ id: schema.participants.id })
-            .from(schema.participants)
-            .where(
-              and(
-                eq(schema.participants.id, invite.participantId),
-                eq(schema.participants.householdId, invite.householdId),
-                sql`not exists (select 1 from "memberships" m where m."participantId" = ${schema.participants.id})`,
-              ),
-            )
-        : [];
-      let participantId = contact?.id;
-      if (participantId) {
-        await tx.update(schema.participants).set({ archived: false, temporary: false }).where(eq(schema.participants.id, participantId));
-      } else {
-        const [p] = await tx
-          .insert(schema.participants)
-          .values({ householdId: invite.householdId, name: parsed.data.name, color: "#A77BDB", sortOrder: 99 })
-          .returning({ id: schema.participants.id });
-        participantId = p.id;
-      }
-      await tx.insert(schema.memberships).values({ householdId: invite.householdId, userId, role: invite.role, participantId });
-    }
-    await tx.update(schema.invites).set({ usedAt: new Date() }).where(eq(schema.invites.id, invite.id));
-  });
-  await createSession({ uid: userId, hid: invite.householdId });
-  redirect("/painel?bemvindo=1");
-}
-
-/**
- * Conta sem família (a dela foi apagada): cria uma família nova, vazia, e entra nela.
- * Os dados da família antiga não voltam.
- */
 export async function createNewHousehold(_: FormState, form: FormData): Promise<FormState> {
   const me = await getHomeless();
   if (!me) redirect("/entrar");
@@ -212,5 +144,6 @@ export async function finishWelcome(_: FormState, form: FormData): Promise<FormS
     }
     if (auth.role === "owner") await tx.update(schema.households).set({ name: parsed.data.household }).where(eq(schema.households.id, auth.householdId));
   });
-  redirect("/painel?bemvindo=1");
+  const invite = inviteFrom(form);
+  redirect(invite ? `/convite/${invite}` : "/painel?bemvindo=1");
 }

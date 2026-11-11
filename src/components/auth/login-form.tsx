@@ -15,13 +15,14 @@ const ERRORS: Record<string, string> = {
   "sem-familia": "Esta conta não participa de nenhuma família.",
 };
 
-export function LoginForm({ errorCode, notice }: { errorCode?: string; notice?: string }) {
+export function LoginForm({ errorCode, notice, convite }: { errorCode?: string; notice?: string; convite?: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(login, undefined);
   const error = state?.error ?? (errorCode ? ERRORS[errorCode] : undefined);
   return (
     <>
       <AuthHeader title="Olá, seja bem-vindo!" subtitle={notice ?? "Faça login para acessar sua planilha financeira"} error={error} />
       <form action={action} className="auth-form">
+        {convite && <input type="hidden" name="convite" value={convite} />}
         <AuthInput label="Seu e-mail" name="email" type="email" autoComplete="email" defaultValue={state?.fields?.email} icon={User} />
         <AuthInput label="Sua senha" name="password" type="password" autoComplete="current-password" icon={Lock} />
         <Link href="/esqueci-senha" className="auth-forgot">
@@ -34,9 +35,9 @@ export function LoginForm({ errorCode, notice }: { errorCode?: string; notice?: 
       <div className="auth-sep">
         <span>ou</span>
       </div>
-      <GoogleLoginButton />
+      <GoogleLoginButton convite={convite} />
       <p className="auth-bottom">
-        Não tem uma conta? <Link href="/criar-conta">Cadastre-se</Link>
+        Não tem uma conta? <Link href={convite ? `/criar-conta?convite=${encodeURIComponent(convite)}` : "/criar-conta"}>Cadastre-se</Link>
       </p>
       <p className="auth-legal">
         <Link href="/privacidade">Política de privacidade</Link>

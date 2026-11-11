@@ -6,14 +6,17 @@ import { getAuditor, getAuth, getHomeless } from "@/lib/auth";
 export const metadata: Metadata = { title: "Entrar" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/entrar">) {
-  if (await getAuth()) redirect("/painel");
+  const sp = await searchParams;
+  const goInvite = typeof sp.convite === "string" ? `/convite/${sp.convite}` : null;
+  if (await getAuth()) redirect(goInvite ?? "/painel");
   if (await getAuditor()) redirect("/auditoria");
   if (await getHomeless()) redirect("/nova-familia");
-  const { erro, senha } = await searchParams;
+  const { erro, senha, convite } = await searchParams;
   return (
     <LoginForm
       errorCode={typeof erro === "string" ? erro : undefined}
-      notice={senha === "nova" ? "Senha nova criada. Entre com ela." : undefined}
+      notice={senha === "nova" ? "Senha nova criada. Entre com ela." : typeof convite === "string" ? "Entre na sua conta para aceitar o convite." : undefined}
+      convite={typeof convite === "string" ? convite : undefined}
     />
   );
 }
