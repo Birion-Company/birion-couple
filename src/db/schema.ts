@@ -224,6 +224,8 @@ export const recurringSeries = pgTable(
     statusId: uuid().references(() => statuses.id, { onDelete: "set null" }),
     cardId: uuid().references(() => creditCards.id, { onDelete: "set null" }),
     notes: text(),
+    /** Os meses criados saem sem categoria de propósito (não vão para "A identificar"). */
+    noCategory: boolean().notNull().default(false),
     /** [{ participantId, amountCents }] de cada mês. */
     splits: jsonb().notNull(),
     /** Data do primeiro lançamento; os seguintes caem no mesmo dia dos meses seguintes. */
@@ -308,6 +310,8 @@ export const transactions = pgTable(
     invoicePaid: boolean().notNull().default(false),
     /** Receita que ainda não caiu na conta ("A receber"): só conta depois que a pessoa confirma "Recebi". */
     awaitingReceipt: boolean().notNull().default(false),
+    /** Despesa que não precisa de categoria (ex.: algo pago por alguém): não vai para "A identificar". */
+    noCategory: boolean().notNull().default(false),
     /**
      * Acerto que paga uma dívida de outro lançamento (ex.: Fulano pagando a parte dele).
      * Se o valor for maior que o devido, a sobra fica com quem recebeu (ou vira um adiantamento à parte).

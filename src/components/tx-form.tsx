@@ -243,7 +243,9 @@ export function TxForm({
   // Receita: já caiu na conta? Sem escolher, segue a data (futura = ainda vou receber); editando, mantém como estava.
   const [receivedChoice, setReceivedChoice] = useState<boolean | null>(initial ? !initial.awaitingReceipt : null);
   const [payerId, setPayerId] = useState(initial?.payerId ?? (prefill?.kind === "income" ? me : null) ?? prefill?.payerId ?? firstPerson);
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  // "__nenhuma__" = "Não precisa de categoria" (despesa sem categoria de propósito; não vai para A identificar).
+  const NO_CATEGORY = "__nenhuma__";
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? (initial?.noCategory ? "__nenhuma__" : ""));
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const cards = lookups.cards.filter((c) => !c.archived || c.id === initial?.cardId);
@@ -323,7 +325,8 @@ export function TxForm({
         kind,
         payerId: payerId || null,
         // Só despesa tem categoria.
-        categoryId: kind === "expense" ? categoryId || null : null,
+        categoryId: kind === "expense" && categoryId !== NO_CATEGORY ? categoryId || null : null,
+        noCategory: kind === "expense" && categoryId === NO_CATEGORY,
         projectId: projectId || null,
         cardId: kind === "expense" ? cardId || null : null,
         notes,
@@ -781,6 +784,7 @@ export function TxForm({
                   onChange={setCategoryId}
                   options={[
                     { value: "", label: "Sem categoria" },
+                    { value: NO_CATEGORY, label: "Não precisa de categoria" },
                     ...lookups.categories.filter((c) => !c.archived || c.id === categoryId).map((c) => ({ value: c.id, label: c.name, color: c.color })),
                   ]}
                 />

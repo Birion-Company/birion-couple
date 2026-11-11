@@ -175,6 +175,8 @@ export type TxRow = {
   invoicePaid: boolean;
   /** Receita "a receber": ainda não confirmada como recebida. */
   awaitingReceipt: boolean;
+  /** Despesa que não precisa de categoria (não vai para "A identificar"). */
+  noCategory: boolean;
   /** Acerto que paga a dívida de outro lançamento. */
   settlesId: string | null;
   /** Para acertos ligados: o lançamento pago e quanto era devido (o resto é o valor a mais). */
@@ -336,6 +338,7 @@ const txColumns = {
   settled: t.settled,
   invoicePaid: t.invoicePaid,
   awaitingReceipt: t.awaitingReceipt,
+  noCategory: t.noCategory,
   settlesId: t.settlesId,
   notes: t.notes,
   source: t.source,
@@ -400,7 +403,7 @@ function unidentifiedWhere(viewer: Viewer): SQL {
     viewer,
     inArray(t.kind, ["expense", "income"]),
     lte(t.date, todayIn()),
-    or(and(eq(t.kind, "expense"), isNull(t.categoryId)), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
+    or(and(eq(t.kind, "expense"), isNull(t.categoryId), eq(t.noCategory, false)), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
   );
 }
 
@@ -611,6 +614,7 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         settled: false,
         invoicePaid: false,
         awaitingReceipt: s.kind === "income",
+        noCategory: s.noCategory,
         settlesId: null,
         settles: null,
         notes: s.notes,

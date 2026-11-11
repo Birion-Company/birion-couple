@@ -9,6 +9,7 @@ import { BulkEditDialog } from "./bulk-edit";
 import {
   deleteTransactions,
   loadMoreTransactions,
+  skipCategory,
 } from "@/app/actions/transactions";
 import { missingInfo } from "@/lib/explain";
 import type { Lookups, TxRow } from "@/lib/queries";
@@ -287,6 +288,18 @@ export function TxList({
                         <ProfitAmount tx={tx} currency={currency} />
                       </span>
                     </Link>
+                    {/* A identificar: despesa que não precisa de categoria sai da lista com um toque. */}
+                    {showMissing && canEdit(tx) && missingInfo(tx).includes("categoria") && (
+                      <button
+                        type="button"
+                        className="btn small ghost skip-category"
+                        disabled={pending}
+                        onClick={() => run(() => skipCategory([tx.id]))}
+                        title="Fica sem categoria e sai de A identificar"
+                      >
+                        Não precisa de categoria
+                      </button>
+                    )}
                   </div>
                 );
               })}

@@ -46,6 +46,8 @@ const TxSchema = z.object({
   applyToSeries: z.boolean().optional(),
   /** Receita: já caiu na conta? Não = "A receber" (só conta depois do "Recebi"). */
   received: z.boolean().optional(),
+  /** Despesa sem categoria de propósito ("Não precisa de categoria"): não vai para "A identificar". */
+  noCategory: z.boolean().optional(),
   splitMode: z.enum(["equal", "custom"]),
   splits: z.array(z.object({ participantId: uuid, amountCents: z.number().int().min(0) })),
 });
@@ -182,7 +184,9 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   }
 
   // Sem categoria escolhida: usa as regras de Ajustes → Categorias ("uber" → Transporte).
-  data.categoryId = await ruleCategory(auth.householdId, data.kind, data.description, data.categoryId);
+  // "Não precisa de categoria": não aplica as regras automáticas (fica sem categoria de propósito).
+  const noCategory = data.kind === "expense" && !data.categoryId && !!data.noCategory;
+  if (!noCategory) data.categoryId = await ruleCategory(auth.householdId, data.kind, data.description, data.categoryId);
 
   // Membros (com login) no lançamento, além de quem lança: precisam aceitar antes de valer nas dívidas.
   const actx = await approvalContext(auth.householdId);
@@ -213,6 +217,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     invoicePaid,
     // Receita: "a receber" até confirmar. Sem a escolha (edição antiga), mantém como estava.
     awaitingReceipt: data.kind === "income" ? (data.received === undefined ? existing?.awaitingReceipt ?? false : !data.received) : false,
+    noCategory,
     notes: data.notes || null,
     updatedAt: new Date(),
   };
@@ -231,6 +236,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
         kind: values.kind,
         payerId: values.payerId,
         categoryId: values.categoryId,
+        noCategory: values.noCategory,
         projectId: values.projectId,
         cardId: values.cardId,
         notes: values.notes,
@@ -353,6 +359,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
               amountCents: values.amountCents,
               payerId: values.payerId,
               categoryId: values.categoryId,
+              noCategory: values.noCategory,
               projectId: values.projectId,
               cardId: values.cardId,
               notes: values.notes,
@@ -371,6 +378,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
             splits: splits.map((x) => ({ participantId: x.participantId, amountCents: x.amountCents })),
             payerId: values.payerId,
             categoryId: values.categoryId,
+            noCategory: values.noCategory,
             projectId: values.projectId,
             cardId: values.cardId,
             notes: values.notes,
@@ -1084,4 +1092,21 @@ export async function loadMoreTransactions(query: string, offset: number, limit 
   const safeOffset = Math.max(0, Math.floor(offset) || 0);
   const safeLimit = Math.min(200, Math.max(1, Math.floor(limit) || 40));
   return (await listTransactions(auth, filters, safeLimit, safeOffset, { rowsOnly: true })).rows;
+}
+
+/** "A identificar": esta despesa não precisa de categoria (sai da lista sem ganhar uma). */
+export async function skipCategory(ids: string[]): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const valid = ids.filter((x) => uuid.safeParse(x).success).slice(0, 500);
+  if (valid.length === 0) return { ok: false, error: "Nada escolhido." };
+  const notAllowed = await checkEditable(auth, valid);
+  if (notAllowed) return { ok: false, error: notAllowed };
+  const t = schema.transactions;
+  const changed = await getDb()
+    .update(t)
+    .set({ noCategory: true, updatedAt: new Date() })
+    .where(and(eq(t.householdId, auth.householdId), inArray(t.id, valid), eq(t.kind, "expense")))
+    .returning({ id: t.id });
+  revalidatePath("/", "layout");
+  return { ok: true, message: changed.length === 1 ? "Pronto: fica sem categoria e saiu de A identificar." : `${changed.length} lançamentos ficam sem categoria e saíram de A identificar.` };
 }

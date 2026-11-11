@@ -242,7 +242,7 @@ const STEPS: Step[] = [
     route: "/identificar",
     targets: ["identify-list"],
     title: "A identificar",
-    text: "O que chegou sem categoria, sem quem pagou ou sem quem deveria pagar (do extrato do banco, por exemplo) fica aqui. Complete e o lançamento sai da lista. O número no menu diz quantos faltam.",
+    text: "O que chegou sem categoria, sem quem pagou ou sem quem deveria pagar (do extrato do banco, por exemplo) fica aqui. Complete e o lançamento sai da lista. Despesa que não precisa de categoria (ex.: alguém usou o seu cartão)? Toque em **Não precisa de categoria**. O número no menu diz quantos faltam.",
   },
   {
     chapter: "Cartões",

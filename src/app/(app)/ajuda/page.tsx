@@ -38,7 +38,7 @@ const SECTIONS: Section[] = [
     items: [
       { term: "Painel", text: "Resumo do mês: quanto te devem, quanto você paga de cartão, quanto você deve, os próximos meses e os gastos por categoria." },
       { term: "Lançamentos", text: "Tudo o que foi lançado no mês, com pesquisa, filtros e edição de vários de uma vez." },
-      { term: "A identificar", text: "Lançamentos com algo faltando (categoria, quem pagou ou quem deveria pagar)." },
+      { term: "A identificar", text: "Lançamentos com algo faltando (categoria, quem pagou ou quem deveria pagar). Despesa que não precisa de categoria — ex.: a compra que o Julio fez no seu cartão, que é toda dele — sai com “Não precisa de categoria” (no item ou no campo Categoria do lançamento)." },
       { term: "Dívidas", text: "Em Lançamentos, aba Dívidas: quem deve para quem e tudo o que ainda está em aberto, de todos os meses. Escolha uma pessoa no filtro para ver o saldo com ela e o que ela já pagou." },
       { term: "Cartões", text: "Faturas de cada cartão: a que vence, a aberta, a parte de cada pessoa e os parcelados." },
       { term: "Projetos", text: "Juntam gastos de um assunto, como uma viagem. No celular, ficam no menu da sua foto." },

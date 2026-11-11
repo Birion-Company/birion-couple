@@ -60,6 +60,7 @@ export async function materializeRecurring(householdId: string) {
             notes: s.notes,
             // Receita que se repete (ex.: salário): cada mês começa "a receber" até a pessoa confirmar.
             awaitingReceipt: s.kind === "income",
+            noCategory: s.noCategory,
             source: "manual",
             createdBy: s.createdBy,
             seriesId: s.id,

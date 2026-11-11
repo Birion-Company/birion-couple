@@ -7770,3 +7770,23 @@ s.was {
     width: 60%;
   }
 }
+
+/* A identificar: "Não precisa de categoria" ao lado do item (embaixo dele no celular). */
+.tx-line:has(.skip-category) {
+  flex-wrap: wrap;
+}
+.skip-category {
+  flex: none;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .skip-category {
+    margin-left: 27px;
+  }
+}
+@media (max-width: 640px) {
+  .tx-line:has(.skip-category) > .tx-line-link {
+    flex: 1 1 calc(100% - 40px);
+    min-width: 0;
+  }
+}
