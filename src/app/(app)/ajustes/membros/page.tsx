@@ -10,7 +10,7 @@ export default async function MembersPage() {
   const [members, invites, { participants }] = await Promise.all([
     getMembers(auth.householdId),
     auth.role === "owner" ? getInvites(auth.householdId) : Promise.resolve([]),
-    getLookups(auth.householdId),
+    getLookups(auth.householdId, auth.userId),
   ]);
   return (
     <MembersPanel

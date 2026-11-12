@@ -8206,3 +8206,25 @@ a.row:hover .amount .neg {
 .awaiting-body .awaiting-sum {
   margin: 0 0 6px;
 }
+
+/* Ajustes → Pessoas: apelido de quem tem login (só para você). */
+.row:has(.nick-form) {
+  flex-wrap: wrap;
+}
+.nick-form {
+  flex-basis: 100%;
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+.nick-label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.84rem;
+  color: var(--text-2);
+}
+.nick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

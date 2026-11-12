@@ -195,9 +195,10 @@ export async function getActivityFeed(
   if (!m) return [];
   const a = schema.activities;
   const rows = await db
-    .select({ id: a.id, action: a.action, transactionId: a.transactionId, data: a.data, audience: a.audience, createdAt: a.createdAt, actor: schema.users.name })
+    .select({ id: a.id, action: a.action, transactionId: a.transactionId, data: a.data, audience: a.audience, createdAt: a.createdAt, actor: schema.users.name, actorPid: schema.memberships.participantId })
     .from(a)
     .leftJoin(schema.users, eq(schema.users.id, a.actorUserId))
+    .leftJoin(schema.memberships, and(eq(schema.memberships.userId, a.actorUserId), eq(schema.memberships.householdId, a.householdId)))
     .where(
       and(
         eq(a.householdId, viewer.householdId),
@@ -285,7 +286,8 @@ export async function getActivityFeed(
   const out: FeedItem[] = [];
   for (const r of rows) {
     const d = r.data as ActivityData;
-    const actor = r.actor ?? "Alguém";
+    // Com apelido dado por quem lê, aparece o apelido.
+    const actor = (r.actorPid && lookups.participants.find((p) => p.id === r.actorPid)?.nickname) || r.actor || "Alguém";
     const tx = d.tx;
     let text = "";
     let detail: string | null = null;

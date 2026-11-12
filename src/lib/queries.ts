@@ -19,7 +19,11 @@ const t = schema.transactions;
 const { photoData: _photo, ...participantColumns } = getTableColumns(schema.participants);
 void _photo;
 
-export async function getLookups(householdId: string) {
+/**
+ * Listas da família. Com `userId`, quem tem login aparece com o apelido que essa conta deu
+ * (o nome cadastrado fica em `realName`).
+ */
+export async function getLookups(householdId: string, userId?: string) {
   const db = getDb();
   const [participants, categories, projects, statuses, cards] = await Promise.all([
     db.select(participantColumns).from(schema.participants).where(eq(schema.participants.householdId, householdId)).orderBy(asc(schema.participants.sortOrder), asc(schema.participants.createdAt)),
@@ -36,15 +40,23 @@ export async function getLookups(householdId: string) {
     .where(and(eq(schema.memberships.householdId, householdId), isNotNull(schema.users.avatarUpdatedAt)));
   const photoOf = new Map(photos.map((x) => [x.participantId, `/api/avatar/${x.userId}?v=${x.at!.getTime()}`]));
   // Quem tem login: a foto do perfil. Quem não tem: a foto cadastrada em Ajustes → Pessoas (se houver).
-  const [loginRows, lastUsed] = await Promise.all([
+  const [loginRows, lastUsed, nicks] = await Promise.all([
     db.select({ id: schema.memberships.participantId }).from(schema.memberships).where(eq(schema.memberships.householdId, householdId)),
     // Última vez que cada pessoa apareceu num lançamento: ordena os contatos recentes nas listas.
     lastUsedByPerson(householdId),
+    userId
+      ? db.select({ id: schema.nicknames.participantId, nickname: schema.nicknames.nickname }).from(schema.nicknames).where(eq(schema.nicknames.userId, userId))
+      : Promise.resolve([] as { id: string; nickname: string }[]),
   ]);
   const logins = new Set(loginRows.map((m) => m.id));
+  const nickOf = new Map(nicks.map((n) => [n.id, n.nickname]));
   return {
     participants: participants.map((x) => ({
       ...x,
+      // Apelido só vale para quem tem login (contato sem login você mesmo renomeia).
+      name: (logins.has(x.id) && nickOf.get(x.id)) || x.name,
+      realName: x.name,
+      nickname: logins.has(x.id) ? (nickOf.get(x.id) ?? null) : null,
       hasLogin: logins.has(x.id),
       lastUsed: lastUsed.get(x.id) ?? null,
       avatarUrl: photoOf.get(x.id) ?? (x.photoUpdatedAt && !logins.has(x.id) ? `/api/avatar/pessoa/${x.id}?v=${x.photoUpdatedAt.getTime()}` : null),
@@ -60,7 +72,7 @@ export type Lookups = Awaited<ReturnType<typeof getLookups>>;
 
 /** Listas da família como esta pessoa deve vê-las: cartões só os dela (quem administra vê todos). */
 export async function getLookupsFor(viewer: Viewer): Promise<Lookups> {
-  const l = await getLookups(viewer.householdId);
+  const l = await getLookups(viewer.householdId, viewer.userId);
   return { ...l, cards: cardsFor(viewer, l.cards) };
 }
 

@@ -66,6 +66,25 @@ export const memberships = pgTable(
   (t) => [primaryKey({ columns: [t.householdId, t.userId] })],
 );
 
+/**
+ * Apelidos: cada conta pode dar um apelido às pessoas com login da família, só para ela mesma.
+ * Ex.: dois "Felipe" — para você um vira "Felipe (irmão)". Os outros continuam vendo o nome cadastrado.
+ */
+export const nicknames = pgTable(
+  "nicknames",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    participantId: uuid()
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    nickname: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.participantId] })],
+);
+
 export const invites = pgTable("invites", {
   id: id(),
   householdId: uuid()

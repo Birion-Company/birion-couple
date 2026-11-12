@@ -104,3 +104,34 @@ export async function markTourSeen(): Promise<void> {
   const auth = await requireAuth();
   await getDb().update(schema.users).set({ tourSeenAt: new Date() }).where(eq(schema.users.id, auth.userId));
 }
+
+/**
+ * Apelido de uma pessoa com login da família, só para quem está logado (os outros continuam vendo o
+ * nome cadastrado). Vazio apaga o apelido. Não dá para apelidar a si mesmo.
+ */
+export async function setNickname(participantId: string, raw: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const nickname = raw.trim().replace(/\s+/g, " ");
+  if (nickname.length > 40) return { ok: false, error: "O apelido pode ter até 40 letras." };
+  if (participantId === auth.participantId) return { ok: false, error: "Para mudar o seu nome, use Meu perfil." };
+  const db = getDb();
+  const [member] = await db
+    .select({ pid: schema.memberships.participantId })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, participantId)))
+    .limit(1);
+  if (!member) return { ok: false, error: "Apelido só vale para quem tem login na sua família." };
+  const key = and(eq(schema.nicknames.userId, auth.userId), eq(schema.nicknames.participantId, participantId));
+  const [p] = await db.select({ name: schema.participants.name }).from(schema.participants).where(eq(schema.participants.id, participantId)).limit(1);
+  if (!nickname || nickname === p?.name) {
+    await db.delete(schema.nicknames).where(key);
+    revalidatePath("/", "layout");
+    return { ok: true, message: "Apelido removido. Aparece o nome cadastrado." };
+  }
+  await db
+    .insert(schema.nicknames)
+    .values({ userId: auth.userId, participantId, nickname })
+    .onConflictDoUpdate({ target: [schema.nicknames.userId, schema.nicknames.participantId], set: { nickname } });
+  revalidatePath("/", "layout");
+  return { ok: true, message: `Pronto: para você, agora é “${nickname}”.` };
+}

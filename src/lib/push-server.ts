@@ -82,8 +82,20 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
     db.select({ id: schema.participants.id, name: schema.participants.name }).from(schema.participants).where(eq(schema.participants.householdId, householdId)),
     db.select({ currency: schema.households.currency }).from(schema.households).where(eq(schema.households.id, householdId)),
   ]);
-  const who = actor?.name?.split(" ")[0] ?? "Alguém";
-  const nameOf = new Map(parts.map((p) => [p.id, p.name]));
+  const baseWho = actor?.name?.split(" ")[0] ?? "Alguém";
+  const baseName = new Map(parts.map((p) => [p.id, p.name]));
+  // Apelidos que cada pessoa que recebe deu (só para ela) e a pessoa de quem fez a mudança.
+  const [nickRows, [actorMember]] = await Promise.all([
+    db
+      .select({ userId: schema.nicknames.userId, pid: schema.nicknames.participantId, nickname: schema.nicknames.nickname })
+      .from(schema.nicknames)
+      .where(inArray(schema.nicknames.userId, targets.map((t) => t.userId))),
+    db
+      .select({ pid: schema.memberships.participantId })
+      .from(schema.memberships)
+      .where(and(eq(schema.memberships.userId, actorUserId), eq(schema.memberships.householdId, householdId))),
+  ]);
+  const nickOf = new Map(nickRows.map((n) => [`${n.userId}:${n.pid}`, n.nickname]));
   const money = (c: number) => formatMoney(c, house?.currency ?? "BRL");
   const url = entry.transactionId ? `/transacoes/${entry.transactionId}` : "/painel";
   const tx = entry.data.tx;
@@ -91,6 +103,9 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
 
   for (const t of targets) {
     const me = t.participantId;
+    const nick = (pid: string | null | undefined) => (pid ? nickOf.get(`${t.userId}:${pid}`) : undefined);
+    const who = nick(actorMember?.pid) ?? baseWho;
+    const nameOf = { get: (pid: string) => nick(pid) ?? baseName.get(pid) };
     let msg: PushMessage | null = null;
     // Tipo do aviso, para respeitar o que a pessoa escolheu receber.
     let kind: PushKind = "alteracao";

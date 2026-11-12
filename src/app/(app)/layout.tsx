@@ -30,7 +30,7 @@ function Brand() {
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
-  const [lookups, myLookups] = await Promise.all([getLookups(auth.householdId), getLookupsFor(auth)]);
+  const [lookups, myLookups] = await Promise.all([getLookups(auth.householdId, auth.userId), getLookupsFor(auth)]);
   const [alerts, activity, toIdentify, inbox] = await Promise.all([
     getCardAlerts(auth),
     getActivityFeed(auth, lookups, auth.currency, { all: true }),

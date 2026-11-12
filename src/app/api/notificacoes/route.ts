@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const auth = await getAuth();
   if (!auth) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const lookups = await getLookups(auth.householdId);
+  const lookups = await getLookups(auth.householdId, auth.userId);
   const items = await getActivityFeed(auth, lookups, auth.currency, { all: true });
   return NextResponse.json({ items }, { headers: { "Cache-Control": "no-store" } });
 }

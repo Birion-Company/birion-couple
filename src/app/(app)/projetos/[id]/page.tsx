@@ -14,7 +14,7 @@ export default async function ProjectPage({ params }: PageProps<"/projetos/[id]"
   const auth = await requireAuth();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const [lookups, rows, candidates] = await Promise.all([getLookups(auth.householdId), getProjectTransactions(auth, id), getProjectCandidates(auth)]);
+  const [lookups, rows, candidates] = await Promise.all([getLookups(auth.householdId, auth.userId), getProjectTransactions(auth, id), getProjectCandidates(auth)]);
   const project = lookups.projects.find((p) => p.id === id);
   if (!project) notFound();
   const cat = (cid: string | null) => (cid ? lookups.categories.find((c) => c.id === cid)?.name ?? "—" : "Sem categoria");

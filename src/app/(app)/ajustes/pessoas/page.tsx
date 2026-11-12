@@ -3,6 +3,7 @@ import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { ListEditor } from "@/components/list-editor";
 import { Avatar } from "@/components/ui";
+import { NicknameEditor } from "@/components/nickname-editor";
 import { requireAuth } from "@/lib/auth";
 import { CONTACT_IDLE_DAYS, CONTACTS_TOTAL_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getLookups } from "@/lib/queries";
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: "Pessoas" };
  */
 export default async function PeoplePage() {
   const auth = await requireAuth();
-  const { participants } = await getLookups(auth.householdId);
+  const { participants } = await getLookups(auth.householdId, auth.userId);
   const members = participants.filter((p) => p.hasLogin);
   const contacts = participants.filter((p) => !p.hasLogin);
   const owner = auth.role === "owner";
@@ -29,7 +30,9 @@ export default async function PeoplePage() {
             {members.length} de {MEMBERS_MAX}, contando você
           </span>
         </div>
-        <p className="faint">Entram no app, veem o que os envolve e recebem avisos.</p>
+        <p className="faint">
+          Entram no app, veem o que os envolve e recebem avisos. Dois com o mesmo nome? Toque no lápis e dê um <strong>apelido</strong>: só você vê.
+        </p>
         <div className="rows" style={{ marginTop: 8 }}>
           {members.map((p) => (
             <div key={p.id} className="row">
@@ -39,7 +42,9 @@ export default async function PeoplePage() {
                   {p.name}
                   {p.id === auth.participantId && <span className="faint"> · você</span>}
                 </p>
+                {p.nickname && <p className="sub">Nome cadastrado: {p.realName}</p>}
               </div>
+              {p.id !== auth.participantId && <NicknameEditor participantId={p.id} realName={p.realName} nickname={p.nickname} />}
             </div>
           ))}
         </div>
