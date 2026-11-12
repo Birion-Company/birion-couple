@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Copy, Plus, Search, Trash2, X } from "lucide-react";
 import {
   addRule,
@@ -15,7 +15,7 @@ import {
   setMemberRole,
   updateHousehold,
 } from "@/app/actions/settings";
-import { ADMINS_MAX, CURRENCIES, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
+import { ADMINS_MAX, CURRENCIES, HOUSEHOLD_NAME_MAX, INVITES_OPEN_MAX } from "@/lib/defaults";
 import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Dot } from "./ui";
@@ -183,6 +183,20 @@ export function RulesEditor({ rules, categories }: { rules: { id: string; patter
   );
 }
 
+/** "vence em 23h 41min": contagem regressiva do convite (atualiza a cada 30 segundos). */
+function Countdown({ until }: { until: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const left = Math.max(0, Date.parse(until) - now);
+  if (left === 0) return <span className="neg">venceu</span>;
+  const h = Math.floor(left / 3_600_000);
+  const m = Math.floor((left % 3_600_000) / 60_000);
+  return <span className={h < 2 ? "warn" : undefined}>vence em {h > 0 ? `${h}h ` : ""}{m}min</span>;
+}
+
 export function MembersPanel({
   members,
   invites,
@@ -191,13 +205,14 @@ export function MembersPanel({
   isOwner,
 }: {
   members: { userId: string; name: string; email: string; role: string; participantId: string | null }[];
-  invites: { id: string; code: string; role: string; expiresAt: string }[];
+  invites: { id: string; code: string; role: string; expiresAt: string; label: string | null }[];
   participants: Opt[];
   me: string;
   isOwner: boolean;
 }) {
   const [pending, act] = useAct();
   const [role, setRole] = useState<"member" | "owner">("member");
+  const [label, setLabel] = useState("");
   const pName = new Map(participants.map((p) => [p.id, p.name]));
   const linkFor = (code: string) => `${window.location.origin}/convite/${code}`;
   const copy = async (code: string) => {
@@ -274,9 +289,18 @@ export function MembersPanel({
         <section className="card section" data-tour="members-invite">
           <h2 style={{ marginBottom: 4 }}>Convidar alguém</h2>
           <p className="faint" style={{ marginBottom: 12 }}>
-            Gere um link e envie para a pessoa.
+            Dê um nome ao convite e envie o link para a pessoa. Cada convite vale por 1 dia e para uma pessoa só; quando alguém usa, ele sai
+            daqui. Até {INVITES_OPEN_MAX} abertos.
           </p>
           <div className="actions">
+            <input
+              className="input grow"
+              placeholder="Nome do convite. Ex.: mãe"
+              maxLength={30}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              aria-label="Nome do convite"
+            />
             <Select
               ariaLabel="Permissão do convite"
               style={{ width: "auto" }}
@@ -289,11 +313,14 @@ export function MembersPanel({
             />
             <button
               className="btn primary"
-              disabled={pending}
+              disabled={pending || invites.length >= INVITES_OPEN_MAX}
               onClick={() =>
                 act(async () => {
-                  const r = await createInvite(role);
-                  if (r.ok && r.code) await copy(r.code);
+                  const r = await createInvite(role, null, label);
+                  if (r.ok && r.code) {
+                    setLabel("");
+                    await copy(r.code);
+                  }
                   return { ...r, message: undefined };
                 })
               }
@@ -302,13 +329,18 @@ export function MembersPanel({
             </button>
           </div>
           {invites.length > 0 && (
+            <p className="faint num" style={{ marginTop: 12 }}>
+              {invites.length} de {INVITES_OPEN_MAX} convites abertos
+            </p>
+          )}
+          {invites.length > 0 && (
             <div className="rows" style={{ marginTop: 12 }}>
               {invites.map((i) => (
                 <div key={i.id} className="row">
                   <div className="grow">
-                    <p className="title num">…/convite/{i.code.slice(0, 6)}…</p>
+                    <p className="title">{i.label ?? "Convite sem nome"}</p>
                     <p className="sub">
-                      {i.role === "owner" ? "administrador" : "membro"} · vale até {new Date(i.expiresAt).toLocaleDateString("pt-BR")}
+                      {i.role === "owner" ? "administrador" : "membro"} · <Countdown until={i.expiresAt} />
                     </p>
                   </div>
                   <button className="icon-btn" onClick={() => copy(i.code)} aria-label="Copiar link">

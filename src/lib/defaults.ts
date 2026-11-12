@@ -12,6 +12,9 @@ export const CARDS_PER_PERSON_MAX = 3;
 export const MEMBERS_MAX = 10;
 /** Administradores por família: quem administra vê e altera tudo, então é bom ter poucos. */
 export const ADMINS_MAX = 3;
+/** Convites abertos (não usados e não vencidos) ao mesmo tempo, e quanto tempo cada um vale. */
+export const INVITES_OPEN_MAX = 10;
+export const INVITE_VALID_HOURS = 24;
 export const ADMINS_FULL_MESSAGE = `A família já tem ${ADMINS_MAX} pessoas administrando, o máximo. Tire alguém da administração antes.`;
 /** Por pessoa com login: cada uma tem os próprios contatos. */
 export const CONTACTS_ACTIVE_MAX = 80;

@@ -21,7 +21,7 @@ export default async function MembersPage() {
     {auth.role !== "owner" && <RequestInvitePanel requests={requests} />}
     <MembersPanel
       members={members}
-      invites={invites.map((i) => ({ id: i.id, code: i.code, role: i.role, expiresAt: i.expiresAt.toISOString() }))}
+      invites={invites.map((i) => ({ id: i.id, code: i.code, role: i.role, expiresAt: i.expiresAt.toISOString(), label: i.label }))}
       participants={participants}
       me={auth.userId}
       isOwner={auth.role === "owner"}

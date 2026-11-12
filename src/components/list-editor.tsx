@@ -266,7 +266,7 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
       const link = `${window.location.origin}/convite/${r.code}`;
       try {
         await navigator.clipboard.writeText(link);
-        toastResult({ ok: true, message: `Link de convite de ${name} copiado. Vale por 7 dias.` });
+        toastResult({ ok: true, message: `Link de convite de ${name} copiado. Vale por 1 dia.` });
       } catch {
         window.prompt(`Envie este link para ${name}:`, link);
       }

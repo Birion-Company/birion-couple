@@ -1,7 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { and, asc, count, eq, gte, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
@@ -15,7 +15,7 @@ import { logFamily } from "@/lib/family-log";
 import { destroySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { ICON_KEYS } from "@/lib/category-icons";
-import { ADMINS_FULL_MESSAGE, ADMINS_MAX, HOUSEHOLD_NAME_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
+import { ADMINS_FULL_MESSAGE, ADMINS_MAX, HOUSEHOLD_NAME_MAX, INVITE_VALID_HOURS, INVITES_OPEN_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
@@ -284,6 +284,11 @@ async function makeInvite(
 ): Promise<ActionResult & { code?: string; inviteId?: string }> {
   if (!(await hasRoomForMember(getDb(), auth.householdId))) return fail(MEMBERS_FULL_MESSAGE);
   if (role === "owner" && (await adminCount(auth.householdId)) >= ADMINS_MAX) return fail(ADMINS_FULL_MESSAGE);
+  const [{ open }] = await getDb()
+    .select({ open: count() })
+    .from(schema.invites)
+    .where(and(eq(schema.invites.householdId, auth.householdId), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date())));
+  if (open >= INVITES_OPEN_MAX) return fail(`Já há ${INVITES_OPEN_MAX} convites abertos, o máximo. Cancele um ou espere vencer.`);
   // Convite de um contato: a conta nova fica ligada a ele (só se for mesmo um contato desta família, sem login).
   if (participantId) {
     const [ok] = await getDb()
@@ -306,9 +311,10 @@ async function makeInvite(
       householdId: auth.householdId,
       code,
       role: role === "owner" ? "owner" : "member",
+      label: forName ? `Convite ${forName}`.slice(0, 40) : null,
       participantId,
       createdBy: auth.userId,
-      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+      expiresAt: new Date(Date.now() + INVITE_VALID_HOURS * 3600 * 1000),
     })
     .returning({ id: schema.invites.id });
   await logFamily(db, {
@@ -319,12 +325,13 @@ async function makeInvite(
     text: `${auth.userName} gerou um convite${forName ? ` para ${forName}` : ""} ${role === "owner" ? "como administrador" : "como membro"}.`,
   });
   revalidatePath("/ajustes", "layout");
-  return { ok: true, code, inviteId: inv.id, message: "Convite criado. Vale por 7 dias e para uma pessoa." };
+  return { ok: true, code, inviteId: inv.id, message: "Convite criado. Vale por 1 dia e para uma pessoa." };
 }
 
-export async function createInvite(role: "owner" | "member", participantId: string | null = null): Promise<ActionResult & { code?: string }> {
+export async function createInvite(role: "owner" | "member", participantId: string | null = null, name?: string): Promise<ActionResult & { code?: string }> {
   const auth = await requireOwner();
-  return makeInvite(auth, role, participantId);
+  const label = name?.trim().replace(/^convite\s+/i, "").slice(0, 30);
+  return makeInvite(auth, role, participantId, label || undefined);
 }
 
 const FOR_NAME = z.string().trim().min(1, { error: "Diga para quem é o convite." }).max(60);

@@ -93,6 +93,8 @@ export const invites = pgTable("invites", {
     .notNull()
     .references(() => households.id, { onDelete: "cascade" }),
   code: text().notNull().unique(),
+  /** Nome do convite para reconhecer na lista (ex.: "Convite mãe"). */
+  label: text(),
   role: text().notNull().default("member"),
   /** Convite feito a partir de um contato: ao aceitar, a conta fica ligada a essa pessoa (com o histórico dela). */
   participantId: uuid().references(() => participants.id, { onDelete: "set null" }),
