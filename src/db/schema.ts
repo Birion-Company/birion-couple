@@ -27,6 +27,12 @@ export const households = pgTable("households", {
    * Os anteriores (de antes de existir a confirmação) valem como já aceitos.
    */
   approvalsFrom: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  /**
+   * Última manutenção automática (meses das contas fixas, parcelas, categorias, contatos parados) e a
+   * última atividade que ela já tinha visto: guardado aqui para valer em todos os servidores.
+   */
+  maintainedAt: timestamp({ withTimezone: true }),
+  maintainedActivityAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),
 });
 

@@ -79,9 +79,7 @@ export async function materializeRecurring(householdId: string) {
   }
 }
 
-/** Última manutenção de cada família neste servidor: quando, em que mês e a última atividade que já tinha visto. */
-const lastRun = new Map<string, { at: number; month: string; activity: number }>();
-/** Mesmo sem mudanças, refaz de tempos em tempos (ex.: o mês virou, outra instância do servidor gravou algo). */
+/** Mesmo sem mudanças, refaz de tempos em tempos (ex.: o mês virou). */
 const FRESH_MS = 5 * 60_000;
 
 /**
@@ -90,21 +88,31 @@ const FRESH_MS = 5 * 60_000;
  * e esconde contatos parados e quites.
  *
  * Roda antes das consultas, mas só quando algo mudou: toda ação que grava registra uma atividade,
- * então basta ver se há atividade nova desde a última vez (uma consulta de ~1 ms). Assim trocar de
- * página não espera essas quatro rotinas à toa.
+ * então basta ver se há atividade nova desde a última vez. A marca fica no banco (na família), e não
+ * na memória do servidor, para um servidor novo do Netlify não refazer tudo à toa.
  */
 export const ensureRecurring = cache(async (householdId: string) => {
+  const db = getDb();
   const month = todayIn().slice(0, 7);
-  const [row] = await getDb()
-    .select({ at: max(schema.activities.createdAt) })
-    .from(schema.activities)
-    .where(eq(schema.activities.householdId, householdId));
-  const activity = row?.at?.getTime() ?? 0;
-  const prev = lastRun.get(householdId);
-  if (prev && prev.month === month && prev.activity === activity && Date.now() - prev.at < FRESH_MS) return;
+  const [[row], [house]] = await Promise.all([
+    db.select({ at: max(schema.activities.createdAt) }).from(schema.activities).where(eq(schema.activities.householdId, householdId)),
+    db
+      .select({ at: schema.households.maintainedAt, seen: schema.households.maintainedActivityAt })
+      .from(schema.households)
+      .where(eq(schema.households.id, householdId)),
+  ]);
+  const activity = row?.at ?? null;
+  const last = house?.at ?? null;
+  const fresh =
+    last &&
+    todayIn("America/Sao_Paulo", last).slice(0, 7) === month &&
+    (activity?.getTime() ?? 0) === (house?.seen?.getTime() ?? 0) &&
+    Date.now() - last.getTime() < FRESH_MS;
+  if (fresh) return;
+  if (process.env.NODE_ENV !== "production") console.info(`[manutenção] família ${householdId.slice(0, 8)}`);
   await materializeRecurring(householdId);
   await expandInstallments(householdId);
   await classifyFromHistory(householdId);
   await hideIdleContacts(householdId);
-  lastRun.set(householdId, { at: Date.now(), month, activity });
+  await db.update(schema.households).set({ maintainedAt: new Date(), maintainedActivityAt: activity }).where(eq(schema.households.id, householdId));
 });
