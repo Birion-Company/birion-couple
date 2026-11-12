@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Search } from "lucide-react";
 import { loadAuditFeed, type FeedRow } from "@/app/actions/history";
 import { PagedList } from "./paged-list";
 
 const fold = (x: string) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const PAGE = 40;
 
 /** Campo de busca que filtra na hora (sem acento, sem maiúsculas). */
 function Filter({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
