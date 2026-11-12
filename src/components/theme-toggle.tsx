@@ -38,10 +38,24 @@ export function ThemeToggle({ className = "icon-btn", withLabel = false }: { cla
   const toggle = () => {
     const next: Theme = current() === "dark" ? "light" : "dark";
     const root = document.documentElement;
-    root.classList.add("theme-switching");
-    root.setAttribute("data-theme", next);
-    paintBar(next);
-    window.setTimeout(() => root.classList.remove("theme-switching"), 350);
+    const apply = () => {
+      root.setAttribute("data-theme", next);
+      paintBar(next);
+    };
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const vt = (document as Document & { startViewTransition?: (cb: () => void) => unknown }).startViewTransition;
+    if (vt && !reduced) {
+      // Fusão suave feita pelo navegador (uma "foto" da tela antiga some enquanto a nova aparece), sem animar
+      // elemento por elemento: não engasga em páginas grandes.
+      vt.call(document, apply);
+    } else if (reduced) {
+      apply();
+    } else {
+      // Navegador sem essa função: transição de cor nos elementos (mais pesada), só durante a troca.
+      root.classList.add("theme-switching");
+      apply();
+      window.setTimeout(() => root.classList.remove("theme-switching"), 350);
+    }
     try {
       localStorage.setItem(KEY, next);
     } catch {}
