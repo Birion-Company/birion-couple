@@ -26,11 +26,13 @@ const membersOf = (householdId: string) =>
 
 /** Última data em que cada pessoa aparece num lançamento (como quem pagou ou com parte). Pode ser futura. */
 export async function lastUsedByPerson(householdId: string) {
+  // Só os últimos ~200 dias (e o futuro): basta para ordenar os contatos recentes e achar os parados há 90 dias.
+  const since = addDaysIso(todayIn(), -200);
   const rows = await getDb().execute<{ pid: string; last: string }>(sql`
     select pid, max(d)::text as last from (
-      select ${t.payerId} as pid, ${t.date} as d from ${t} where ${t.householdId} = ${householdId} and ${t.payerId} is not null
+      select ${t.payerId} as pid, ${t.date} as d from ${t} where ${t.householdId} = ${householdId} and ${t.payerId} is not null and ${t.date} >= ${since}
       union all
-      select s."participantId" as pid, ${t.date} as d from "transaction_splits" s join ${t} on ${t.id} = s."transactionId" where ${t.householdId} = ${householdId}
+      select s."participantId" as pid, ${t.date} as d from "transaction_splits" s join ${t} on ${t.id} = s."transactionId" where ${t.householdId} = ${householdId} and ${t.date} >= ${since}
     ) x group by pid`);
   return new Map(rows.rows.map((r) => [r.pid, r.last]));
 }

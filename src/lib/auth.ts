@@ -17,6 +17,8 @@ export type AuthContext = {
   participantId: string | null;
   /** Muda quando a foto de perfil muda (milissegundos); nulo sem foto. */
   avatarVersion: number | null;
+  /** Quando viu (ou pulou) o tutorial; nulo = ainda não viu. */
+  tourSeenAt: Date | null;
 };
 
 /** Lê a sessão e confere no banco se a pessoa ainda é membro da família. */
@@ -37,6 +39,7 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
       participantId: schema.memberships.participantId,
       avatarUpdatedAt: schema.users.avatarUpdatedAt,
       emailVerifiedAt: schema.users.emailVerifiedAt,
+      tourSeenAt: schema.users.tourSeenAt,
     })
     .from(schema.memberships)
     .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))

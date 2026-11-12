@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Para confirmar" };
  */
 export default async function ConfirmPage() {
   const auth = await requireAuth();
-  const [inbox, lookups, all] = await Promise.all([getApprovalInbox(auth), getLookupsFor(auth), getLookups(auth.householdId)]);
+  const [inbox, lookups, all] = await Promise.all([getApprovalInbox(auth), getLookupsFor(auth), getLookups(auth.householdId, auth.userId)]);
   const people = new Map(lookups.participants.map((p) => [p.id, p]));
   const name = (id: string | null) => (id === auth.participantId ? "você" : (id && people.get(id)?.name) || "alguém");
   const me = auth.participantId;

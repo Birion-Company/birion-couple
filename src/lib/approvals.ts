@@ -87,17 +87,20 @@ export async function approvalStates(householdId: string, rows: ApprovalInput[])
   const seriesStart = new Map<string, Date>();
   for (let i = 0; i < seriesIds.length; i += 500) {
     const part = seriesIds.slice(i, i + 500);
-    const found = await db
-      .select({ seriesId: t.seriesId, first: min(t.createdAt) })
-      .from(t)
-      .where(and(eq(t.householdId, householdId), inArray(t.seriesId, part)))
-      .groupBy(t.seriesId);
+    // As duas consultas não dependem uma da outra: vão juntas.
+    const [found, recs] = await Promise.all([
+      db
+        .select({ seriesId: t.seriesId, first: min(t.createdAt) })
+        .from(t)
+        .where(and(eq(t.householdId, householdId), inArray(t.seriesId, part)))
+        .groupBy(t.seriesId),
+      // Séries "todo mês" sem fim: o modelo guardado diz quando começou.
+      db
+        .select({ id: schema.recurringSeries.id, createdAt: schema.recurringSeries.createdAt })
+        .from(schema.recurringSeries)
+        .where(and(eq(schema.recurringSeries.householdId, householdId), inArray(schema.recurringSeries.id, part))),
+    ]);
     for (const f of found) if (f.seriesId && f.first) seriesStart.set(f.seriesId, f.first);
-    // Séries "todo mês" sem fim: o modelo guardado diz quando começou.
-    const recs = await db
-      .select({ id: schema.recurringSeries.id, createdAt: schema.recurringSeries.createdAt })
-      .from(schema.recurringSeries)
-      .where(and(eq(schema.recurringSeries.householdId, householdId), inArray(schema.recurringSeries.id, part)));
     for (const r of recs) {
       const cur = seriesStart.get(r.id);
       if (!cur || r.createdAt < cur) seriesStart.set(r.id, r.createdAt);

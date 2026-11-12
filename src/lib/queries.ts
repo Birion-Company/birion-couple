@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { and, asc, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { cardsFor, isAdmin, txScope, type Viewer } from "./access";
 import { approvalContext, approvalKey, approvalStates, type ApprovalInput, type ApprovalState } from "./approvals";
@@ -23,26 +23,18 @@ void _photo;
  * Listas da família. Com `userId`, quem tem login aparece com o apelido que essa conta deu
  * (o nome cadastrado fica em `realName`).
  */
-export async function getLookups(householdId: string, userId?: string) {
+export const getLookups = cache(async (householdId: string, userId?: string) => {
   const db = getDb();
-  const [participants, categories, projects, statuses, cards] = await Promise.all([
+  // Tudo numa ida só ao banco (as consultas não dependem umas das outras).
+  const [participants, categories, projects, statuses, cards, loginRows, lastUsed, nicks] = await Promise.all([
     db.select(participantColumns).from(schema.participants).where(eq(schema.participants.householdId, householdId)).orderBy(asc(schema.participants.sortOrder), asc(schema.participants.createdAt)),
     db.select().from(schema.categories).where(eq(schema.categories.householdId, householdId)).orderBy(asc(schema.categories.sortOrder), asc(schema.categories.name)),
     db.select().from(schema.projects).where(eq(schema.projects.householdId, householdId)).orderBy(asc(schema.projects.name)),
     db.select().from(schema.statuses).where(eq(schema.statuses.householdId, householdId)).orderBy(asc(schema.statuses.sortOrder), asc(schema.statuses.createdAt)),
     db.select().from(schema.creditCards).where(eq(schema.creditCards.householdId, householdId)).orderBy(asc(schema.creditCards.createdAt)),
-  ]);
-  // Foto de perfil de quem tem login (a pessoa ligada a um usuário com foto).
-  const photos = await db
-    .select({ participantId: schema.memberships.participantId, userId: schema.users.id, at: schema.users.avatarUpdatedAt })
-    .from(schema.memberships)
-    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
-    .where(and(eq(schema.memberships.householdId, householdId), isNotNull(schema.users.avatarUpdatedAt)));
-  const photoOf = new Map(photos.map((x) => [x.participantId, `/api/avatar/${x.userId}?v=${x.at!.getTime()}`]));
-  // Quem tem login: a foto do perfil. Quem não tem: a foto cadastrada em Ajustes → Pessoas (se houver).
-  const [loginRows, lastUsed, nicks] = await Promise.all([
+    // Quem tem login: usuário, @usuário e a foto de perfil (se tiver).
     db
-      .select({ id: schema.memberships.participantId, userId: schema.memberships.userId, username: schema.users.username })
+      .select({ id: schema.memberships.participantId, userId: schema.memberships.userId, username: schema.users.username, avatarAt: schema.users.avatarUpdatedAt })
       .from(schema.memberships)
       .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
       .where(eq(schema.memberships.householdId, householdId)),
@@ -52,6 +44,7 @@ export async function getLookups(householdId: string, userId?: string) {
       ? db.select({ id: schema.nicknames.participantId, nickname: schema.nicknames.nickname }).from(schema.nicknames).where(eq(schema.nicknames.userId, userId))
       : Promise.resolve([] as { id: string; nickname: string }[]),
   ]);
+  const photoOf = new Map(loginRows.filter((x) => x.avatarAt).map((x) => [x.id, `/api/avatar/${x.userId}?v=${x.avatarAt!.getTime()}`]));
   const logins = new Set(loginRows.map((m) => m.id));
   const nickOf = new Map(nicks.map((n) => [n.id, n.nickname]));
   // Contato de outra conta: só o dono vê o nome. Os outros veem "Contato de Fulano", sem foto, e ele não entra nas listas.
@@ -65,10 +58,21 @@ export async function getLookups(householdId: string, userId?: string) {
     const n = pid ? nameOfPid.get(pid) : null;
     return n ? `Contato de ${n.split(" ")[0]}` : "Contato de outra pessoa";
   };
+  type FullPerson = (typeof participants)[number] & {
+    foreign: boolean;
+    username: string | null;
+    realName: string;
+    nickname: string | null;
+    hasLogin: boolean;
+    lastUsed: string | null;
+    avatarUrl: string | null;
+  };
   return {
-    participants: participants.map((x) =>
+    participants: participants.map((x): FullPerson =>
       foreign(x)
-        ? { ...x, name: ownerLabel(x.ownerUserId), realName: ownerLabel(x.ownerUserId), nickname: null, username: null, color: "#94A3B8", archived: true, photoUpdatedAt: null, foreign: true, hasLogin: false, lastUsed: null, avatarUrl: null }
+        // Contato de outra pessoa: só o que as telas usam para mostrar "Contato de Fulano" (enxuto, porque a lista
+        // inteira vai em toda página: numa família grande são centenas de itens).
+        ? ({ id: x.id, name: ownerLabel(x.ownerUserId), color: "#94A3B8", archived: true, foreign: true, hasLogin: false } as unknown as FullPerson)
         : {
       ...x,
       foreign: false,
@@ -87,7 +91,7 @@ export async function getLookups(householdId: string, userId?: string) {
     statuses,
     cards,
   };
-}
+});
 
 export type Lookups = Awaited<ReturnType<typeof getLookups>>;
 
@@ -256,45 +260,33 @@ async function attachSplits(rows: BaseRow[]): Promise<TxRow[]> {
   const db = getDb();
   const ids = rows.map((r) => r.id);
   const splits: { transactionId: string; participantId: string; amountCents: number; paidById: string | null }[] = [];
-  for (let i = 0; i < ids.length; i += 500) {
-    splits.push(
-      ...(await db
-        .select()
-        .from(schema.transactionSplits)
-        .where(inArray(schema.transactionSplits.transactionId, ids.slice(i, i + 500)))),
-    );
-  }
-  // Pagamentos ligados a estes lançamentos ("Recebi/Paguei"): o que quitou uma parte e os parciais.
   const linked: { id: string; settlesId: string | null; seriesId: string | null; kind: string; payerId: string | null; amountCents: number; createdBy: string | null; createdAt: Date }[] = [];
-  for (let i = 0; i < ids.length; i += 500) {
-    linked.push(
-      ...(await db
-        .select({ id: t.id, settlesId: t.settlesId, seriesId: t.seriesId, kind: t.kind, payerId: t.payerId, amountCents: t.amountCents, createdBy: t.createdBy, createdAt: t.createdAt })
-        .from(t)
-        .where(inArray(t.settlesId, ids.slice(i, i + 500)))),
-    );
-  }
-  // Lançamentos que estes acertos pagam (quando a lista tem o acerto e não o original).
+  const payCols = { id: t.id, settlesId: t.settlesId, seriesId: t.seriesId, kind: t.kind, payerId: t.payerId, amountCents: t.amountCents, createdBy: t.createdBy, createdAt: t.createdAt };
+  // Divisões e pagamentos ligados a estes lançamentos ("Recebi/Paguei"): não dependem um do outro, vão juntos.
+  // (Cada ida ao banco custa uma espera; por isso o que é independente roda em paralelo.)
   const origIds = [...new Set(rows.map((r) => r.settlesId).filter((x): x is string => !!x))];
   const origs: { id: string; description: string; kind: string; payerId: string | null }[] = [];
   const origSplits: typeof splits = [];
   const siblings: typeof linked = [];
-  for (let i = 0; i < origIds.length; i += 500) {
-    const part = origIds.slice(i, i + 500);
-    origs.push(...(await db.select({ id: t.id, description: t.description, kind: t.kind, payerId: t.payerId }).from(t).where(inArray(t.id, part))));
-    origSplits.push(...(await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, part))));
-    siblings.push(
-      ...(await db
-        .select({ id: t.id, settlesId: t.settlesId, seriesId: t.seriesId, kind: t.kind, payerId: t.payerId, amountCents: t.amountCents, createdBy: t.createdBy, createdAt: t.createdAt })
-        .from(t)
-        .where(inArray(t.settlesId, part))),
-    );
-  }
+  const part = (list: string[]) => Array.from({ length: Math.ceil(list.length / 500) }, (_, i) => list.slice(i * 500, i * 500 + 500));
+  await Promise.all([
+    ...part(ids).map(async (c) => splits.push(...(await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, c))))),
+    ...part(ids).map(async (c) => linked.push(...(await db.select(payCols).from(t).where(inArray(t.settlesId, c))))),
+    // Lançamentos que estes acertos pagam (quando a lista tem o acerto e não o original).
+    ...part(origIds).map(async (c) => {
+      const [o, os, sb] = await Promise.all([
+        db.select({ id: t.id, description: t.description, kind: t.kind, payerId: t.payerId }).from(t).where(inArray(t.id, c)),
+        db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, c)),
+        db.select(payCols).from(t).where(inArray(t.settlesId, c)),
+      ]);
+      origs.push(...o);
+      origSplits.push(...os);
+      siblings.push(...sb);
+    }),
+  ]);
   const payIdsAll = [...new Set([...linked, ...siblings].map((x) => x.id))];
   const paySplits: typeof splits = [];
-  for (let i = 0; i < payIdsAll.length; i += 500) {
-    paySplits.push(...(await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, payIdsAll.slice(i, i + 500)))));
-  }
+  await Promise.all(part(payIdsAll).map(async (c) => paySplits.push(...(await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, c))))));
   const allSplits = [...splits, ...origSplits, ...paySplits];
   const kindOf = new Map([...rows, ...origs].map((r) => [r.id, r.kind]));
   // De quem é a parte que um pagamento paga: quem pagou (despesa/dívida) ou quem recebe o repasse (receita).
@@ -463,6 +455,7 @@ export const getApprovalInbox = cache(async (viewer: Viewer) => {
   const empty = { toMe: [] as ApprovalItem[], refusedByMe: [] as ApprovalItem[], fromMe: [] as ApprovalItem[] };
   if (!me) return empty;
   const ctx = await approvalContext(viewer.householdId);
+  const otherMembers = [...ctx.members].filter((x) => x !== me);
   const rows = await getDb()
     .select(txColumns)
     .from(t)
@@ -470,10 +463,22 @@ export const getApprovalInbox = cache(async (viewer: Viewer) => {
       and(
         eq(t.householdId, viewer.householdId),
         gte(t.createdAt, ctx.from),
+        // Só o que pode pedir aceite: o que outra pessoa lançou com você, ou o que você lançou com outro membro.
+        // Lançamento só com contatos (sem login) nunca pede aceite e fica de fora: é a maior parte do histórico.
         or(
-          eq(t.createdBy, viewer.userId),
-          eq(t.payerId, me),
-          sql`exists (select 1 from "transaction_splits" s where s."transactionId" = ${t.id} and s."participantId" = ${me})`,
+          and(
+            or(isNull(t.createdBy), ne(t.createdBy, viewer.userId)),
+            or(eq(t.payerId, me), sql`exists (select 1 from "transaction_splits" s where s."transactionId" = ${t.id} and s."participantId" = ${me})`),
+          ),
+          otherMembers.length
+            ? and(
+                eq(t.createdBy, viewer.userId),
+                or(
+                  inArray(t.payerId, otherMembers),
+                  sql`exists (select 1 from "transaction_splits" s where s."transactionId" = ${t.id} and s."participantId" in ${otherMembers})`,
+                ),
+              )
+            : undefined,
         ),
       ),
     )

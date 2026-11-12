@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { NewFab } from "@/components/new-fab";
 import { BottomNav, SideNav } from "@/components/nav";
 import { BellButton, NotificationCenter } from "@/components/notifications";
@@ -6,8 +5,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { HelpButton, Tutorial } from "@/components/tutorial";
 import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
-import { eq } from "drizzle-orm";
-import { getDb, schema } from "@/db";
 import { getActivityFeed } from "@/lib/activity";
 import { getCardAlerts } from "@/lib/card-queries";
 import { countUnidentified, getApprovalInbox, getLookups, getLookupsFor } from "@/lib/queries";
@@ -38,14 +35,6 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     getApprovalInbox(auth),
   ]);
   const toConfirm = inbox.toMe.length;
-  // Tutorial: abre sozinho só no primeiro acesso da conta (pelo Google ou por e-mail e senha), em qualquer aparelho.
-  const [me] = await getDb()
-    .select({ tourSeenAt: schema.users.tourSeenAt, emailVerifiedAt: schema.users.emailVerifiedAt })
-    .from(schema.users)
-    .where(eq(schema.users.id, auth.userId))
-    .limit(1);
-  // Conta criada com e-mail e senha: só usa o app depois de confirmar o e-mail com o código.
-  if (me && !me.emailVerifiedAt) redirect("/verificar-email");
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -76,7 +65,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <BottomNav toIdentify={toIdentify} toConfirm={toConfirm} />
       {/* Novo lançamento sempre à mão: botão no canto inferior direito (no celular, é o + da barra de baixo). */}
       <NewFab />
-      <Tutorial autoOpen={!me?.tourSeenAt} />
+      <Tutorial autoOpen={!auth.tourSeenAt} />
       {/* Clicar num lançamento abre a edição numa janela, sem sair da página. */}
       <TxModalHost lookups={myLookups} currency={auth.currency} me={auth.participantId} />
       {/* Sino: avisos de fatura e o que a família fez; procura novidades sozinho. */}

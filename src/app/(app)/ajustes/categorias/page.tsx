@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Categorias" };
 
 export default async function CategoriesPage() {
   const auth = await requireAuth();
-  const [{ categories }, rules] = await Promise.all([getLookups(auth.householdId), getRules(auth.householdId)]);
+  const [{ categories }, rules] = await Promise.all([getLookups(auth.householdId, auth.userId), getRules(auth.householdId)]);
   return (
     <>
       <ListEditor kind="categories" items={categories} />

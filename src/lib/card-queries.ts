@@ -28,7 +28,7 @@ const signed = (r: CardTx) => (r.kind === "expense" ? r.amountCents : r.kind ===
 
 /** Cartões da família e os lançamentos de cartão que esta pessoa pode ver. */
 /** Uma vez por requisição para o mesmo período (o painel pede as mesmas faturas mais de uma vez). */
-const loadCards = cache(async (viewer: Viewer, since: string) => {
+const loadCardsRaw = async (viewer: Viewer, since: string) => {
   const householdId = viewer.householdId;
   await ensureRecurring(householdId);
   const db = getDb();
@@ -61,7 +61,27 @@ const loadCards = cache(async (viewer: Viewer, since: string) => {
   const by = new Map<string, CardTx["splits"]>();
   for (const x of splits) by.set(x.transactionId, [...(by.get(x.transactionId) ?? []), { participantId: x.participantId, amountCents: x.amountCents, paidById: x.paidById }]);
   return { cards, rows: rows.map((r) => ({ ...r, splits: by.get(r.id) ?? [] })) as CardTx[] };
-});
+};
+
+/**
+ * Uma vez por requisição: o painel, o layout e os cartões pedem os mesmos cartões e compras com janelas de data
+ * diferentes. Carrega uma janela larga (5 meses ou mais, se pedirem) e devolve a parte pedida, em vez de
+ * repetir 3 consultas a cada pedido.
+ */
+const cardsStore = cache(() => new Map<string, { since: string; data: Promise<Awaited<ReturnType<typeof loadCardsRaw>>> }>());
+async function loadCards(viewer: Viewer, since: string) {
+  const store = cardsStore();
+  const key = `${viewer.householdId}:${viewer.userId}`;
+  const wide = `${addMonthsKey(todayIn().slice(0, 7), -5)}-01`;
+  let cur = store.get(key);
+  if (!cur || cur.since > since) {
+    const want = since < wide ? since : wide;
+    cur = { since: want, data: loadCardsRaw(viewer, want) };
+    store.set(key, cur);
+  }
+  const { cards, rows } = await cur.data;
+  return { cards, rows: since > cur.since ? rows.filter((r) => r.date >= since) : rows };
+}
 
 /** Quanto de cada fatura é de cada pessoa (pela divisão das compras; estornos abatem). */
 export function sharesByInvoice(rows: CardTx[], closingDay: number) {

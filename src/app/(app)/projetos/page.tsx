@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Projetos" };
 /** Projetos: crie um (ex.: "Viagem") e coloque nele os lançamentos daquele assunto. */
 export default async function ProjectsPage() {
   const auth = await requireAuth();
-  const [{ projects }, stats] = await Promise.all([getLookups(auth.householdId), getProjectStats(auth)]);
+  const [{ projects }, stats] = await Promise.all([getLookups(auth.householdId, auth.userId), getProjectStats(auth)]);
   const active = projects.filter((p) => !p.archived);
   return (
     <>

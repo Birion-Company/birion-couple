@@ -11,7 +11,7 @@ export default async function ProfilePage() {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
   const username = (await getUsername(auth.userId)) ?? "";
-  const me = auth.participantId ? (await getLookups(auth.householdId)).participants.find((p) => p.id === auth.participantId) : null;
+  const me = auth.participantId ? (await getLookups(auth.householdId, auth.userId)).participants.find((p) => p.id === auth.participantId) : null;
   return (
     <div className="profile-page">
       <section className="profile-hero" aria-label="Foto e identificação" data-tour="profile">
