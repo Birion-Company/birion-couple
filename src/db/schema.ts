@@ -115,6 +115,11 @@ export const participants = pgTable(
     sortOrder: integer().notNull().default(0),
     archived: boolean().notNull().default(false),
     /**
+     * Contato (sem login) é de uma conta só: só ela vê o nome, usa nas listas e edita. Para os outros
+     * aparece "Contato de Fulano". Pessoa com login não tem dono (é da família toda).
+     */
+    ownerUserId: uuid().references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    /**
      * Antigo "pessoa avulsa". Não é mais usado: quem não tem login é um contato (lib/contacts.ts),
      * com limite de ativos e escondido sozinho quando fica parado. Fica no banco só por compatibilidade.
      */

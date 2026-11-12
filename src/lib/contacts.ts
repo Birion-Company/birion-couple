@@ -48,12 +48,19 @@ async function netOf(householdId: string, id: string) {
 }
 
 /** Contatos ativos que podem sair das listas: sem nada no futuro, quites, do usado há mais tempo ao mais recente. */
-async function hideableContacts(householdId: string, usedBefore: string) {
+async function hideableContacts(householdId: string, usedBefore: string, ownerUserId?: string) {
   const db = getDb();
   const active = await db
     .select({ id: p.id, createdAt: p.createdAt })
     .from(p)
-    .where(and(eq(p.householdId, householdId), eq(p.archived, false), notInArray(p.id, membersOf(householdId))));
+    .where(
+      and(
+        eq(p.householdId, householdId),
+        eq(p.archived, false),
+        ownerUserId ? eq(p.ownerUserId, ownerUserId) : undefined,
+        notInArray(p.id, membersOf(householdId)),
+      ),
+    );
   const last = await lastUsedByPerson(householdId);
   const lastOf = (x: { id: string; createdAt: Date }) => last.get(x.id) ?? x.createdAt.toISOString().slice(0, 10);
   return active.filter((x) => lastOf(x) < usedBefore).sort((a, b) => (lastOf(a) < lastOf(b) ? -1 : 1));
@@ -63,11 +70,11 @@ async function hideableContacts(householdId: string, usedBefore: string) {
  * Abre uma vaga entre os contatos ativos, se preciso: esconde o contato parado há mais tempo que já
  * está quite (nada some: ele volta ao digitar o nome). Sem ninguém para esconder, não há vaga.
  */
-async function makeRoomForContact(householdId: string) {
-  const { active } = await contactsCount(getDb(), householdId);
+async function makeRoomForContact(householdId: string, ownerUserId: string) {
+  const { active } = await contactsCount(getDb(), householdId, ownerUserId);
   if (active < CONTACTS_ACTIVE_MAX) return true;
   // Só quem não aparece em nada de hoje em diante (nem foi usado hoje).
-  for (const c of await hideableContacts(householdId, todayIn())) {
+  for (const c of await hideableContacts(householdId, todayIn(), ownerUserId)) {
     if ((await netOf(householdId, c.id)) === 0) {
       await getDb().update(p).set({ archived: true }).where(eq(p.id, c.id));
       return true;
@@ -79,31 +86,38 @@ async function makeRoomForContact(householdId: string) {
 type Found = { ok: true; person: typeof p.$inferSelect; reused: boolean } | { ok: false; error: string };
 
 /**
- * Pessoa pelo nome, para usar num lançamento. Se o nome já existe (membro ou contato, mesmo escondido),
- * é a mesma pessoa: "Fulano" de novo não vira outro Fulano. Se não existe, cria um contato.
- * Respeita os limites: até CONTACTS_ACTIVE_MAX ativos (abrindo vaga sozinho se der) e CONTACTS_TOTAL_MAX guardados.
+ * Pessoa pelo nome, para usar num lançamento. Se o nome já existe (alguém com login ou um contato SEU,
+ * mesmo escondido), é a mesma pessoa: "Fulano" de novo não vira outro Fulano. Se não existe, cria um
+ * contato seu. Respeita os limites de cada conta: até CONTACTS_ACTIVE_MAX ativos (abrindo vaga
+ * sozinho se der) e CONTACTS_TOTAL_MAX guardados.
  */
-export async function findOrCreateContact(householdId: string, rawName: string): Promise<Found> {
+export async function findOrCreateContact(householdId: string, ownerUserId: string, rawName: string): Promise<Found> {
   const db = getDb();
   const name = rawName.trim().replace(/\s+/g, " ");
   const same = await db
     .select()
     .from(p)
-    .where(and(eq(p.householdId, householdId), sql`lower(regexp_replace(trim(${p.name}), '\\s+', ' ', 'g')) = ${norm(name)}`));
+    .where(
+      and(
+        eq(p.householdId, householdId),
+        or(eq(p.ownerUserId, ownerUserId), inArray(p.id, membersOf(householdId))),
+        sql`lower(regexp_replace(trim(${p.name}), '\\s+', ' ', 'g')) = ${norm(name)}`,
+      ),
+    );
   // Preferência: alguém ativo; depois um escondido (volta para as listas).
   const pick = same.find((x) => !x.archived) ?? same[0];
   if (pick) {
     if (pick.archived) {
-      if (!(await makeRoomForContact(householdId))) return { ok: false, error: CONTACTS_FULL_MESSAGE };
+      if (!(await makeRoomForContact(householdId, ownerUserId))) return { ok: false, error: CONTACTS_FULL_MESSAGE };
       await db.update(p).set({ archived: false, temporary: false }).where(eq(p.id, pick.id));
     }
     return { ok: true, person: { ...pick, archived: false }, reused: true };
   }
-  const { total } = await contactsCount(db, householdId);
+  const { total } = await contactsCount(db, householdId, ownerUserId);
   if (total >= CONTACTS_TOTAL_MAX) return { ok: false, error: CONTACTS_TOTAL_MESSAGE };
-  if (!(await makeRoomForContact(householdId))) return { ok: false, error: CONTACTS_FULL_MESSAGE };
+  if (!(await makeRoomForContact(householdId, ownerUserId))) return { ok: false, error: CONTACTS_FULL_MESSAGE };
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(p).where(eq(p.householdId, householdId));
-  const [created] = await db.insert(p).values({ householdId, name, color: PALETTE[n % PALETTE.length], sortOrder: 1000 + n }).returning();
+  const [created] = await db.insert(p).values({ householdId, ownerUserId, name, color: PALETTE[n % PALETTE.length], sortOrder: 1000 + n }).returning();
   return { ok: true, person: created, reused: false };
 }
 
@@ -132,8 +146,8 @@ export async function hideIdleContacts(householdId: string) {
 }
 
 /** Há vaga para ativar mais um contato (criar em Ajustes ou mostrar um escondido)? */
-export async function hasRoomForContact(householdId: string, { creating = false } = {}) {
-  const { active, total } = await contactsCount(getDb(), householdId);
+export async function hasRoomForContact(householdId: string, ownerUserId: string, { creating = false } = {}) {
+  const { active, total } = await contactsCount(getDb(), householdId, ownerUserId);
   if (creating && total >= CONTACTS_TOTAL_MAX) return CONTACTS_TOTAL_MESSAGE;
   if (active >= CONTACTS_ACTIVE_MAX) return CONTACTS_FULL_MESSAGE;
   return null;

@@ -41,7 +41,7 @@ export async function getLookups(householdId: string, userId?: string) {
   const photoOf = new Map(photos.map((x) => [x.participantId, `/api/avatar/${x.userId}?v=${x.at!.getTime()}`]));
   // Quem tem login: a foto do perfil. Quem não tem: a foto cadastrada em Ajustes → Pessoas (se houver).
   const [loginRows, lastUsed, nicks] = await Promise.all([
-    db.select({ id: schema.memberships.participantId }).from(schema.memberships).where(eq(schema.memberships.householdId, householdId)),
+    db.select({ id: schema.memberships.participantId, userId: schema.memberships.userId }).from(schema.memberships).where(eq(schema.memberships.householdId, householdId)),
     // Última vez que cada pessoa apareceu num lançamento: ordena os contatos recentes nas listas.
     lastUsedByPerson(householdId),
     userId
@@ -50,9 +50,22 @@ export async function getLookups(householdId: string, userId?: string) {
   ]);
   const logins = new Set(loginRows.map((m) => m.id));
   const nickOf = new Map(nicks.map((n) => [n.id, n.nickname]));
+  // Contato de outra conta: só o dono vê o nome. Os outros veem "Contato de Fulano", sem foto, e ele não entra nas listas.
+  const pidOfUser = new Map(loginRows.map((m) => [m.userId, m.id]));
+  const nameOfPid = new Map(participants.map((x) => [x.id, (logins.has(x.id) && nickOf.get(x.id)) || x.name]));
+  const foreign = (x: { id: string; ownerUserId: string | null }) => !!userId && !logins.has(x.id) && x.ownerUserId !== userId;
+  const ownerLabel = (ownerUserId: string | null) => {
+    const pid = ownerUserId ? pidOfUser.get(ownerUserId) : null;
+    const n = pid ? nameOfPid.get(pid) : null;
+    return n ? `Contato de ${n.split(" ")[0]}` : "Contato de outra pessoa";
+  };
   return {
-    participants: participants.map((x) => ({
+    participants: participants.map((x) =>
+      foreign(x)
+        ? { ...x, name: ownerLabel(x.ownerUserId), realName: ownerLabel(x.ownerUserId), nickname: null, color: "#94A3B8", archived: true, photoUpdatedAt: null, foreign: true, hasLogin: false, lastUsed: null, avatarUrl: null }
+        : {
       ...x,
+      foreign: false,
       // Apelido só vale para quem tem login (contato sem login você mesmo renomeia).
       name: (logins.has(x.id) && nickOf.get(x.id)) || x.name,
       realName: x.name,
@@ -60,7 +73,8 @@ export async function getLookups(householdId: string, userId?: string) {
       hasLogin: logins.has(x.id),
       lastUsed: lastUsed.get(x.id) ?? null,
       avatarUrl: photoOf.get(x.id) ?? (x.photoUpdatedAt && !logins.has(x.id) ? `/api/avatar/pessoa/${x.id}?v=${x.photoUpdatedAt.getTime()}` : null),
-    })),
+          },
+    ),
     categories,
     projects,
     statuses,

@@ -79,11 +79,21 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
   const prefsOf = new Map(prefRows.map((r) => [r.id, r.prefs]));
   const [[actor], parts, [house]] = await Promise.all([
     db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, actorUserId)),
-    db.select({ id: schema.participants.id, name: schema.participants.name }).from(schema.participants).where(eq(schema.participants.householdId, householdId)),
+    db.select({ id: schema.participants.id, name: schema.participants.name, ownerUserId: schema.participants.ownerUserId }).from(schema.participants).where(eq(schema.participants.householdId, householdId)),
     db.select({ currency: schema.households.currency }).from(schema.households).where(eq(schema.households.id, householdId)),
   ]);
   const baseWho = actor?.name?.split(" ")[0] ?? "Alguém";
   const baseName = new Map(parts.map((p) => [p.id, p.name]));
+  // Contato (sem login) só tem nome para o dono; para os outros é "um contato".
+  const ownerOf = new Map(parts.map((p) => [p.id, p.ownerUserId]));
+  const loginPids = new Set(
+    (
+      await db
+        .select({ pid: schema.memberships.participantId })
+        .from(schema.memberships)
+        .where(eq(schema.memberships.householdId, householdId))
+    ).map((x) => x.pid),
+  );
   // Apelidos que cada pessoa que recebe deu (só para ela) e a pessoa de quem fez a mudança.
   const [nickRows, [actorMember]] = await Promise.all([
     db
@@ -105,7 +115,12 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
     const me = t.participantId;
     const nick = (pid: string | null | undefined) => (pid ? nickOf.get(`${t.userId}:${pid}`) : undefined);
     const who = nick(actorMember?.pid) ?? baseWho;
-    const nameOf = { get: (pid: string) => nick(pid) ?? baseName.get(pid) };
+    const nameOf = {
+      get: (pid: string) => {
+        if (!loginPids.has(pid) && baseName.has(pid) && ownerOf.get(pid) !== t.userId) return "um contato";
+        return nick(pid) ?? baseName.get(pid);
+      },
+    };
     let msg: PushMessage | null = null;
     // Tipo do aviso, para respeitar o que a pessoa escolheu receber.
     let kind: PushKind = "alteracao";

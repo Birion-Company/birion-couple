@@ -4,8 +4,9 @@ import { UserPlus } from "lucide-react";
 import { ListEditor } from "@/components/list-editor";
 import { Avatar } from "@/components/ui";
 import { NicknameEditor } from "@/components/nickname-editor";
+import { MergeContact } from "@/components/merge-contact";
 import { requireAuth } from "@/lib/auth";
-import { CONTACT_IDLE_DAYS, CONTACTS_TOTAL_MAX, MEMBERS_MAX } from "@/lib/defaults";
+import { CONTACT_IDLE_DAYS, CONTACTS_ACTIVE_MAX, CONTACTS_TOTAL_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getLookups } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Pessoas" };
@@ -19,7 +20,7 @@ export default async function PeoplePage() {
   const auth = await requireAuth();
   const { participants } = await getLookups(auth.householdId, auth.userId);
   const members = participants.filter((p) => p.hasLogin);
-  const contacts = participants.filter((p) => !p.hasLogin);
+  const contacts = participants.filter((p) => !p.hasLogin && !p.foreign);
   const owner = auth.role === "owner";
   return (
     <>
@@ -62,15 +63,20 @@ export default async function PeoplePage() {
         <div className="contacts-help">
           <p>
             Pessoas que <strong>entram nas contas, mas não usam o app</strong>. Ex.: sua mãe, um amigo do churrasco, quem divide o aluguel.
+            Seus contatos são <strong>só seus</strong>: ninguém mais da família vê o nome deles.
           </p>
           <ul>
             <li>Ficou {CONTACT_IDLE_DAYS} dias sem aparecer e não deve nada? Some das listas sozinho (não é apagado) e volta quando você escreve o nome num lançamento.</li>
-            <li>Quer que ele use o app? Toque no aviãozinho para mandar um convite.</li>
-            <li>Cabem até {CONTACTS_TOTAL_MAX} contatos guardados.</li>
+            <li>Cabem até {CONTACTS_ACTIVE_MAX} contatos ativos e {CONTACTS_TOTAL_MAX} guardados.</li>
           </ul>
         </div>
         <ListEditor kind="participants" items={contacts} canInvite={owner} />
       </section>
+
+      <MergeContact
+        contacts={contacts.map((p) => ({ id: p.id, name: p.name }))}
+        members={members.filter((p) => p.id !== auth.participantId).map((p) => ({ id: p.id, name: p.name }))}
+      />
     </>
   );
 }

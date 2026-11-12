@@ -101,6 +101,9 @@ const shapes = {
   }),
 };
 
+/** Contato só é mexido por quem é dono dele. */
+const mineOnly = (kind: ListKind, userId: string) => (kind === "participants" ? eq(schema.participants.ownerUserId, userId) : undefined);
+
 export async function saveListItem(kind: ListKind, id: string | null, input: Record<string, unknown>): Promise<ActionResult> {
   const auth = await requireAuth();
   const parsed = shapes[kind].safeParse(input);
@@ -110,7 +113,7 @@ export async function saveListItem(kind: ListKind, id: string | null, input: Rec
   const data = parsed.data as Record<string, unknown>;
   // Pessoa nova criada aqui é um contato (sem login): respeita o limite de contatos.
   if (kind === "participants" && !id) {
-    const full = await hasRoomForContact(auth.householdId, { creating: true });
+    const full = await hasRoomForContact(auth.householdId, auth.userId, { creating: true });
     if (full) return fail(full);
   }
 
@@ -121,10 +124,12 @@ export async function saveListItem(kind: ListKind, id: string | null, input: Rec
       if (data.isImportDefault) await tx.update(schema.statuses).set({ isImportDefault: false }).where(eq(schema.statuses.householdId, auth.householdId));
     }
     if (id) {
-      await tx.update(table).set(data).where(and(eq(table.id, id), eq(table.householdId, auth.householdId)));
+      await tx.update(table).set(data).where(and(eq(table.id, id), eq(table.householdId, auth.householdId), mineOnly(kind, auth.userId)));
     } else {
       const [{ n }] = await tx.select({ n: count() }).from(table).where(eq(table.householdId, auth.householdId));
-      await tx.insert(table).values({ ...data, householdId: auth.householdId, ...("sortOrder" in table ? { sortOrder: n } : {}) } as never);
+      // Contato novo é de quem criou (os outros não veem).
+      const owner = kind === "participants" ? { ownerUserId: auth.userId } : {};
+      await tx.insert(table).values({ ...data, ...owner, householdId: auth.householdId, ...("sortOrder" in table ? { sortOrder: n } : {}) } as never);
     }
   });
   return done(id ? "Salvo." : "Adicionado.");
@@ -134,10 +139,10 @@ export async function setArchived(kind: ListKind, id: string, archived: boolean)
   const auth = await requireAuth();
   const table = tables[kind];
   if (kind === "participants" && !archived) {
-    const full = await hasRoomForContact(auth.householdId);
+    const full = await hasRoomForContact(auth.householdId, auth.userId);
     if (full) return fail(full);
   }
-  await getDb().update(table).set({ archived }).where(and(eq(table.id, id), eq(table.householdId, auth.householdId)));
+  await getDb().update(table).set({ archived }).where(and(eq(table.id, id), eq(table.householdId, auth.householdId), mineOnly(kind, auth.userId)));
   if (kind === "participants") return done(archived ? "Escondido. Volta ao digitar o nome num lançamento." : "Voltou para as listas.");
   return done(archived ? "Arquivado. Continua nos lançamentos antigos, mas some das opções." : "Reativado.");
 }
@@ -173,7 +178,7 @@ export async function deleteListItem(kind: ListKind, id: string): Promise<Action
       .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, id)));
   }
   const table = tables[kind];
-  await db.delete(table).where(and(eq(table.id, id), eq(table.householdId, auth.householdId)));
+  await db.delete(table).where(and(eq(table.id, id), eq(table.householdId, auth.householdId), mineOnly(kind, auth.userId)));
   return done("Excluído.");
 }
 
@@ -350,7 +355,7 @@ export async function addContact(name: string): Promise<ActionResult & { person?
   const auth = await requireAuth();
   const parsed = label("a pessoa").safeParse(name);
   if (!parsed.success) return firstIssue(parsed.error);
-  const r = await findOrCreateContact(auth.householdId, parsed.data);
+  const r = await findOrCreateContact(auth.householdId, auth.userId, parsed.data);
   if (!r.ok) return fail(r.error);
   revalidatePath("/", "layout");
   return {
@@ -362,7 +367,13 @@ export async function addContact(name: string): Promise<ActionResult & { person?
 }
 
 /** "Convidar para o app": convite ligado ao contato; ao aceitar, ele vira membro com o histórico dele. */
-export async function inviteContact(id: string) {
+export async function inviteContact(id: string): Promise<ActionResult & { code?: string }> {
+  const auth = await requireAuth();
+  const [c] = await getDb()
+    .select({ id: schema.participants.id })
+    .from(schema.participants)
+    .where(and(eq(schema.participants.id, id), eq(schema.participants.householdId, auth.householdId), eq(schema.participants.ownerUserId, auth.userId)));
+  if (!c) return fail("Esse contato não é seu.");
   return createInvite("member", id);
 }
 
@@ -380,6 +391,11 @@ export async function setPersonPhoto(id: string, dataUrl: string | null): Promis
     .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, id)))
     .limit(1);
   if (login) return fail("Essa pessoa tem login: a foto vem do perfil dela.");
+  const [own] = await db
+    .select({ id: schema.participants.id })
+    .from(schema.participants)
+    .where(and(eq(schema.participants.id, id), eq(schema.participants.ownerUserId, auth.userId)));
+  if (!own) return fail("Esse contato não é seu.");
   let data: string | null = null;
   if (dataUrl) {
     const prefix = "data:image/jpeg;base64,";
@@ -406,4 +422,75 @@ export async function setMyColor(value: string): Promise<ActionResult> {
     .set({ color: parsed.data })
     .where(and(eq(schema.participants.id, auth.participantId), eq(schema.participants.householdId, auth.householdId)));
   return done("Cor atualizada.");
+}
+
+// ---------- Contato que entrou na família ----------
+
+type SplitJson = { participantId: string; amountCents: number };
+
+/**
+ * Seu contato (sem login) agora tem conta na família: tudo que estava no nome dele passa para a pessoa
+ * com login (quem pagou, as partes de cada um, as contas que se repetem) e o contato some. Como os
+ * lançamentos mudam de pessoa, ela recebe em "Para confirmar" para aceitar.
+ */
+export async function mergeContactIntoMember(contactId: string, memberPid: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const db = getDb();
+  const P = schema.participants;
+  const [contact] = await db
+    .select({ id: P.id, name: P.name })
+    .from(P)
+    .where(and(eq(P.id, contactId), eq(P.householdId, auth.householdId), eq(P.ownerUserId, auth.userId)));
+  if (!contact) return fail("Escolha um contato seu.");
+  const [member] = await db
+    .select({ pid: schema.memberships.participantId, name: P.name })
+    .from(schema.memberships)
+    .innerJoin(P, eq(P.id, schema.memberships.participantId))
+    .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, memberPid)));
+  if (!member?.pid) return fail("Escolha uma pessoa com login da família.");
+  const t = schema.transactions;
+  const S = schema.transactionSplits;
+  const moved = await db.transaction(async (q) => {
+    const payer = await q
+      .update(t)
+      .set({ payerId: member.pid, updatedAt: new Date() })
+      .where(and(eq(t.householdId, auth.householdId), eq(t.payerId, contactId)))
+      .returning({ id: t.id });
+    // Partes: se a pessoa já tinha parte no mesmo lançamento, soma; senão, a parte muda de nome.
+    const parts = await q.select().from(S).where(eq(S.participantId, contactId));
+    for (const sp of parts) {
+      const [already] = await q.select().from(S).where(and(eq(S.transactionId, sp.transactionId), eq(S.participantId, member.pid!)));
+      if (already) {
+        await q.update(S).set({ amountCents: already.amountCents + sp.amountCents }).where(and(eq(S.transactionId, sp.transactionId), eq(S.participantId, member.pid!)));
+        await q.delete(S).where(and(eq(S.transactionId, sp.transactionId), eq(S.participantId, contactId)));
+      } else {
+        await q.update(S).set({ participantId: member.pid! }).where(and(eq(S.transactionId, sp.transactionId), eq(S.participantId, contactId)));
+      }
+    }
+    // Contas que se repetem (os próximos meses saem já no nome da pessoa).
+    const R = schema.recurringSeries;
+    const series = await q.select({ id: R.id, payerId: R.payerId, splits: R.splits }).from(R).where(eq(R.householdId, auth.householdId));
+    for (const r of series) {
+      const list = (r.splits as SplitJson[]) ?? [];
+      if (r.payerId !== contactId && !list.some((x) => x.participantId === contactId)) continue;
+      const merged = new Map<string, number>();
+      for (const x of list) {
+        const id = x.participantId === contactId ? member.pid! : x.participantId;
+        merged.set(id, (merged.get(id) ?? 0) + x.amountCents);
+      }
+      await q
+        .update(R)
+        .set({ payerId: r.payerId === contactId ? member.pid : r.payerId, splits: [...merged].map(([participantId, amountCents]) => ({ participantId, amountCents })) })
+        .where(eq(R.id, r.id));
+    }
+    await q.update(schema.invites).set({ participantId: null }).where(eq(schema.invites.participantId, contactId));
+    await q.delete(P).where(eq(P.id, contactId));
+    return new Set([...payer.map((x) => x.id), ...parts.map((x) => x.transactionId)]).size;
+  });
+  revalidatePath("/", "layout");
+  return done(
+    moved === 0
+      ? `${contact.name} saiu dos contatos: agora é ${member.name}.`
+      : `Pronto: ${moved} ${moved === 1 ? "lançamento passou" : "lançamentos passaram"} de ${contact.name} para ${member.name}. Ela recebe em Para confirmar.`,
+  );
 }

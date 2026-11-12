@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getDb, schema } from "@/db";
 import { getAuth } from "@/lib/auth";
 
-/** Foto de uma pessoa sem login. Só quem é da mesma família vê. */
+/** Foto de um contato (sem login). Só o dono do contato vê. */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/avatar/pessoa/[id]">) {
   const auth = await getAuth();
   if (!auth) return new NextResponse(null, { status: 401 });
@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/avatar/pess
   const [p] = await getDb()
     .select({ data: schema.participants.photoData })
     .from(schema.participants)
-    .where(and(eq(schema.participants.id, id), eq(schema.participants.householdId, auth.householdId)))
+    .where(and(eq(schema.participants.id, id), eq(schema.participants.householdId, auth.householdId), eq(schema.participants.ownerUserId, auth.userId)))
     .limit(1);
   if (!p?.data) return new NextResponse(null, { status: 404 });
   return new NextResponse(Buffer.from(p.data, "base64"), {

@@ -8233,3 +8233,27 @@ a.row:hover .amount .neg {
 body.modal-open .new-fab {
   display: none;
 }
+
+/* Ajustes → Pessoas: contato que entrou na família. */
+.merge-contact h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.merge-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0 12px;
+}
+.merge-fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.84rem;
+  color: var(--text-2);
+}
+@media (max-width: 520px) {
+  .merge-fields {
+    grid-template-columns: 1fr;
+  }
+}

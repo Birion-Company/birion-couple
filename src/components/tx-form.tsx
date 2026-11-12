@@ -261,7 +261,7 @@ export function TxForm({
   ];
   const people = [...members, ...contacts];
   // Nomes de todos os contatos (inclusive escondidos) para o "Adicionar pessoa" sugerir.
-  const contactNames = lookups.participants.filter((p) => !p.hasLogin).map((p) => p.name);
+  const contactNames = lookups.participants.filter((p) => !p.hasLogin && !p.foreign).map((p) => p.name);
   const firstPerson = me && people.some((p) => p.id === me) ? me : people[0]?.id ?? "";
 
   const [kind, setKind] = useState<Kind>(initial?.kind ?? prefill?.kind ?? "expense");

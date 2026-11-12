@@ -10,13 +10,14 @@ export const CARDS_PER_PERSON_MAX = 3;
  *   e um teto do total guardado, para as listas e os cálculos de dívida não crescerem sem fim.
  */
 export const MEMBERS_MAX = 10;
-export const CONTACTS_ACTIVE_MAX = 30;
+/** Por pessoa com login: cada uma tem os próprios contatos. */
+export const CONTACTS_ACTIVE_MAX = 80;
 export const CONTACTS_TOTAL_MAX = 200;
 /** Contato sem dívida e sem lançamento há esse tempo sai das listas sozinho (volta ao digitar o nome). */
 export const CONTACT_IDLE_DAYS = 90;
 export const MEMBERS_FULL_MESSAGE = `A família já tem ${MEMBERS_MAX} pessoas com login, o máximo do plano.`;
 export const CONTACTS_FULL_MESSAGE = `Já há ${CONTACTS_ACTIVE_MAX} contatos ativos. Esconda um que não usa mais, em Ajustes → Pessoas.`;
-export const CONTACTS_TOTAL_MESSAGE = `A família chegou a ${CONTACTS_TOTAL_MAX} contatos guardados. Exclua alguns que não usa mais.`;
+export const CONTACTS_TOTAL_MESSAGE = `Você chegou a ${CONTACTS_TOTAL_MAX} contatos guardados. Exclua alguns que não usa mais.`;
 
 /** Tamanho máximo do nome da família (aparece no menu lateral, abaixo da marca). */
 export const HOUSEHOLD_NAME_MAX = 20;

@@ -18,7 +18,8 @@ export async function hasRoomForMember(db: Db, householdId: string) {
 }
 
 /** Contatos (pessoas sem login): quantos estão nas listas (ativos) e quantos existem no total. */
-export async function contactsCount(db: Db, householdId: string) {
+/** Contatos de uma conta (ativos e guardados): cada pessoa com login tem os seus. */
+export async function contactsCount(db: Db, householdId: string, ownerUserId: string) {
   const withLogin = db
     .select({ id: schema.memberships.participantId })
     .from(schema.memberships)
@@ -26,7 +27,13 @@ export async function contactsCount(db: Db, householdId: string) {
   const [row] = await db
     .select({ total: count(), active: sql<number>`count(*) filter (where not ${schema.participants.archived})::int` })
     .from(schema.participants)
-    .where(and(eq(schema.participants.householdId, householdId), notInArray(schema.participants.id, withLogin)));
+    .where(
+      and(
+        eq(schema.participants.householdId, householdId),
+        eq(schema.participants.ownerUserId, ownerUserId),
+        notInArray(schema.participants.id, withLogin),
+      ),
+    );
   return { active: row.active, total: row.total };
 }
 
