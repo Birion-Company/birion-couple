@@ -9,6 +9,56 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Robôs que testam endereços de outros sistemas (.env, .git, WordPress, PHP...): respondem 404 estático direto no edge,
+# sem acordar a função do Next (cada pedido à função gasta crédito). Ficam antes das outras regras.
+[[redirects]]
+  from = "/.env*"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.git/*"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.svn/*"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.github/*"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/wp-*"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/wordpress/*"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/*.php"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/phpmyadmin*"
+  to = "/robo-404.html"
+  status = 404
+  force = true
+
 # Endereço oficial é https://birion.com.br: quem abrir o endereço do Netlify (birion-finance.netlify.app)
 # vai direto para a mesma página no domínio próprio. As versões de teste (deploy previews) não são afetadas.
 [[redirects]]
@@ -22,3 +72,14 @@
   to = "https://birion.com.br/:splat"
   status = 301
   force = true
+
+# Cabeçalhos de segurança em todas as páginas. Sem CSP restrito de scripts: o Next usa scripts embutidos e um CSP
+# rígido quebraria o app. "frame-ancestors" impede o site de ser aberto dentro de outro site (clickjacking).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'none'"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    X-Content-Type-Options = "nosniff"
