@@ -4,11 +4,12 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getDb, schema } from "@/db";
 import { getAuth, getHomeless } from "@/lib/auth";
-import { MEMBERS_MAX } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
 import { createSession, readSession } from "@/lib/session";
 import { findInvite } from "@/lib/invites";
 import { leaveHousehold } from "@/lib/leave";
+import { logFamily } from "@/lib/family-log";
+import { ADMINS_MAX, MEMBERS_MAX } from "@/lib/defaults";
 
 export type InviteResult = { ok: false; error: string } | undefined;
 
@@ -61,7 +62,21 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
           .returning({ id: schema.participants.id });
         participantId = p.id;
       }
-      await tx.insert(m).values({ householdId: invite.householdId, userId, role: invite.role, participantId });
+      // Convite de administrador com a administração cheia: entra como membro.
+      const [{ admins }] = await tx
+        .select({ admins: sql<number>`count(*)::int` })
+        .from(m)
+        .where(and(eq(m.householdId, invite.householdId), eq(m.role, "owner")));
+      const role = invite.role === "owner" && admins < ADMINS_MAX ? "owner" : "member";
+      await tx.insert(m).values({ householdId: invite.householdId, userId, role, participantId });
+      await logFamily(tx, {
+        householdId: invite.householdId,
+        actorUserId: userId,
+        actorName: user?.name ?? "Alguém",
+        subjectUserId: userId,
+        action: "joined",
+        text: `${user?.name ?? "Alguém"} entrou na família${role === "owner" ? " como administrador" : ""}.`,
+      });
     }
     await tx.update(schema.invites).set({ usedAt: new Date() }).where(eq(schema.invites.id, invite.id));
   });

@@ -291,6 +291,58 @@ export const activities = pgTable(
   (t) => [index("activities_household_created_idx").on(t.householdId, t.createdAt)],
 );
 
+/**
+ * Registro da família (não é notificação): quem entrou, saiu, virou administrador, convites, pedidos
+ * de convite, mudança de nome… Quem administra vê tudo; cada membro vê o que fez ou o que foi com ele.
+ */
+export const familyLog = pgTable(
+  "family_log",
+  {
+    id: id(),
+    householdId: uuid()
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    actorUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+    /** Nome de quem fez, guardado (continua legível se a conta for apagada). */
+    actorName: text().notNull(),
+    /** Conta afetada (ex.: quem virou administrador), para o membro ver o que foi com ele. */
+    subjectUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+    action: text().notNull(),
+    /** Frase pronta para ler. */
+    text: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("family_log_household_created_idx").on(t.householdId, t.createdAt)],
+);
+
+/**
+ * Pedido de convite: um membro pede para chamar alguém; quem administra aceita (gera o link, que
+ * aparece para quem pediu) ou recusa.
+ */
+export const inviteRequests = pgTable(
+  "invite_requests",
+  {
+    id: id(),
+    householdId: uuid()
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    requestedBy: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Para quem é o convite (nome ou observação de quem pediu). */
+    forName: text().notNull(),
+    /** Contato de quem pediu que vai virar a pessoa com login (com o histórico dele). */
+    contactId: uuid().references(() => participants.id, { onDelete: "set null" }),
+    status: text().notNull().default("pending"), // pending | approved | declined
+    inviteId: uuid().references(() => invites.id, { onDelete: "set null" }),
+    reason: text(),
+    decidedBy: uuid().references(() => users.id, { onDelete: "set null" }),
+    decidedAt: timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("invite_requests_household_idx").on(t.householdId)],
+);
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()

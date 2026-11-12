@@ -15,17 +15,17 @@ import {
   setMemberRole,
   updateHousehold,
 } from "@/app/actions/settings";
-import { CURRENCIES, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
+import { ADMINS_MAX, CURRENCIES, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { Select } from "./select";
 import { toast, toastResult } from "./toaster";
 import { Dot } from "./ui";
 
 /** Abas de Ajustes, com uma frase dizendo para que serve cada uma. */
 const TABS = [
-  { href: "/ajustes", label: "Família", help: "Nome da família e moeda." },
+  { href: "/ajustes", label: "Família", help: "Nome e moeda, como a família está e o histórico." },
   { href: "/ajustes/pessoas", label: "Pessoas", help: "Família (com login) e contatos (sem login)." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
-  { href: "/ajustes/membros", label: "Acesso", help: "Convites para entrar no app." },
+  { href: "/ajustes/membros", label: "Acesso", help: "Quem entra no app, quem administra e convites." },
   { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
   { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou em PDF, para guardar ou mandar para alguém." },
 ];
@@ -212,7 +212,15 @@ export function MembersPanel({
   return (
     <>
       <section className="card" data-tour="members-access">
-        <h2 style={{ marginBottom: 8 }}>Quem tem acesso</h2>
+        <div className="card-head">
+          <h2>Quem tem acesso</h2>
+          <span className="faint num">
+            {members.filter((m) => m.role === "owner").length} de {ADMINS_MAX} administram
+          </span>
+        </div>
+        <p className="faint" style={{ marginBottom: 8 }}>
+          Quem administra vê e altera tudo. É bom ter poucos: no máximo {ADMINS_MAX}.
+        </p>
         <div className="rows">
           {members.map((m) => (
             <div key={m.userId} className="row">
@@ -230,7 +238,16 @@ export function MembersPanel({
                     style={{ width: "auto", minHeight: 36 }}
                     value={m.role}
                     disabled={pending}
-                    onChange={(v) => act(() => setMemberRole(m.userId, v as "owner" | "member"))}
+                    onChange={(v) => {
+                      if (
+                        v === "owner" &&
+                        !window.confirm(
+                          `Tornar ${m.name} administrador?\n\nQuem administra vê e altera tudo da família, inclusive os lançamentos de todos. Não é recomendado ter muitos administradores (no máximo ${ADMINS_MAX}).`,
+                        )
+                      )
+                        return;
+                      act(() => setMemberRole(m.userId, v as "owner" | "member"));
+                    }}
                     options={[
                       { value: "member", label: "Membro" },
                       { value: "owner", label: "Administra" },

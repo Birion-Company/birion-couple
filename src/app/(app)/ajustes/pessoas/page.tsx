@@ -70,7 +70,7 @@ export default async function PeoplePage() {
             <li>Cabem até {CONTACTS_ACTIVE_MAX} contatos ativos e {CONTACTS_TOTAL_MAX} guardados.</li>
           </ul>
         </div>
-        <ListEditor kind="participants" items={contacts} canInvite={owner} />
+        <ListEditor kind="participants" items={contacts} canInvite />
       </section>
 
       <MergeContact

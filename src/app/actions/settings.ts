@@ -11,10 +11,11 @@ import { requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
 import { ruleMatches } from "@/lib/rules-server";
 import { findOrCreateContact, hasRoomForContact } from "@/lib/contacts";
 import { deletePersonalData, leaveHousehold } from "@/lib/leave";
+import { logFamily } from "@/lib/family-log";
 import { destroySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { ICON_KEYS } from "@/lib/category-icons";
-import { HOUSEHOLD_NAME_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
+import { ADMINS_FULL_MESSAGE, ADMINS_MAX, HOUSEHOLD_NAME_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
@@ -44,7 +45,15 @@ export async function updateHousehold(input: { name: string; currency: string })
     })
     .safeParse(input);
   if (!parsed.success) return firstIssue(parsed.error);
-  await getDb().update(schema.households).set(parsed.data).where(eq(schema.households.id, auth.householdId));
+  const db = getDb();
+  await db.update(schema.households).set(parsed.data).where(eq(schema.households.id, auth.householdId));
+  const changes = [
+    parsed.data.name !== auth.householdName ? `mudou o nome da família de “${auth.householdName}” para “${parsed.data.name}”` : null,
+    parsed.data.currency !== auth.currency ? `mudou a moeda de ${auth.currency} para ${parsed.data.currency}` : null,
+  ].filter(Boolean);
+  if (changes.length)
+    await logFamily(db, { householdId: auth.householdId, actorUserId: auth.userId, actorName: auth.userName, action: "household", text: `${auth.userName} ${changes.join(" e ")}.` });
+  revalidatePath("/", "layout");
   return done("Família atualizada.");
 }
 
@@ -80,6 +89,7 @@ export async function deleteAccount(confirm: string): Promise<ActionResult> {
   await db.transaction(async (tx) => {
     const homes = await tx.select({ hid: schema.memberships.householdId }).from(schema.memberships).where(eq(schema.memberships.userId, auth.userId));
     for (const { hid } of homes) {
+      await logFamily(tx, { householdId: hid, actorUserId: null, actorName: auth.userName, action: "account_deleted", text: `${auth.userName} apagou a conta (continua nos lançamentos com outras pessoas, sem login).` });
       await deletePersonalData(tx, auth.userId, hid);
       // Contatos seus que ficam (estão em lançamentos com outras pessoas) perdem o nome: ninguém mais é dono deles.
       await tx
@@ -256,9 +266,24 @@ export async function deletePreset(id: string): Promise<ActionResult> {
 
 // ---------- Membros e convites ----------
 
-export async function createInvite(role: "owner" | "member", participantId: string | null = null): Promise<ActionResult & { code?: string }> {
-  const auth = await requireOwner();
+/** Quantas pessoas administram a família. */
+async function adminCount(householdId: string) {
+  const [{ n }] = await getDb()
+    .select({ n: count() })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, householdId), eq(schema.memberships.role, "owner")));
+  return n;
+}
+
+/** Cria o link de convite (quem chama já conferiu a permissão). */
+async function makeInvite(
+  auth: { householdId: string; userId: string; userName: string },
+  role: "owner" | "member",
+  participantId: string | null,
+  forName?: string,
+): Promise<ActionResult & { code?: string; inviteId?: string }> {
   if (!(await hasRoomForMember(getDb(), auth.householdId))) return fail(MEMBERS_FULL_MESSAGE);
+  if (role === "owner" && (await adminCount(auth.householdId)) >= ADMINS_MAX) return fail(ADMINS_FULL_MESSAGE);
   // Convite de um contato: a conta nova fica ligada a ele (só se for mesmo um contato desta família, sem login).
   if (participantId) {
     const [ok] = await getDb()
@@ -274,7 +299,8 @@ export async function createInvite(role: "owner" | "member", participantId: stri
     if (!ok) return fail("Essa pessoa já tem login ou não é desta família.");
   }
   const code = randomBytes(12).toString("base64url");
-  await getDb()
+  const db = getDb();
+  const [inv] = await db
     .insert(schema.invites)
     .values({
       householdId: auth.householdId,
@@ -283,14 +309,102 @@ export async function createInvite(role: "owner" | "member", participantId: stri
       participantId,
       createdBy: auth.userId,
       expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
-    });
-  revalidatePath("/ajustes");
-  return { ok: true, code, message: "Convite criado. Vale por 7 dias e para uma pessoa." };
+    })
+    .returning({ id: schema.invites.id });
+  await logFamily(db, {
+    householdId: auth.householdId,
+    actorUserId: auth.userId,
+    actorName: auth.userName,
+    action: "invite",
+    text: `${auth.userName} gerou um convite${forName ? ` para ${forName}` : ""} ${role === "owner" ? "como administrador" : "como membro"}.`,
+  });
+  revalidatePath("/ajustes", "layout");
+  return { ok: true, code, inviteId: inv.id, message: "Convite criado. Vale por 7 dias e para uma pessoa." };
+}
+
+export async function createInvite(role: "owner" | "member", participantId: string | null = null): Promise<ActionResult & { code?: string }> {
+  const auth = await requireOwner();
+  return makeInvite(auth, role, participantId);
+}
+
+const FOR_NAME = z.string().trim().min(1, { error: "Diga para quem é o convite." }).max(60);
+
+/**
+ * Membro pede um convite (para quem administra aceitar). Pode ser a partir de um contato seu: ao aceitar
+ * o convite, a pessoa fica com o histórico desse contato.
+ */
+export async function requestInvite(forName: string, contactId: string | null = null): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const db = getDb();
+  let name = forName;
+  if (contactId) {
+    const [c] = await db
+      .select({ name: schema.participants.name })
+      .from(schema.participants)
+      .where(and(eq(schema.participants.id, contactId), eq(schema.participants.householdId, auth.householdId), eq(schema.participants.ownerUserId, auth.userId)));
+    if (!c) return fail("Esse contato não é seu.");
+    name = c.name;
+  }
+  const parsed = FOR_NAME.safeParse(name);
+  if (!parsed.success) return firstIssue(parsed.error);
+  const R = schema.inviteRequests;
+  const [open] = await db
+    .select({ n: count() })
+    .from(R)
+    .where(and(eq(R.householdId, auth.householdId), eq(R.requestedBy, auth.userId), eq(R.status, "pending")));
+  if (open.n >= 5) return fail("Você já tem 5 pedidos esperando. Espere quem administra responder.");
+  await db.insert(R).values({ householdId: auth.householdId, requestedBy: auth.userId, forName: parsed.data, contactId });
+  await logFamily(db, {
+    householdId: auth.householdId,
+    actorUserId: auth.userId,
+    actorName: auth.userName,
+    action: "invite_request",
+    text: `${auth.userName} pediu um convite para ${parsed.data}.`,
+  });
+  revalidatePath("/ajustes", "layout");
+  return done("Pedido enviado. Quando quem administra aceitar, o link aparece aqui para você mandar.");
+}
+
+/** Quem administra aceita (gera o link para quem pediu) ou recusa um pedido de convite. */
+export async function decideInviteRequest(id: string, approve: boolean, reason?: string): Promise<ActionResult> {
+  const auth = await requireOwner();
+  const db = getDb();
+  const R = schema.inviteRequests;
+  const [r] = await db
+    .select({ id: R.id, forName: R.forName, contactId: R.contactId, status: R.status, requestedBy: R.requestedBy, who: schema.users.name })
+    .from(R)
+    .innerJoin(schema.users, eq(schema.users.id, R.requestedBy))
+    .where(and(eq(R.id, id), eq(R.householdId, auth.householdId)));
+  if (!r) return fail("Pedido não encontrado.");
+  if (r.status !== "pending") return fail("Esse pedido já foi respondido.");
+  const why = reason?.trim().slice(0, 200) || null;
+  if (approve) {
+    const inv = await makeInvite(auth, "member", r.contactId, r.forName);
+    if (!inv.ok) return inv;
+    await db.update(R).set({ status: "approved", inviteId: inv.inviteId, decidedBy: auth.userId, decidedAt: new Date() }).where(eq(R.id, id));
+  } else {
+    await db.update(R).set({ status: "declined", reason: why, decidedBy: auth.userId, decidedAt: new Date() }).where(eq(R.id, id));
+  }
+  await logFamily(db, {
+    householdId: auth.householdId,
+    actorUserId: auth.userId,
+    actorName: auth.userName,
+    subjectUserId: r.requestedBy,
+    action: approve ? "invite_request_ok" : "invite_request_no",
+    text: approve
+      ? `${auth.userName} aceitou o pedido de ${r.who} e gerou o convite para ${r.forName}.`
+      : `${auth.userName} recusou o pedido de ${r.who} (convite para ${r.forName})${why ? `: “${why}”` : ""}.`,
+  });
+  revalidatePath("/ajustes", "layout");
+  return done(approve ? `Convite gerado. ${r.who.split(" ")[0]} já pode copiar o link.` : "Pedido recusado.");
 }
 
 export async function revokeInvite(id: string): Promise<ActionResult> {
   const auth = await requireOwner();
-  await getDb().delete(schema.invites).where(and(eq(schema.invites.id, id), eq(schema.invites.householdId, auth.householdId)));
+  const db = getDb();
+  const del = await db.delete(schema.invites).where(and(eq(schema.invites.id, id), eq(schema.invites.householdId, auth.householdId))).returning({ id: schema.invites.id });
+  if (del.length)
+    await logFamily(db, { householdId: auth.householdId, actorUserId: auth.userId, actorName: auth.userName, action: "invite_revoked", text: `${auth.userName} cancelou um convite.` });
   return done("Convite cancelado.");
 }
 
@@ -303,20 +417,45 @@ export async function setMemberRole(userId: string, role: "owner" | "member"): P
       .from(schema.memberships)
       .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.role, "owner")));
     if (owners.length === 1 && owners[0].id === userId) return fail("A família precisa de pelo menos uma pessoa administradora.");
+  } else if ((await adminCount(auth.householdId)) >= ADMINS_MAX) {
+    return fail(ADMINS_FULL_MESSAGE);
   }
-  await db
+  const done1 = await db
     .update(schema.memberships)
     .set({ role })
-    .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, userId)));
+    .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, userId), ne(schema.memberships.role, role)))
+    .returning({ id: schema.memberships.userId });
+  if (done1.length) {
+    const [who] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId));
+    await logFamily(db, {
+      householdId: auth.householdId,
+      actorUserId: auth.userId,
+      actorName: auth.userName,
+      subjectUserId: userId,
+      action: "role",
+      text: role === "owner" ? `${auth.userName} tornou ${who?.name ?? "alguém"} administrador.` : `${auth.userName} tirou ${who?.name ?? "alguém"} da administração (agora é membro).`,
+    });
+  }
+  revalidatePath("/", "layout");
   return done("Permissão atualizada.");
 }
 
 export async function removeMember(userId: string): Promise<ActionResult> {
   const auth = await requireOwner();
   if (userId === auth.userId) return fail("Você não pode remover a si mesmo.");
-  await getDb()
+  const db = getDb();
+  const [who] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId));
+  await db
     .delete(schema.memberships)
     .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, userId)));
+  await logFamily(db, {
+    householdId: auth.householdId,
+    actorUserId: auth.userId,
+    actorName: auth.userName,
+    subjectUserId: userId,
+    action: "removed",
+    text: `${auth.userName} tirou o acesso de ${who?.name ?? "alguém"} (continua nos lançamentos, sem login).`,
+  });
   return done("Acesso removido. A pessoa continua nos lançamentos como participante.");
 }
 
@@ -391,7 +530,9 @@ export async function inviteContact(id: string): Promise<ActionResult & { code?:
     .from(schema.participants)
     .where(and(eq(schema.participants.id, id), eq(schema.participants.householdId, auth.householdId), eq(schema.participants.ownerUserId, auth.userId)));
   if (!c) return fail("Esse contato não é seu.");
-  return createInvite("member", id);
+  // Quem administra gera o link na hora; membro faz um pedido.
+  if (auth.role !== "owner") return requestInvite("", id);
+  return makeInvite(auth, "member", id);
 }
 
 // ---------- Foto e cor das pessoas ----------
@@ -502,6 +643,13 @@ export async function mergeContactIntoMember(contactId: string, memberPid: strin
     }
     await q.update(schema.invites).set({ participantId: null }).where(eq(schema.invites.participantId, contactId));
     await q.delete(P).where(eq(P.id, contactId));
+    await logFamily(q, {
+      householdId: auth.householdId,
+      actorUserId: auth.userId,
+      actorName: auth.userName,
+      action: "contact_merged",
+      text: `${auth.userName} passou as contas de um contato dele para ${member.name}.`,
+    });
     return new Set([...payer.map((x) => x.id), ...parts.map((x) => x.transactionId)]).size;
   });
   revalidatePath("/", "layout");

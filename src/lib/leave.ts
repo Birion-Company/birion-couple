@@ -16,9 +16,27 @@ export async function leaveHousehold(tx: Tx, userId: string, householdId: string
   const [mine] = await tx.select().from(m).where(and(eq(m.userId, userId), eq(m.householdId, householdId))).limit(1);
   if (!mine) return;
   await tx.delete(m).where(and(eq(m.userId, userId), eq(m.householdId, householdId)));
+  const [u] = await tx.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId));
+  await tx.insert(schema.familyLog).values({
+    householdId,
+    actorUserId: userId,
+    actorName: u?.name ?? "Alguém",
+    subjectUserId: userId,
+    action: "left",
+    text: `${u?.name ?? "Alguém"} saiu da família (continua nos lançamentos, sem login).`,
+  });
   const rest = await tx.select({ userId: m.userId, role: m.role }).from(m).where(eq(m.householdId, householdId)).orderBy(asc(m.createdAt));
   if (mine.role === "owner" && rest.length > 0 && !rest.some((r) => r.role === "owner")) {
     await tx.update(m).set({ role: "owner" }).where(and(eq(m.userId, rest[0].userId), eq(m.householdId, householdId)));
+    const [heir] = await tx.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, rest[0].userId));
+    await tx.insert(schema.familyLog).values({
+      householdId,
+      actorUserId: null,
+      actorName: "Birion",
+      subjectUserId: rest[0].userId,
+      action: "role",
+      text: `${heir?.name ?? "Alguém"} virou administrador (era quem estava há mais tempo).`,
+    });
   }
   if (rest.length === 0) {
     const [{ n }] = await tx.select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, householdId));
