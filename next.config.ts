@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Montagem separada para o teste de carga (NEXT_DIST_DIR=.next-carga), sem mexer no app que está no ar.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Todas as telas dependem de quem está logado, então são renderizadas a cada pedido.
   experimental: {
     serverActions: { bodySizeLimit: "4mb" }, // importação envia o texto do arquivo

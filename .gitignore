@@ -43,3 +43,5 @@ next-env.d.ts
 
 # netlify
 .netlify
+.next-carga/
+tests/carga/resultado-*.json

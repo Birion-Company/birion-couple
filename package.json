@@ -11,7 +11,10 @@
     "test": "vitest run",
     "db:dev": "node scripts/dev-db.mjs",
     "db:generate": "drizzle-kit generate",
-    "test:e2e": "node tests/e2e/run.mjs"
+    "test:e2e": "node tests/e2e/run.mjs",
+    "test:carga": "node tests/carga/rodar.mjs",
+    "carga:semear": "node tests/carga/semear.mjs",
+    "carga:limpar": "node tests/carga/limpar.mjs"
   },
   "dependencies": {
     "@netlify/database": "^2.0.3",
