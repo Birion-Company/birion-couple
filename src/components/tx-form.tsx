@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { ArrowRight, CreditCard, Lightbulb, Lock, Repeat, RotateCcw, Trash2 } from "lucide-react";
 import { deleteSeries, deleteTransactions, refundExpense, saveTransaction, stopRecurring } from "@/app/actions/transactions";
-import { addMonthsIso, buildSeries, cardSchedule, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate } from "@/lib/cards";
+import { addMonthsIso, buildSeries, cardSchedule, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate, todayIn } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
 import type { Lookups, TxRow } from "@/lib/queries";
@@ -1023,7 +1023,9 @@ export function TxForm({
                 <span className="faint refund-note">
                   {(parseAmountToCents(refundValue, ",") ?? 0) >= initial.amountCents
                     ? "Estorno total: a despesa sai."
-                    : "Abate da despesa; a parte de cada um diminui junto."}
+                    : card && invoiceOf(initial.date, card.closingDay) < invoiceOf(todayIn(), card.closingDay)
+                      ? "A fatura desta compra já fechou: o estorno entra como crédito na fatura aberta, dividido como a compra."
+                      : "Abate da despesa; a parte de cada um diminui junto."}
                 </span>
                 <button type="button" className="btn small primary" onClick={refund} disabled={pending}>
                   Confirmar

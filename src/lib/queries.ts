@@ -732,8 +732,10 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
   const focus = f.person ?? (f.everyone ? null : viewer.participantId) ?? null;
   const share = (r: TxRow) => (focus ? (notAccepted(r, focus) ? 0 : r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0) : r.amountCents);
   const expenses = rows.filter((r) => r.kind === "expense");
-  const spent = expenses.reduce((a, r) => a + share(r), 0);
-  const familySpent = expenses.reduce((a, r) => a + r.amountCents, 0);
+  // Estorno no cartão (receita no cartão): devolve parte de uma compra, então abate os gastos (não é entrada).
+  const refunds = rows.filter((r) => r.kind === "income" && r.cardId);
+  const spent = expenses.reduce((a, r) => a + share(r), 0) - refunds.reduce((a, r) => a + share(r), 0);
+  const familySpent = expenses.reduce((a, r) => a + r.amountCents, 0) - refunds.reduce((a, r) => a + r.amountCents, 0);
   // Vendo outra pessoa: o que você pagou por ela e o que ela te pagou de volta no mês.
   const me = viewer.participantId;
   const other = focus && me && focus !== me ? focus : null;
@@ -766,11 +768,15 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
   const paidForOthers = [...owedBy.values()].reduce((a, v) => a + v, 0);
   const owedToMe = [...owedBy].map(([id, cents]) => ({ id, cents })).sort((a, b) => b.cents - a.cents);
   // Entradas: só o que já foi recebido ("a receber" fica de fora até o "Recebi").
-  const income = rows.filter((r) => r.kind === "income" && !r.awaitingReceipt).reduce((a, r) => a + share(r), 0);
+  const income = rows.filter((r) => r.kind === "income" && !r.awaitingReceipt && !r.cardId).reduce((a, r) => a + share(r), 0);
   const byCategory = new Map<string, number>();
   for (const r of expenses) {
     const key = r.categoryId ?? "sem";
     byCategory.set(key, (byCategory.get(key) ?? 0) + share(r));
+  }
+  for (const r of refunds) {
+    const key = r.categoryId ?? "sem";
+    byCategory.set(key, (byCategory.get(key) ?? 0) - share(r));
   }
   const byPerson = new Map<string, number>();
   for (const r of expenses) for (const s of r.splits) if (!notAccepted(r, s.participantId)) byPerson.set(s.participantId, (byPerson.get(s.participantId) ?? 0) + s.amountCents);
@@ -1006,10 +1012,11 @@ export async function getOutlook(viewer: Viewer, f: Filters, months = 12) {
   const byMonth = new Map<string, { cents: number; recurringCents: number; count: number }>();
   for (let k = first; k <= last; k = addMonthsKey(k, 1)) byMonth.set(k, { cents: 0, recurringCents: 0, count: 0 });
   for (const r of [...saved, ...projected]) {
-    if (r.kind !== "expense") continue;
+    const refund = r.kind === "income" && !!r.cardId;
+    if (r.kind !== "expense" && !refund) continue;
     const m = byMonth.get(monthOf(r, closing));
     if (!m) continue;
-    const v = share(r);
+    const v = refund ? -share(r) : share(r);
     m.cents += v;
     m.count += 1;
     if (r.seriesKind === "monthly") m.recurringCents += v;

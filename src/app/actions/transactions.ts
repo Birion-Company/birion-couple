@@ -140,11 +140,11 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   if (data.series?.kind === "installment" && data.series.count! > 48) return { ok: false, error: "No máximo 48 parcelas." };
   if (data.series?.kind === "installment" && data.amountCents < data.series.count!) return { ok: false, error: "Valor pequeno demais para tantas parcelas." };
   if (data.cardId && between) return { ok: false, error: "Dívidas e acertos não entram em cartão." };
-  // Receita não tem cartão: o dinheiro que entra é seu, não de um cartão.
-  if (data.kind === "income") data.cardId = null;
   // Como estava antes (ao editar): o que não vem do formulário continua igual.
   const existing = id ? await loadExisting(auth.householdId, id) : null;
   if (id && !existing) return { ok: false, error: "Lançamento não encontrado." };
+  // Receita não tem cartão: o dinheiro que entra é seu, não de um cartão. Exceção: estorno já lançado no cartão.
+  if (data.kind === "income" && !(existing?.cardId && existing.cardId === data.cardId)) data.cardId = null;
   // Receita é dinheiro que entrou para quem lança. Entrada no nome de outra pessoa só como acerto.
   if (data.kind === "income" && auth.participantId && data.payerId !== auth.participantId && existing?.payerId !== data.payerId) {
     return { ok: false, error: "Receita é sempre sua. Se alguém te pagou uma dívida, lance como Acerto." };
@@ -1136,13 +1136,46 @@ export async function refundExpense(transactionId: string, amountCents: number):
   const db = getDb();
   const t = schema.transactions;
   const [tx] = await db
-    .select({ id: t.id, kind: t.kind, cardId: t.cardId, amountCents: t.amountCents, notes: t.notes, description: t.description })
+    .select({ id: t.id, kind: t.kind, cardId: t.cardId, date: t.date, payerId: t.payerId, categoryId: t.categoryId, projectId: t.projectId, amountCents: t.amountCents, notes: t.notes, description: t.description })
     .from(t)
     .where(and(eq(t.id, transactionId), eq(t.householdId, auth.householdId)));
   if (!tx) return { ok: false, error: "Lançamento não encontrado." };
   if (tx.kind !== "expense" || !tx.cardId) return { ok: false, error: "Estorno é só para compra no cartão." };
   if (amountCents > tx.amountCents) return { ok: false, error: `O estorno não pode passar do valor da despesa (${formatMoney(tx.amountCents, auth.currency)}).` };
   const splits = await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, transactionId));
+  // Compra de uma fatura que já fechou: como nos bancos, o estorno entra como crédito na fatura aberta
+  // (a fatura antiga não muda). A parte de cada um no crédito segue a divisão da compra.
+  const [card] = await db.select({ closingDay: schema.creditCards.closingDay }).from(schema.creditCards).where(eq(schema.creditCards.id, tx.cardId));
+  const today = todayIn();
+  if (card && invoiceOf(tx.date, card.closingDay) < invoiceOf(today, card.closingDay)) {
+    const parts = scaleSplits(splits, amountCents).filter((x) => x.amountCents > 0);
+    const creditId = await db.transaction(async (q) => {
+      const [row] = await q
+        .insert(t)
+        .values({
+          householdId: auth.householdId,
+          date: today,
+          description: `Estorno: ${tx.description}`.slice(0, 200),
+          amountCents,
+          kind: "income",
+          payerId: tx.payerId,
+          categoryId: tx.categoryId,
+          projectId: tx.projectId,
+          cardId: tx.cardId,
+          notes: `Estorno da compra de ${shortDate(tx.date)} (${formatMoney(tx.amountCents, auth.currency)}), creditado na fatura aberta.`,
+          source: "manual",
+          createdBy: auth.userId,
+        })
+        .returning({ id: t.id });
+      await q.insert(schema.transactionSplits).values(parts.map((x) => ({ participantId: x.participantId, amountCents: x.amountCents, transactionId: row.id })));
+      const snap: TxSnapshot = { description: `Estorno: ${tx.description}`, amountCents, kind: "income", date: today, payerId: tx.payerId, categoryId: tx.categoryId, projectId: tx.projectId, cardId: tx.cardId, splits: parts };
+      await logActivity(q, auth, { action: "created", transactionId: row.id, data: { tx: snap }, audience: involved(snap) });
+      return row.id;
+    });
+    revalidatePath("/", "layout");
+    void creditId;
+    return { ok: true, message: `Estorno de ${formatMoney(amountCents, auth.currency)} lançado como crédito na fatura aberta (a fatura antiga não muda).` };
+  }
   if (splits.some((s) => s.paidById)) return { ok: false, error: "Alguém já pagou a parte desta despesa. Desfaça o pagamento antes de estornar." };
   // Estorno total: a compra foi desfeita, então o lançamento sai.
   if (amountCents === tx.amountCents) return deleteTransactions([transactionId]);
