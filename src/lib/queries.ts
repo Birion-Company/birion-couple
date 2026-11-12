@@ -534,6 +534,25 @@ export async function getRecurringState(householdId: string, seriesId: string | 
   return r ?? null;
 }
 
+/**
+ * Só o que ainda pode mexer numa dívida (para não ler o histórico inteiro a cada abertura):
+ * - acertos avulsos (abatem dívidas antigas pela soma);
+ * - lançamentos com alguém além de quem pagou que ainda tem parte sem pagamento que a quitou;
+ * - com `historySince`: também os quitados e os pagamentos a partir dessa data (para o histórico "Pago").
+ * Fica de fora: o que é só de quem pagou, o "Já acertado" antigo e o que foi quitado antes dessa data.
+ */
+function debtRelevant(historySince?: string): SQL {
+  const others = sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" <> "transactions"."payerId" and s."amountCents" > 0`;
+  const open = sql`${others} and s."paidById" is null)`;
+  return or(
+    and(eq(t.kind, "transfer"), isNull(t.settlesId)),
+    and(eq(t.settled, false), open),
+    // Quitado há pouco: o pagamento pode ainda estar esperando a outra pessoa confirmar (aí não conta).
+    sql`exists (select 1 from "transaction_splits" s join "transactions" p on p."id" = s."paidById" where s."transactionId" = "transactions"."id" and p."createdAt" > now() - interval '90 days')`,
+    historySince ? and(gte(t.date, historySince), or(isNotNull(t.settlesId), sql`${others})`)) : undefined,
+  )!;
+}
+
 /** Receitas "a receber" até uma data (as atrasadas primeiro): o painel pergunta "Você recebeu?". */
 export async function getAwaitingIncome(viewer: Viewer, until: string) {
   return getDb()
@@ -574,7 +593,7 @@ export async function getDebtsToReceive(viewer: Viewer, until: string) {
   // Ex.: emprestou R$ 200, ela te pagou R$ 100 e você deve R$ 80 a ela → aparece só R$ 20 a receber.
   const people = [...new Set(items.map((x) => x.personId))];
   const all = await attachSplits(
-    (await getDb().select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, until)))) as BaseRow[],
+    (await getDb().select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, until), debtRelevant()))) as BaseRow[],
   );
   const net = new Map<string, number>();
   for (const r of all) for (const [other, v] of pairEffects(me, r)) if (people.includes(other)) net.set(other, (net.get(other) ?? 0) + v);
@@ -814,7 +833,7 @@ export async function getDebts(viewer: Viewer) {
   const db = getDb();
   const rows = await attachSplits(
     // Parcelas e meses futuros ainda não viraram dívida.
-    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, todayIn())))) as BaseRow[],
+    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, todayIn()), debtRelevant()))) as BaseRow[],
   );
   const input = rows;
   if (isAdmin(viewer) || !viewer.participantId) {
@@ -900,7 +919,14 @@ export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
   await ensureRecurring(viewer.householdId);
   const db = getDb();
   const rows = await attachSplits(
-    (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId))).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
+    (
+      await db
+        .select(txColumns)
+        .from(t)
+        // O histórico "Pago" mostra os últimos 6 meses; o que ainda está em aberto vem sempre, de qualquer data.
+        .where(txScope(viewer, isNotNull(t.payerId), debtRelevant(`${addMonthsKey(todayIn().slice(0, 7), -6)}-01`)))
+        .orderBy(desc(t.date), desc(t.createdAt))
+    ) as BaseRow[],
   );
   const withBehavior = rows.map((r) => ({ tx: r, input: r }));
   const me = viewer.participantId;
