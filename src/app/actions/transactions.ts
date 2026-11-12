@@ -19,6 +19,7 @@ import { parseFilters } from "@/lib/filters";
 import { firstDateOf, isReal, planSeries, scaleSplits } from "@/lib/series-plan";
 import { formatMoney, splitEqually } from "@/lib/money";
 import { reopenUnderpaid } from "@/lib/settle";
+import { checkPeople } from "@/lib/people-access";
 import type { ActionResult } from "./settings";
 
 const uuid = z.uuid();
@@ -108,6 +109,12 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   if (id) {
     const notAllowed = await checkEditable(auth, [id]);
     if (notAllowed) return { ok: false, error: notAllowed };
+  }
+  // Contato de outra pessoa da família só vale se já estava no lançamento.
+  {
+    const before = id ? await loadExisting(auth.householdId, id) : null;
+    const bad = await checkPeople(auth.householdId, auth.userId, [data.payerId, ...data.splits.map((x) => x.participantId)], [before?.payerId, ...(before?.splits.map((x) => x.participantId) ?? [])]);
+    if (bad) return { ok: false, error: bad };
   }
 
   // Lançamento avulso que vai virar série (ex.: Spotify antigo → "Todo mês"): salva as mudanças e depois converte.

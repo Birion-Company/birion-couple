@@ -15,6 +15,7 @@ import { daysBetween } from "@/lib/cards";
 import { expandInstallments, learnedByMerchant, PREDICTED } from "@/lib/patterns-server";
 import type { CsvMapping, ParseIssue } from "@/lib/import/types";
 import { splitEqually } from "@/lib/money";
+import { checkPeople, usablePeople } from "@/lib/people-access";
 
 const MAX_TEXT = 3_000_000; // ~3 MB de texto
 
@@ -149,6 +150,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
     .from(schema.participants)
     .where(and(eq(schema.participants.householdId, auth.householdId), inArray(schema.participants.id, people)));
   if (foundPeople.length !== people.length) return { ok: false, error: "Pessoa inválida." };
+  if (await checkPeople(auth.householdId, auth.userId, people)) return { ok: false, error: "Pessoa inválida." };
   const catIds = [...new Set(data.rows.map((r) => r.categoryId).filter((c): c is string => !!c))];
   if (catIds.length) {
     const found = await db
@@ -184,8 +186,12 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
     const items: ActivityItem[] = [];
     // O que já se sabe de cada estabelecimento (de quem é a conta), para classificar sozinho.
     const learned = await learnedByMerchant(auth.householdId, tx);
+    // Só pessoas que quem importa pode usar (contato de outra pessoa não entra pela divisão aprendida).
+    const usable = await usablePeople(auth.householdId, auth.userId, tx);
     const alive = new Set(
-      (await tx.select({ id: schema.participants.id }).from(schema.participants).where(and(eq(schema.participants.householdId, auth.householdId), eq(schema.participants.archived, false)))).map((x) => x.id),
+      (await tx.select({ id: schema.participants.id }).from(schema.participants).where(and(eq(schema.participants.householdId, auth.householdId), eq(schema.participants.archived, false))))
+        .map((x) => x.id)
+        .filter((id) => usable.has(id)),
     );
     const splitFor = (description: string, amountCents: number) => {
       const known = amountCents < 0 ? learned.get(merchantKey(description))?.participantIds.filter((id) => alive.has(id)) : undefined;

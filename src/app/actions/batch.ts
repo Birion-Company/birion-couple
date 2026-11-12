@@ -9,6 +9,7 @@ import { involved, logActivity, snapshots, type TxSnapshot } from "@/lib/activit
 import { requireAuth } from "@/lib/auth";
 import { matchCategory } from "@/lib/import/dedupe";
 import { reopenUnderpaid } from "@/lib/settle";
+import { checkPeople } from "@/lib/people-access";
 import { splitEqually } from "@/lib/money";
 import { loadRules } from "@/lib/rules-server";
 import type { ActionResult } from "./settings";
@@ -85,6 +86,7 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
   const hid = auth.householdId;
   const people = [...(p.payerId ? [p.payerId] : []), ...(p.splitIds ?? [])];
   if (!(await belongs(hid, schema.participants, people))) return { ok: false, error: "Pessoa inválida." };
+  if (await checkPeople(hid, auth.userId, people)) return { ok: false, error: "Pessoa inválida." };
   if (p.categoryId && !(await belongs(hid, schema.categories, [p.categoryId]))) return { ok: false, error: "Categoria inválida." };
   if (p.projectId && !(await belongs(hid, schema.projects, [p.projectId]))) return { ok: false, error: "Projeto inválido." };
   const newCard = p.cardId ? await loadCard(hid, p.cardId) : null;
@@ -226,6 +228,7 @@ export async function createMany(input: ManyInput): Promise<ActionResult & { cou
   const d = parsed.data;
   const hid = auth.householdId;
   if (!(await belongs(hid, schema.participants, [...(d.payerId ? [d.payerId] : []), ...d.splitIds]))) return { ok: false, error: "Pessoa inválida." };
+  if (await checkPeople(hid, auth.userId, [d.payerId, ...d.splitIds])) return { ok: false, error: "Pessoa inválida." };
   const cats = [...new Set(d.rows.map((r) => r.categoryId).filter((c): c is string => !!c))];
   if (!(await belongs(hid, schema.categories, cats))) return { ok: false, error: "Categoria inválida." };
   if (d.projectId && !(await belongs(hid, schema.projects, [d.projectId]))) return { ok: false, error: "Projeto inválido." };
