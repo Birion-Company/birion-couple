@@ -8156,3 +8156,53 @@ a.row:hover .tx-desc.neg,
 a.row:hover .amount .neg {
   color: var(--neg-hover);
 }
+
+/* A receber recolhido: só o título e um número (como o das notificações); abre ao tocar. */
+.awaiting-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.awaiting-toggle h2 {
+  margin: 0;
+}
+.awaiting-toggle:hover h2 {
+  color: var(--brand-strong);
+}
+.awaiting-count {
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #e0a526;
+  color: #2a1a00;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+}
+.awaiting-count.late {
+  background: var(--neg);
+  color: #fff;
+}
+:root[data-theme="dark"] .awaiting-count.late {
+  color: #2a0710;
+}
+.awaiting-chevron {
+  margin-left: auto;
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+.awaiting-body {
+  margin-top: 12px;
+}
+.awaiting-body .awaiting-sum {
+  margin: 0 0 6px;
+}

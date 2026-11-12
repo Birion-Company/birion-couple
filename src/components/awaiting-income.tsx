@@ -58,6 +58,8 @@ export function AwaitingIncome({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [all, setAll] = useState(false);
+  /** Fica recolhido: só o título e um número (como o das notificações). Abre se a pessoa quiser. */
+  const [open, setOpen] = useState(false);
   if (items.length === 0 && debts.length === 0) return null;
 
   const list = [
@@ -99,144 +101,170 @@ export function AwaitingIncome({
       aria-labelledby="a-receber"
       data-tour="dash-awaiting"
     >
-      <div className="card-head">
+      <button
+        type="button"
+        className="awaiting-toggle"
+        aria-expanded={open}
+        aria-controls="a-receber-lista"
+        onClick={() => setOpen((o) => !o)}
+      >
         <h2 id="a-receber">
           <Hourglass size={17} strokeWidth={1.9} aria-hidden /> A receber
         </h2>
-        {/* Total à vista no canto, com quantos estão atrasados. */}
-        <span className="awaiting-sum">
-          <strong className="num">{formatMoney(total, currency)}</strong>
-          {late ? (
-            <span className="neg">
-              {" "}
-              · {late} atrasad{late === 1 ? "o" : "os"}
-            </span>
-          ) : null}
-        </span>
-      </div>
-      {/* O que este quadro mostra (só o urgente) e quando conta como recebido. */}
-      <p className="awaiting-help">
-        Aqui aparece <strong>só o mais importante</strong>: o que já venceu ou
-        vence neste mês, do mais atrasado para o mais novo
-        {list.length > SHOWN
-          ? ` (os ${SHOWN} primeiros de ${list.length}; “Ver mais” abre o resto)`
-          : ""}
-        . Só conta como recebido depois que você toca em <strong>Recebi</strong>
-        .
-      </p>
-      <div className="rows">
-        {visible.map(({ key, debt: x, income: y }) => {
-          if (x) {
-            const isLate = x.date < today;
-            return (
-              <div
-                key={key}
-                className={`row awaiting-row ${isLate ? "late" : ""}`}
-              >
-                <Link
-                  href={`/transacoes/${x.txId}`}
-                  className="grow"
-                  style={{ minWidth: 0 }}
-                >
-                  <span className="title">
-                    {names[x.personId] ?? "Alguém"} · {x.description}
-                    {x.series && <span className="tx-series">{x.series}</span>}
-                  </span>
-                  <span className="sub" style={{ display: "block" }}>
-                    Dívida ·{" "}
-                    {isLate
-                      ? `venceu ${day(x.date)} · ${lateText(x.date)}`
-                      : x.date === today
-                        ? "vence hoje"
-                        : `vence ${day(x.date)}`}
-                    {x.pending ? " · pagamento esperando confirmação" : ""}
-                  </span>
-                </Link>
-                <strong className="num awaiting-value">
-                  {formatMoney(x.leftCents, currency)}
-                </strong>
-                {!x.pending && (
-                  <PayButton
-                    txId={x.txId}
-                    participantId={x.personId}
-                    owedCents={x.leftCents}
-                    currency={currency}
-                    label="Recebi"
-                  />
-                )}
-              </div>
-            );
-          }
-          const isLate = y!.date < today;
-          return (
-            <div
-              key={key}
-              className={`row awaiting-row ${isLate ? "late" : ""}`}
-            >
-              <Link
-                href={`/transacoes/${y!.id}`}
-                className="grow"
-                style={{ minWidth: 0 }}
-              >
-                <span className="title">
-                  {y!.description}
-                  {y!.seriesKind === "monthly" ? (
-                    <span className="tx-series">todo mês</span>
-                  ) : y!.seriesTotal ? (
-                    <span className="tx-series">
-                      {y!.seriesIndex}/{y!.seriesTotal}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="sub" style={{ display: "block" }}>
-                  {isLate
-                    ? `Era para ${day(y!.date)} · ${lateText(y!.date)}`
-                    : y!.date === today
-                      ? "Hoje"
-                      : `Dia ${day(y!.date)}`}
-                </span>
-              </Link>
-              <strong className="num awaiting-value">
-                {formatMoney(y!.amountCents, currency)}
-              </strong>
-              <button
-                type="button"
-                className="btn small primary"
-                disabled={pending}
-                onClick={() => received(y!.id)}
-              >
-                <Check size={14} strokeWidth={2.4} /> Recebi
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      {list.length > SHOWN && (
-        <button
-          type="button"
-          className="awaiting-more"
-          aria-expanded={all}
-          onClick={() => setAll((o) => !o)}
+        <span
+          className={`awaiting-count ${late ? "late" : ""}`}
+          aria-label={`${list.length} ${list.length === 1 ? "item" : "itens"}${late ? `, ${late} atrasad${late === 1 ? "o" : "os"}` : ""}`}
         >
-          {all
-            ? "Mostrar menos"
-            : `Ver mais ${hidden} ${hidden === 1 ? "item" : "itens"}`}
-          <ChevronDown
-            size={15}
-            strokeWidth={2.2}
-            aria-hidden
-            style={{ transform: all ? "rotate(180deg)" : undefined }}
-          />
-        </button>
+          {list.length > 99 ? "99+" : list.length}
+        </span>
+        <ChevronDown
+          size={16}
+          strokeWidth={2}
+          className="awaiting-chevron"
+          aria-hidden
+          style={{ transform: open ? "rotate(180deg)" : undefined }}
+        />
+      </button>
+      {open && (
+        <div id="a-receber-lista" className="awaiting-body">
+          {/* Total, com quantos estão atrasados. */}
+          <p className="awaiting-sum">
+            Total:{" "}
+            <strong className="num">{formatMoney(total, currency)}</strong>
+            {late ? (
+              <span className="neg">
+                {" "}
+                · {late} atrasad{late === 1 ? "o" : "os"}
+              </span>
+            ) : null}
+          </p>
+          {/* O que este quadro mostra (só o urgente) e quando conta como recebido. */}
+          <p className="awaiting-help">
+            Aqui aparece <strong>só o mais importante</strong>: o que já venceu
+            ou vence neste mês, do mais atrasado para o mais novo
+            {list.length > SHOWN
+              ? ` (os ${SHOWN} primeiros de ${list.length}; “Ver mais” abre o resto)`
+              : ""}
+            . Só conta como recebido depois que você toca em{" "}
+            <strong>Recebi</strong>.
+          </p>
+          <div className="rows">
+            {visible.map(({ key, debt: x, income: y }) => {
+              if (x) {
+                const isLate = x.date < today;
+                return (
+                  <div
+                    key={key}
+                    className={`row awaiting-row ${isLate ? "late" : ""}`}
+                  >
+                    <Link
+                      href={`/transacoes/${x.txId}`}
+                      className="grow"
+                      style={{ minWidth: 0 }}
+                    >
+                      <span className="title">
+                        {names[x.personId] ?? "Alguém"} · {x.description}
+                        {x.series && (
+                          <span className="tx-series">{x.series}</span>
+                        )}
+                      </span>
+                      <span className="sub" style={{ display: "block" }}>
+                        Dívida ·{" "}
+                        {isLate
+                          ? `venceu ${day(x.date)} · ${lateText(x.date)}`
+                          : x.date === today
+                            ? "vence hoje"
+                            : `vence ${day(x.date)}`}
+                        {x.pending ? " · pagamento esperando confirmação" : ""}
+                      </span>
+                    </Link>
+                    <strong className="num awaiting-value">
+                      {formatMoney(x.leftCents, currency)}
+                    </strong>
+                    {!x.pending && (
+                      <PayButton
+                        txId={x.txId}
+                        participantId={x.personId}
+                        owedCents={x.leftCents}
+                        currency={currency}
+                        label="Recebi"
+                      />
+                    )}
+                  </div>
+                );
+              }
+              const isLate = y!.date < today;
+              return (
+                <div
+                  key={key}
+                  className={`row awaiting-row ${isLate ? "late" : ""}`}
+                >
+                  <Link
+                    href={`/transacoes/${y!.id}`}
+                    className="grow"
+                    style={{ minWidth: 0 }}
+                  >
+                    <span className="title">
+                      {y!.description}
+                      {y!.seriesKind === "monthly" ? (
+                        <span className="tx-series">todo mês</span>
+                      ) : y!.seriesTotal ? (
+                        <span className="tx-series">
+                          {y!.seriesIndex}/{y!.seriesTotal}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="sub" style={{ display: "block" }}>
+                      {isLate
+                        ? `Era para ${day(y!.date)} · ${lateText(y!.date)}`
+                        : y!.date === today
+                          ? "Hoje"
+                          : `Dia ${day(y!.date)}`}
+                    </span>
+                  </Link>
+                  <strong className="num awaiting-value">
+                    {formatMoney(y!.amountCents, currency)}
+                  </strong>
+                  <button
+                    type="button"
+                    className="btn small primary"
+                    disabled={pending}
+                    onClick={() => received(y!.id)}
+                  >
+                    <Check size={14} strokeWidth={2.4} /> Recebi
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {list.length > SHOWN && (
+            <button
+              type="button"
+              className="awaiting-more"
+              aria-expanded={all}
+              onClick={() => setAll((o) => !o)}
+            >
+              {all
+                ? "Mostrar menos"
+                : `Ver mais ${hidden} ${hidden === 1 ? "item" : "itens"}`}
+              <ChevronDown
+                size={15}
+                strokeWidth={2.2}
+                aria-hidden
+                style={{ transform: all ? "rotate(180deg)" : undefined }}
+              />
+            </button>
+          )}
+          <p className="awaiting-where">
+            Todas as receitas a receber ficam em{" "}
+            <Link href={`/transacoes?mes=${month}&status=a-receber`}>
+              Lançamentos → filtro Status “A receber”
+            </Link>{" "}
+            (troque o mês para ver as dos próximos). Quem te deve, de todos os
+            meses: <Link href="/transacoes?dividas=1">aba Dívidas</Link>.
+          </p>
+        </div>
       )}
-      <p className="awaiting-where">
-        Todas as receitas a receber ficam em{" "}
-        <Link href={`/transacoes?mes=${month}&status=a-receber`}>
-          Lançamentos → filtro Status “A receber”
-        </Link>{" "}
-        (troque o mês para ver as dos próximos). Quem te deve, de todos os
-        meses: <Link href="/transacoes?dividas=1">aba Dívidas</Link>.
-      </p>
     </section>
   );
 }
