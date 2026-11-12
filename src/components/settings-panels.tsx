@@ -26,6 +26,7 @@ const TABS = [
   { href: "/ajustes/pessoas", label: "Pessoas", help: "Família (com login) e contatos (sem login)." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
   { href: "/ajustes/orcamento", label: "Orçamento", help: "Quanto você quer gastar por mês em cada categoria. Só você vê." },
+  { href: "/ajustes/metas", label: "Metas", help: "Quanto quer juntar e até quando. Só você vê." },
   { href: "/ajustes/membros", label: "Acesso", help: "Quem entra no app, quem administra e convites." },
   { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
   { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou em PDF, para guardar ou mandar para alguém." },

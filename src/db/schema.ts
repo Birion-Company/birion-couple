@@ -385,6 +385,19 @@ export const budgets = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.categoryId] })],
 );
 
+/** Metas de economia: de cada pessoa. targetMonth é "AAAA-MM"; savedCents é quanto já foi guardado. */
+export const goals = pgTable("goals", {
+  id: id(),
+  userId: uuid()
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text().notNull(),
+  targetCents: integer().notNull(),
+  savedCents: integer().notNull().default(0),
+  targetMonth: text().notNull(),
+  createdAt: createdAt(),
+});
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()

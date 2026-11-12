@@ -13,6 +13,10 @@ import { MoneySummary } from "@/components/money-summary";
 import { AwaitingIncome } from "@/components/awaiting-income";
 import { BudgetBar } from "@/components/budget-editor";
 import { getBudgets } from "@/lib/budgets";
+import { goalPlan } from "@/lib/goals";
+import { asc, eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
+import { formatMoney } from "@/lib/money";
 import { MonthNav } from "@/components/month-nav";
 import { MonthOutlook } from "@/components/month-outlook";
 
@@ -68,6 +72,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   const budgetRows = (await getBudgets(auth.userId))
     .map((b) => ({ categoryId: b.categoryId, limit: b.monthlyCents, spent: spentOf.get(b.categoryId) ?? 0 }))
     .sort((a, b) => b.spent / b.limit - a.spent / a.limit);
+  const goalRows = (await getDb().select().from(schema.goals).where(eq(schema.goals.userId, auth.userId)).orderBy(asc(schema.goals.targetMonth))).map((g) => ({
+    ...g,
+    plan: goalPlan(g.targetCents, g.savedCents, g.targetMonth, current),
+  }));
   // Dívidas que envolvem você primeiro.
   const welcome = sp.bemvindo === "1";
 
@@ -308,6 +316,33 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                     </Link>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {mode === "me" && goalRows.length > 0 && (
+            <section className="card" aria-labelledby="metas-painel">
+              <div className="card-head">
+                <h2 id="metas-painel">Metas</h2>
+                <Link href="/ajustes/metas" className="faint">
+                  ajustar
+                </Link>
+              </div>
+              <div className="rows">
+                {goalRows.map((g) => (
+                  <div key={g.id} className="row" style={{ display: "block" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="grow title">{g.name}</span>
+                      <span className="num">
+                        <Money cents={g.savedCents} currency={cur} /> de <Money cents={g.targetCents} currency={cur} />
+                      </span>
+                    </div>
+                    <div className="bud-bar">
+                      <span className={g.plan.done ? "ok" : g.plan.late ? "over" : "near"} style={{ width: `${g.plan.pct}%` }} />
+                    </div>
+                    <p className="sub">{g.plan.done ? "Meta batida!" : `Guardar ${formatMoney(g.plan.perMonthCents, cur)}/mês`}</p>
+                  </div>
+                ))}
               </div>
             </section>
           )}

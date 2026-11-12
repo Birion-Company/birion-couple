@@ -8783,3 +8783,25 @@ body.modal-open .new-fab {
     flex: 1;
   }
 }
+
+/* Metas de economia. */
+.goal-row {
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.goal-add {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.goal-add .input {
+  width: 96px;
+}
+.goal-new {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  max-width: 420px;
+}

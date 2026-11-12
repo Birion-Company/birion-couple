@@ -24,6 +24,10 @@ export function externalIds(rows: ParsedRow[], format: "ofx" | "csv"): string[] 
 
 const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+/** O texto contém o nome? Nomes curtos (até 3 letras, como "99") só valem como palavra inteira, para não achar "99" dentro de "1999". */
+const contains = (text: string, p: string) =>
+  p.length > 3 ? text.includes(p) : new RegExp(`(^|[^a-z0-9])${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^a-z0-9])`).test(text);
+
 /**
  * Aplica as regras "descrição contém texto → categoria", sem diferença de acento ou maiúsculas.
  * Quando mais de uma bate, vence a mais específica (o texto mais longo): "uber eats" ganha de "uber".
@@ -36,7 +40,7 @@ export function matchCategory(
   let best: { len: number; categoryId: string } | null = null;
   for (const r of rules) {
     const p = fold(r.pattern).trim();
-    if (p && d.includes(p) && (!best || p.length > best.len)) best = { len: p.length, categoryId: r.categoryId };
+    if (p && contains(d, p) && (!best || p.length > best.len)) best = { len: p.length, categoryId: r.categoryId };
   }
   return best?.categoryId ?? null;
 }
