@@ -1072,6 +1072,7 @@ export async function getMembers(householdId: string) {
     .select({
       userId: schema.users.id,
       name: schema.users.name,
+      username: schema.users.username,
       email: schema.users.email,
       role: schema.memberships.role,
       participantId: schema.memberships.participantId,

@@ -28,6 +28,7 @@ const TABS = [
   { href: "/ajustes/membros", label: "Acesso", help: "Quem entra no app, quem administra e convites." },
   { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
   { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou em PDF, para guardar ou mandar para alguém." },
+  { href: "/ajustes/perigo", label: "Perigo", help: "Apagar seus dados ou a sua conta. Não tem volta.", danger: true },
 ];
 
 export function SettingsTabs() {
@@ -37,7 +38,7 @@ export function SettingsTabs() {
     <>
       <nav className="tabs" aria-label="Ajustes" data-tour="settings-tabs">
         {TABS.map((t) => (
-          <Link key={t.href} href={t.href} aria-current={path === t.href ? "page" : undefined}>
+          <Link key={t.href} href={t.href} aria-current={path === t.href ? "page" : undefined} className={t.danger ? "tab-danger" : undefined}>
             {t.label}
           </Link>
         ))}

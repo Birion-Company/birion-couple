@@ -8617,3 +8617,118 @@ body.modal-open .new-fab {
     gap: 2px;
   }
 }
+
+/* Ajustes: aba Perigo e quadro da família. */
+.tabs a.tab-danger {
+  color: var(--neg);
+}
+.tabs a.tab-danger[aria-current="page"] {
+  color: var(--neg);
+  border-color: var(--neg);
+}
+.danger-page {
+  display: grid;
+  gap: 12px;
+}
+.danger-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--neg) 55%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--neg) 10%, var(--surface));
+  color: var(--text);
+}
+.danger-banner svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--neg);
+}
+.danger-banner p {
+  margin: 0;
+}
+.fam-people {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.fam-people li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fam-person {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.fam-person strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fam-admin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #c98a0a;
+}
+.fam-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 18px;
+  margin-top: 14px;
+}
+.fam-meter-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+.fam-meter-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.fam-meter-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand-strong);
+}
+.fam-meter-bar span.full {
+  background: #e0a526;
+}
+.fam-note {
+  margin: 10px 0 0;
+  font-size: 0.84rem;
+}
+.fam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.fam-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.84rem;
+  color: var(--text-2);
+}
+.fam-chip:hover {
+  border-color: var(--brand-strong);
+  color: var(--brand-strong);
+}
+.fam-chip.warn {
+  border-color: #e0a526;
+  color: #c98a0a;
+}
