@@ -98,3 +98,9 @@ export async function removeAvatar(): Promise<ActionResult> {
   revalidatePath("/", "layout");
   return { ok: true, message: "Foto removida." };
 }
+
+/** O tutorial foi visto (ou pulado): não abre mais sozinho, em nenhum aparelho. */
+export async function markTourSeen(): Promise<void> {
+  const auth = await requireAuth();
+  await getDb().update(schema.users).set({ tourSeenAt: new Date() }).where(eq(schema.users.id, auth.userId));
+}

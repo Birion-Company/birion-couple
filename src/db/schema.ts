@@ -43,6 +43,8 @@ export const users = pgTable("users", {
   avatarUpdatedAt: timestamp({ withTimezone: true }),
   /** Conta de auditoria do BIRION: só lê, vê todas as famílias e não pertence a nenhuma. */
   isAuditor: boolean().notNull().default(false),
+  /** Quando a pessoa viu (ou pulou) o tutorial: ele só abre sozinho no primeiro acesso, em qualquer aparelho. */
+  tourSeenAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),
 });
 

@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { markTourSeen } from "@/app/actions/profile";
 import { ArrowDown, ArrowLeft, ArrowRight, Bell, Check, ChevronLeft, ChevronRight, CircleHelp, CreditCard, Loader2, ShoppingCart, X } from "lucide-react";
 
 /**
@@ -662,7 +663,8 @@ function stickyClip(el: HTMLElement) {
 const sameBox = (a: Box | null, b: Box | null) =>
   a === b || (!!a && !!b && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.left - b.left) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5 && Math.abs(a.clip - b.clip) < 0.5);
 
-export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
+/** autoOpen: abre sozinho (só no primeiro acesso da conta; quem decide é o servidor). */
+export function Tutorial({ autoOpen = false }: { autoOpen?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const seen = useSyncExternalStore(subscribe, seenSnapshot, () => true);
@@ -710,6 +712,8 @@ export function Tutorial({ autoOpen = true }: { autoOpen?: boolean }) {
       /* sem armazenamento: só não lembra que já viu */
     }
     window.dispatchEvent(new Event(SEEN_EVENT));
+    // Guarda na conta: não abre sozinho de novo, nem em outro aparelho.
+    void markTourSeen().catch(() => {});
   }, []);
 
   // Pré-carrega as páginas do tour e guarda o tamanho da tela.

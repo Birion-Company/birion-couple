@@ -25,6 +25,7 @@
   --pos: #138a63; /* tem a receber */
   --pos-soft: #e6f6ef;
   --neg: #c2415a; /* deve */
+  --neg-hover: #e0123d; /* vermelho mais forte ao passar o mouse */
   --neg-soft: #fbecef;
   --warn: #b7791f;
   --warn-soft: #fdf4e3;
@@ -993,6 +994,7 @@ body {
   --pos: #3fd19b;
   --pos-soft: rgba(63, 209, 155, 0.14);
   --neg: #ff8aa0;
+  --neg-hover: #ff4d6d;
   --neg-soft: rgba(255, 138, 160, 0.14);
   --warn: #f2be45;
   --warn-soft: rgba(242, 190, 69, 0.14);
@@ -8140,4 +8142,17 @@ a.auth-submit {
   justify-content: center;
   gap: 10px;
   text-decoration: none;
+}
+
+/* Passar o mouse num lançamento: o nome branco fica azul e o vermelho (despesa) fica mais vermelho, com o mesmo efeito. */
+a.row:hover .title.neg,
+a.row:hover .title .neg,
+a.row:hover .tx-desc.neg,
+.tx-line-link:hover .tx-desc.neg,
+.tx-line-link:hover .title.neg {
+  color: var(--neg-hover);
+}
+.tx-line-link:hover .amount .neg,
+a.row:hover .amount .neg {
+  color: var(--neg-hover);
 }

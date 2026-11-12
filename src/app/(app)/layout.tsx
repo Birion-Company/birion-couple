@@ -6,6 +6,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { HelpButton, Tutorial } from "@/components/tutorial";
 import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
 import { getActivityFeed } from "@/lib/activity";
 import { getCardAlerts } from "@/lib/card-queries";
 import { countUnidentified, getApprovalInbox, getLookups, getLookupsFor } from "@/lib/queries";
@@ -36,6 +38,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     getApprovalInbox(auth),
   ]);
   const toConfirm = inbox.toMe.length;
+  // Tutorial: abre sozinho só no primeiro acesso da conta (pelo Google ou por e-mail e senha), em qualquer aparelho.
+  const [me] = await getDb().select({ tourSeenAt: schema.users.tourSeenAt }).from(schema.users).where(eq(schema.users.id, auth.userId)).limit(1);
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -68,7 +72,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <Link href="/transacoes/nova" className="new-fab" aria-label="Novo lançamento" data-tour="new-fab">
         <Plus size={20} strokeWidth={2.2} aria-hidden /> <span>Novo lançamento</span>
       </Link>
-      <Tutorial />
+      <Tutorial autoOpen={!me?.tourSeenAt} />
       {/* Clicar num lançamento abre a edição numa janela, sem sair da página. */}
       <TxModalHost lookups={myLookups} currency={auth.currency} me={auth.participantId} />
       {/* Sino: avisos de fatura e o que a família fez; procura novidades sozinho. */}
