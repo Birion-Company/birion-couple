@@ -8,7 +8,7 @@ import { ADMINS_MAX, CONTACTS_ACTIVE_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getFamilyLog, getInviteRequests } from "@/lib/family-log";
 import { getLookupsFor, getMembers } from "@/lib/queries";
 import { getDb, schema } from "@/db";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 export const metadata: Metadata = { title: "Ajustes" };
 
@@ -27,10 +27,12 @@ export default async function SettingsPage() {
     getDb().select({ createdAt: schema.households.createdAt }).from(schema.households).where(eq(schema.households.id, auth.householdId)),
   ]);
   const feed = await feedPage(auth, lookups, auth.currency, { audit: true, size: 20 });
+  const [{ n: txCount }] = await getDb().select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, auth.householdId));
+  const hasTx = txCount > 0;
   const admins = members.filter((m) => m.role === "owner");
   return (
     <div className="grid">
-      <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={isAdmin} />
+      <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={isAdmin} currencyLocked={hasTx} />
 
       <section className="card section family-facts" aria-labelledby="como-esta">
         <h2 id="como-esta">

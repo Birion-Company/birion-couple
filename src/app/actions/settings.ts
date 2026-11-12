@@ -46,6 +46,11 @@ export async function updateHousehold(input: { name: string; currency: string })
     .safeParse(input);
   if (!parsed.success) return firstIssue(parsed.error);
   const db = getDb();
+  // Trocar a moeda só muda o símbolo (os valores não são convertidos): depois que há lançamentos, fica travada.
+  if (parsed.data.currency !== auth.currency) {
+    const [{ n }] = await db.select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, auth.householdId));
+    if (n > 0) return fail("A moeda não pode mudar depois que a família tem lançamentos: os valores não são convertidos, só o símbolo mudaria.");
+  }
   await db.update(schema.households).set(parsed.data).where(eq(schema.households.id, auth.householdId));
   const changes = [
     parsed.data.name !== auth.householdName ? `mudou o nome da família de “${auth.householdName}” para “${parsed.data.name}”` : null,

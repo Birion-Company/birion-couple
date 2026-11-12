@@ -59,7 +59,7 @@ function useAct() {
   })] as const;
 }
 
-export function HouseholdForm({ name, currency, isOwner }: { name: string; currency: string; isOwner: boolean }) {
+export function HouseholdForm({ name, currency, isOwner, currencyLocked = false }: { name: string; currency: string; isOwner: boolean; currencyLocked?: boolean }) {
   const [pending, act] = useAct();
   const [n, setN] = useState(name);
   const [c, setC] = useState(currency);
@@ -90,7 +90,8 @@ export function HouseholdForm({ name, currency, isOwner }: { name: string; curre
       </div>
       <label className="field">
         <span>Moeda</span>
-        <Select value={c} onChange={setC} disabled={!isOwner} options={CURRENCIES.map((x) => ({ value: x.value, label: x.label }))} />
+        <Select value={c} onChange={setC} disabled={!isOwner || currencyLocked} options={CURRENCIES.map((x) => ({ value: x.value, label: x.label }))} />
+        {currencyLocked && <span className="faint">Travada: já há lançamentos, e trocar a moeda não converte os valores (só mudaria o símbolo).</span>}
       </label>
       {isOwner ? (
         <div className="actions" style={{ justifyContent: "flex-end" }}>
