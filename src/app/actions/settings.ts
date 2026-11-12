@@ -10,6 +10,9 @@ import { involved, logActivity, snapshots } from "@/lib/activity";
 import { requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
 import { ruleMatches } from "@/lib/rules-server";
 import { findOrCreateContact, hasRoomForContact } from "@/lib/contacts";
+import { deletePersonalData, leaveHousehold } from "@/lib/leave";
+import { destroySession } from "@/lib/session";
+import { redirect } from "next/navigation";
 import { ICON_KEYS } from "@/lib/category-icons";
 import { HOUSEHOLD_NAME_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
@@ -57,24 +60,38 @@ export async function updateHousehold(input: { name: string; currency: string })
 export async function deleteMyData(confirm: string): Promise<ActionResult> {
   const auth = await requireAuth();
   if (confirm.trim().toUpperCase() !== "EXCLUIR") return fail("Digite EXCLUIR para confirmar.");
-  const db = getDb();
-  const t = schema.transactions;
-  const removed = await db.transaction(async (tx) => {
-    const rows = await tx
-      .delete(t)
-      .where(and(eq(t.householdId, auth.householdId), eq(t.createdBy, auth.userId)))
-      .returning({ id: t.id });
-    await tx
-      .delete(schema.recurringSeries)
-      .where(and(eq(schema.recurringSeries.householdId, auth.householdId), eq(schema.recurringSeries.createdBy, auth.userId)));
-    await tx
-      .delete(schema.importBatches)
-      .where(and(eq(schema.importBatches.householdId, auth.householdId), eq(schema.importBatches.createdBy, auth.userId)));
-    await tx.delete(schema.activities).where(and(eq(schema.activities.householdId, auth.householdId), eq(schema.activities.actorUserId, auth.userId)));
-    return rows.length;
-  });
+  const removed = await getDb().transaction((tx) => deletePersonalData(tx, auth.userId, auth.householdId));
   revalidatePath("/", "layout");
-  return done(removed === 0 ? "Você não tinha lançamentos nesta família." : `Pronto: ${removed} ${removed === 1 ? "lançamento apagado" : "lançamentos apagados"}.`);
+  return done(
+    removed === 0
+      ? "Você não tinha lançamentos só seus nesta família."
+      : `Pronto: ${removed} ${removed === 1 ? "lançamento apagado" : "lançamentos apagados"}. O que envolve outras pessoas com login continua.`,
+  );
+}
+
+/**
+ * Apagar a conta, para sempre: apaga o que é só seu, seus contatos e o login. Nos lançamentos com outras
+ * pessoas com login, você vira um nome sem login (as dívidas continuam para elas).
+ */
+export async function deleteAccount(confirm: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  if (confirm.trim().toUpperCase() !== "APAGAR") return fail("Digite APAGAR para confirmar.");
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    const homes = await tx.select({ hid: schema.memberships.householdId }).from(schema.memberships).where(eq(schema.memberships.userId, auth.userId));
+    for (const { hid } of homes) {
+      await deletePersonalData(tx, auth.userId, hid);
+      // Contatos seus que ficam (estão em lançamentos com outras pessoas) perdem o nome: ninguém mais é dono deles.
+      await tx
+        .update(schema.participants)
+        .set({ name: `Contato de ${auth.userName.split(" ")[0]}`, photoData: null, photoUpdatedAt: null })
+        .where(and(eq(schema.participants.householdId, hid), eq(schema.participants.ownerUserId, auth.userId)));
+      await leaveHousehold(tx, auth.userId, hid, { wipeIfEmpty: true });
+    }
+    await tx.delete(schema.users).where(eq(schema.users.id, auth.userId));
+  });
+  await destroySession();
+  redirect("/entrar?conta=apagada");
 }
 
 // ---------- Listas configuráveis ----------

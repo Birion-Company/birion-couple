@@ -11,11 +11,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/entrar">) 
   if (await getAuth()) redirect(goInvite ?? "/painel");
   if (await getAuditor()) redirect("/auditoria");
   if (await getHomeless()) redirect("/nova-familia");
-  const { erro, senha, convite } = await searchParams;
+  const { erro, senha, convite, conta } = await searchParams;
   return (
     <LoginForm
       errorCode={typeof erro === "string" ? erro : undefined}
-      notice={senha === "nova" ? "Senha nova criada. Entre com ela." : typeof convite === "string" ? "Entre na sua conta para aceitar o convite." : undefined}
+      notice={conta === "apagada" ? "Sua conta foi apagada." : senha === "nova" ? "Senha nova criada. Entre com ela." : typeof convite === "string" ? "Entre na sua conta para aceitar o convite." : undefined}
       convite={typeof convite === "string" ? convite : undefined}
     />
   );

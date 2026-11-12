@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, count, eq, ne, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getDb, schema } from "@/db";
 import { getAuth, getHomeless } from "@/lib/auth";
@@ -8,31 +8,9 @@ import { MEMBERS_MAX } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
 import { createSession, readSession } from "@/lib/session";
 import { findInvite } from "@/lib/invites";
+import { leaveHousehold } from "@/lib/leave";
 
 export type InviteResult = { ok: false; error: string } | undefined;
-
-type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-
-/**
- * Sai de uma família ao entrar em outra:
- * - a pessoa dele lá continua (com todos os lançamentos e dívidas), mas vira "sem login" (sem ligação com a conta);
- * - se ele administrava, o cargo passa para quem entrou primeiro entre os que ficam;
- * - se a família fica sem ninguém e sem nenhum lançamento (ex.: a criada junto com a conta), ela é apagada.
- */
-async function leaveHousehold(tx: Tx, userId: string, householdId: string) {
-  const m = schema.memberships;
-  const [mine] = await tx.select().from(m).where(and(eq(m.userId, userId), eq(m.householdId, householdId))).limit(1);
-  if (!mine) return;
-  await tx.delete(m).where(and(eq(m.userId, userId), eq(m.householdId, householdId)));
-  const rest = await tx.select({ userId: m.userId, role: m.role }).from(m).where(eq(m.householdId, householdId)).orderBy(asc(m.createdAt));
-  if (mine.role === "owner" && rest.length > 0 && !rest.some((r) => r.role === "owner")) {
-    await tx.update(m).set({ role: "owner" }).where(and(eq(m.userId, rest[0].userId), eq(m.householdId, householdId)));
-  }
-  if (rest.length === 0) {
-    const [{ n }] = await tx.select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, householdId));
-    if (n === 0) await tx.delete(schema.households).where(eq(schema.households.id, householdId));
-  }
-}
 
 /**
  * Aceitar o convite já logado (tela "Fulano te convidou para a família X"). A conta passa para a família

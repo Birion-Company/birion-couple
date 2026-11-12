@@ -8257,3 +8257,11 @@ body.modal-open .new-fab {
     grid-template-columns: 1fr;
   }
 }
+
+/* Ajustes: textos de apagar dados / conta. */
+.danger-text {
+  margin-bottom: 12px;
+}
+.danger-text p {
+  margin: 0 0 6px;
+}

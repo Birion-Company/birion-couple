@@ -7,7 +7,7 @@ import { Copy, Plus, Search, Trash2, X } from "lucide-react";
 import {
   addRule,
   createInvite,
-  deleteMyData,
+  deleteAccount, deleteMyData,
   deletePreset,
   deleteRule,
   removeMember,
@@ -336,28 +336,42 @@ export function PresetsPanel({ presets }: { presets: { id: string; name: string 
 }
 
 /** Excluir meus dados: apaga tudo que a pessoa lançou (some para todos os envolvidos). A conta continua. */
-export function DangerZone() {
+/** Apagar algo sem volta: abre um campo para digitar a palavra de confirmação. */
+function ConfirmDanger({
+  id,
+  title,
+  text,
+  word,
+  open: openLabel,
+  submit,
+  action,
+}: {
+  id: string;
+  title: string;
+  text: React.ReactNode;
+  word: string;
+  open: string;
+  submit: string;
+  action: (typed: string) => Promise<{ ok: boolean; error?: string; message?: string } | undefined | void>;
+}) {
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   return (
-    <section className="card" aria-labelledby="danger">
-      <h2 id="danger" style={{ marginBottom: 4 }}>Excluir meus dados</h2>
-      <p className="faint" style={{ marginBottom: 12 }}>
-        Apaga tudo que <strong>você lançou</strong> nesta família: despesas, receitas, dívidas, acertos, contas que repetem e importações. Some para
-        todo mundo: se você lançou que alguém te devia, essa dívida some também para essa pessoa. Sua conta e a família continuam. Não dá para desfazer.
-      </p>
+    <section className="card" aria-labelledby={id}>
+      <h2 id={id} style={{ marginBottom: 4 }}>{title}</h2>
+      <div className="faint danger-text">{text}</div>
       {!open ? (
-        <button className="btn danger" onClick={() => setOpen(true)}>Excluir meus dados…</button>
+        <button className="btn danger" onClick={() => setOpen(true)}>{openLabel}</button>
       ) : (
         <form
           className="form"
           onSubmit={(e) => {
             e.preventDefault();
             start(async () => {
-              const r = await deleteMyData(typed);
-              toastResult(r);
-              if (r.ok) {
+              const r = await action(typed);
+              if (r) toastResult(r);
+              if (r && r.ok) {
                 setOpen(false);
                 setTyped("");
               }
@@ -366,18 +380,64 @@ export function DangerZone() {
         >
           <label className="field">
             <span>
-              Para confirmar, digite <strong>EXCLUIR</strong>
+              Para confirmar, digite <strong>{word}</strong>
             </span>
             <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
           </label>
           <div className="actions" style={{ justifyContent: "flex-end" }}>
             <button type="button" className="btn ghost" onClick={() => setOpen(false)} disabled={pending}>Cancelar</button>
-            <button className="btn danger" disabled={pending || typed.trim().toUpperCase() !== "EXCLUIR"}>
-              {pending ? "Apagando…" : "Apagar tudo que eu lancei"}
+            <button className="btn danger" disabled={pending || typed.trim().toUpperCase() !== word}>
+              {pending ? "Apagando…" : submit}
             </button>
           </div>
         </form>
       )}
     </section>
+  );
+}
+
+export function DangerZone() {
+  return (
+    <>
+      <ConfirmDanger
+        id="danger"
+        title="Excluir meus dados"
+        word="EXCLUIR"
+        open="Excluir meus dados…"
+        submit="Apagar o que é só meu"
+        action={deleteMyData}
+        text={
+          <>
+            <p>
+              Apaga o que <strong>você lançou e é só seu</strong> nesta família: despesas, receitas, contas que repetem, importações e os contatos que
+              não aparecem em mais nada.
+            </p>
+            <p>
+              <strong>Não muda nada para os outros:</strong> o que envolve outra pessoa com login (uma dívida que ela aceitou, uma conta dividida com
+              ela) continua. Sua conta e a família continuam. Não dá para desfazer.
+            </p>
+          </>
+        }
+      />
+      <ConfirmDanger
+        id="apagar-conta"
+        title="Apagar minha conta"
+        word="APAGAR"
+        open="Apagar minha conta…"
+        submit="Apagar minha conta para sempre"
+        action={deleteAccount}
+        text={
+          <>
+            <p>
+              Apaga <strong>para sempre</strong> o seu login, o que é só seu e os seus contatos. <strong>Não dá para desfazer nem recuperar.</strong>
+            </p>
+            <p>
+              Nos lançamentos com outras pessoas com login, você vira um nome sem login e as dívidas continuam para elas. Se você administra, o cargo
+              passa para quem entrou primeiro.
+            </p>
+          </>
+        }
+      />
+    </>
   );
 }

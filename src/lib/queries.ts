@@ -53,7 +53,8 @@ export async function getLookups(householdId: string, userId?: string) {
   // Contato de outra conta: só o dono vê o nome. Os outros veem "Contato de Fulano", sem foto, e ele não entra nas listas.
   const pidOfUser = new Map(loginRows.map((m) => [m.userId, m.id]));
   const nameOfPid = new Map(participants.map((x) => [x.id, (logins.has(x.id) && nickOf.get(x.id)) || x.name]));
-  const foreign = (x: { id: string; ownerUserId: string | null }) => !!userId && !logins.has(x.id) && x.ownerUserId !== userId;
+  // Sem dono (ex.: quem saiu da família ou apagou a conta) é de todos.
+  const foreign = (x: { id: string; ownerUserId: string | null }) => !!userId && !logins.has(x.id) && x.ownerUserId !== null && x.ownerUserId !== userId;
   const ownerLabel = (ownerUserId: string | null) => {
     const pid = ownerUserId ? pidOfUser.get(ownerUserId) : null;
     const n = pid ? nameOfPid.get(pid) : null;
