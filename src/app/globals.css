@@ -8553,3 +8553,32 @@ body.modal-open .new-fab {
   align-items: center;
   font-size: 0.84rem;
 }
+
+/* Telas de erro e de página não encontrada. */
+.oops {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+}
+.oops-card {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 28px 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  text-align: center;
+}
+.oops-card h1 {
+  margin: 12px 0 8px;
+  font-size: 1.35rem;
+}
+.oops-card p {
+  margin: 0 0 16px;
+  color: var(--text-2);
+}
+.oops-inline {
+  margin-top: 40px;
+}
