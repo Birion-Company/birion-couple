@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "db:dev": "node scripts/dev-db.mjs",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "test:e2e": "node tests/e2e/run.mjs"
   },
   "dependencies": {
     "@netlify/database": "^2.0.3",
@@ -41,6 +42,7 @@
     "drizzle-kit": "^1.0.0-beta.22",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
+    "playwright": "1.65.0",
     "typescript": "^5",
     "vitest": "^5.1.0"
   },
