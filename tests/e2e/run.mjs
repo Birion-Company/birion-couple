@@ -60,7 +60,7 @@ const scenarios = {
     await p.context().clearCookies();
     const tryLogin = async (pw) => {
       await p.goto(BASE + "/entrar");
-      await p.getByLabel("Seu e-mail").fill(a.email);
+      await p.getByLabel("E-mail ou nome de usuário").fill(a.email);
       await p.getByLabel("Sua senha").fill(pw);
       await p.getByRole("button", { name: "Entrar" }).click();
       await p.waitForTimeout(1200);

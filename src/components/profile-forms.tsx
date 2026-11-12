@@ -198,14 +198,14 @@ export function ProfileForm({ name, email, username }: { name: string; email: st
             className="input"
             value={u}
             onChange={(ev) => setU(ev.target.value.toLowerCase().replace(/\s/g, ""))}
-            maxLength={21}
+            maxLength={12}
             autoCapitalize="none"
             spellCheck={false}
             aria-describedby="perfil-usuario-hint"
             required
           />
         </div>
-        <span id="perfil-usuario-hint" className="faint">Único no Birion: letras, números, ponto ou _.</span>
+        <span id="perfil-usuario-hint" className="faint">Único no Birion, até 12: letras, números, ponto ou _. Também serve para entrar.</span>
       </div>
       <div className="field">
         <label htmlFor="perfil-email">E-mail</label>

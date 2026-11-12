@@ -534,3 +534,14 @@ describe("receita a receber", () => {
     expect(computeBalances([{ ...salario, awaitingReceipt: false }]).get("a")).toBe(-150_00);
   });
 });
+
+describe("nome de usuário", () => {
+  test("aceita até 12 caracteres e recusa 13", async () => {
+    const { checkUsername } = await import("../src/lib/username");
+    expect(checkUsername("abcdefghijkl")).toEqual({ ok: true, value: "abcdefghijkl" });
+    expect(checkUsername("abcdefghijklm").ok).toBe(false);
+    expect(checkUsername("@Ana.Souza").ok && checkUsername("@Ana.Souza")).toMatchObject({ value: "ana.souza" });
+    expect(checkUsername("ab").ok).toBe(false);
+    expect(checkUsername("p0rr4").ok).toBe(false);
+  });
+});

@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import * as z from "zod";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
@@ -67,15 +67,21 @@ export async function signup(_: FormState, form: FormData): Promise<FormState> {
 
 export async function login(_: FormState, form: FormData): Promise<FormState> {
   const fields = { email: String(form.get("email") ?? "") };
-  const parsed = z.object({ email, password: z.string().min(1, { error: "Digite a senha." }) }).safeParse({
-    email: form.get("email"),
+  // Entra com e-mail ou com o nome de usuário (@fulano).
+  const raw = fields.email.trim().toLowerCase().replace(/^@/, "");
+  const parsed = z.object({ id: z.string().min(1, { error: "Digite seu e-mail ou nome de usuário." }).max(120), password: z.string().min(1, { error: "Digite a senha." }) }).safeParse({
+    id: raw,
     password: form.get("password"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
   const db = getDb();
   let user: typeof schema.users.$inferSelect | undefined;
   try {
-    [user] = await db.select().from(schema.users).where(eq(schema.users.email, parsed.data.email)).limit(1);
+    [user] = await db
+      .select()
+      .from(schema.users)
+      .where(parsed.data.id.includes("@") ? eq(schema.users.email, parsed.data.id) : sql`lower(${schema.users.username}) = ${parsed.data.id}`)
+      .limit(1);
   } catch (error) {
     const cause = error instanceof Error ? error.cause : undefined;
     const causeFields = cause && typeof cause === "object" ? cause as { message?: unknown; code?: unknown; detail?: unknown } : undefined;
@@ -88,13 +94,15 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     });
     throw error;
   }
-  // Muitas senhas erradas seguidas para este e-mail: espera antes de tentar de novo (vale mesmo com a senha certa).
+  // A conta é uma só, entre por e-mail ou por @usuário: o limite de tentativas conta pela conta.
+  const failKey = user?.email ?? parsed.data.id;
+  // Muitas senhas erradas seguidas para esta conta: espera antes de tentar de novo (vale mesmo com a senha certa).
   const F = schema.loginFailures;
   const windowStart = new Date(Date.now() - LOGIN_WINDOW_MIN * 60_000);
   const fails = await db
     .select({ at: F.createdAt })
     .from(F)
-    .where(and(eq(F.email, parsed.data.email), gte(F.createdAt, windowStart)))
+    .where(and(eq(F.email, failKey), gte(F.createdAt, windowStart)))
     .orderBy(asc(F.createdAt));
   if (fails.length >= LOGIN_MAX_FAILS) {
     const wait = Math.max(1, Math.ceil((fails[0].at.getTime() + LOGIN_WINDOW_MIN * 60_000 - Date.now()) / 60_000));
@@ -102,11 +110,11 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   }
   const ok = user && (await bcrypt.compare(parsed.data.password, user.passwordHash));
   if (!user || !ok) {
-    await db.insert(F).values({ email: parsed.data.email });
+    await db.insert(F).values({ email: failKey });
     const left = LOGIN_MAX_FAILS - fails.length - 1;
-    return { error: left > 0 && left <= 2 ? `E-mail ou senha incorretos. ${left === 1 ? "Resta 1 tentativa" : `Restam ${left} tentativas`} antes de esperar ${LOGIN_WINDOW_MIN} minutos.` : "E-mail ou senha incorretos.", fields };
+    return { error: left > 0 && left <= 2 ? `E-mail, usuário ou senha incorretos. ${left === 1 ? "Resta 1 tentativa" : `Restam ${left} tentativas`} antes de esperar ${LOGIN_WINDOW_MIN} minutos.` : "E-mail, usuário ou senha incorretos.", fields };
   }
-  await db.delete(F).where(eq(F.email, parsed.data.email));
+  await db.delete(F).where(eq(F.email, failKey));
   // Conta de auditoria: não tem família; vai para a área de auditoria (só leitura).
   if (user.isAuditor) {
     await createSession({ uid: user.id, hid: AUDIT_HID });

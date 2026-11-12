@@ -30,7 +30,7 @@ export function UsernameField({ defaultValue = "" }: { defaultValue?: string }) 
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          maxLength={21}
+          maxLength={12}
           value={value}
           onChange={(e) => {
             const v = e.target.value.toLowerCase().replace(/\s/g, "");
@@ -43,7 +43,7 @@ export function UsernameField({ defaultValue = "" }: { defaultValue?: string }) 
         />
       </div>
       <p id={`${id}-hint`} className={`auth-hint ${msg ? (msg.ok ? "pos" : "neg") : ""}`}>
-        {msg?.message ?? "Letras, números, ponto ou _. É assim que te acham no Birion."}
+        {msg?.message ?? "Até 12: letras, números, ponto ou _. Também serve para entrar."}
       </p>
     </div>
   );

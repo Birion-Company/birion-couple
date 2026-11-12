@@ -23,7 +23,7 @@ export function LoginForm({ errorCode, notice, convite }: { errorCode?: string; 
       <AuthHeader title="Olá, seja bem-vindo!" subtitle={notice ?? "Faça login para acessar sua planilha financeira"} error={error} />
       <form action={action} className="auth-form">
         {convite && <input type="hidden" name="convite" value={convite} />}
-        <AuthInput label="Seu e-mail" name="email" type="email" autoComplete="email" defaultValue={state?.fields?.email} icon={User} />
+        <AuthInput label="E-mail ou nome de usuário" name="email" type="text" autoComplete="username" defaultValue={state?.fields?.email} icon={User} />
         <AuthInput label="Sua senha" name="password" type="password" autoComplete="current-password" icon={Lock} />
         <Link href="/esqueci-senha" className="auth-forgot">
           Esqueci minha senha

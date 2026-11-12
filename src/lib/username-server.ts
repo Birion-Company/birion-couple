@@ -32,7 +32,7 @@ export async function freeUsernameFor(db: Db, name: string) {
     const v = `${base.slice(0, USERNAME_MAX - n.length)}${n}`;
     if (await usernameFree(db, v)) return v;
   }
-  return `${base.slice(0, 10)}${Date.now().toString(36)}`.slice(0, USERNAME_MAX);
+  return `${base.slice(0, 6)}${Date.now().toString(36)}`.slice(0, USERNAME_MAX);
 }
 
 export async function getUsername(userId: string) {

@@ -1,9 +1,9 @@
 /**
- * Nome de usuário (@fulano): único no Birion, 3 a 20 letras minúsculas, números, ponto ou "_".
+ * Nome de usuário (@fulano): único no Birion, 3 a 12 letras minúsculas, números, ponto ou "_".
  * Não pode ter palavrão nem ofensa (confere também trocando números por letras: "p0rr4" → "porra").
  */
 export const USERNAME_MIN = 3;
-export const USERNAME_MAX = 20;
+export const USERNAME_MAX = 12;
 
 const BAD = [
   // português
