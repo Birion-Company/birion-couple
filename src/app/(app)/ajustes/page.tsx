@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { Users } from "lucide-react";
 import { HouseholdForm } from "@/components/settings-panels";
 import { FamilyOverview } from "@/components/family-overview";
 import { HistoryPanel, InviteRequestsAdmin } from "@/components/family-panels";
 import { feedPage } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
-import { ADMINS_MAX, CONTACTS_ACTIVE_MAX, MEMBERS_MAX } from "@/lib/defaults";
+import { ADMINS_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getFamilyLog, getInviteRequests } from "@/lib/family-log";
 import { getInvites, getLookupsFor, getMembers } from "@/lib/queries";
 import { getDb, schema } from "@/db";
@@ -31,7 +30,6 @@ export default async function SettingsPage() {
   const [{ n: txCount }] = await getDb().select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, auth.householdId));
   const hasTx = txCount > 0;
   const openInvites = isAdmin ? (await getInvites(auth.householdId)).length : 0;
-  const admins = members.filter((m) => m.role === "owner");
   return (
     <div className="grid">
       <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={isAdmin} currencyLocked={hasTx} />
