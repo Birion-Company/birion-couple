@@ -15,8 +15,8 @@ import { Avatar } from "./ui";
 export type NotificationItem = { id: string; actor: string; text: string; detail: string | null; when: string; href: string | null; unread: boolean };
 
 /** De quanto em quanto tempo procurar novidades (aba aberta / aba em segundo plano). */
-const POLL_MS = 15_000;
-const POLL_HIDDEN_MS = 60_000;
+const POLL_MS = 15_000; // leve: só a data da última novidade, a lista vem quando algo muda
+const POLL_HIDDEN_MS = 120_000;
 const SEEN_CARDS = "bf-notif-cards";
 const BROWSER_OPT = "bf-notif-browser";
 const OPEN_EVENT = "bf-open-notifs";
@@ -136,20 +136,33 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
   const unread = items.filter((i) => i.unread).length + unreadCards.length;
   useEffect(() => setUnread(unread), [unread]);
 
-  // Procura novidades.
+  // Procura novidades. Manda a data da última novidade que já tem: se nada mudou, a resposta é mínima.
+  const lastStamp = useRef<string | null>(null);
+  const q0 = useRef(true);
   const poll = useCallback(async () => {
-    let data: { items: NotificationItem[] } | null = null;
+    let data: { changed: boolean; last: string; items?: NotificationItem[] } | null = null;
     try {
-      const r = await fetch("/api/notificacoes", { cache: "no-store" });
+      const q = lastStamp.current !== null ? `?desde=${encodeURIComponent(lastStamp.current)}` : "";
+      const r = await fetch(`/api/notificacoes${q}`, { cache: "no-store" });
       if (!r.ok) return;
       data = await r.json();
     } catch {
       return;
     }
     if (!data) return;
-    const fresh = data.items.filter((i) => i.unread && !known.current.has(i.id));
-    data.items.forEach((i) => known.current.add(i.id));
-    setItems(data.items);
+    lastStamp.current = data.last;
+    if (!data.changed || !data.items) return;
+    // Primeira consulta: só aprende a data (a lista inicial veio com a página).
+    if (q0.current) {
+      q0.current = false;
+      data.items.forEach((i) => known.current.add(i.id));
+      setItems(data.items);
+      return;
+    }
+    const list = data.items;
+    const fresh = list.filter((i) => i.unread && !known.current.has(i.id));
+    list.forEach((i) => known.current.add(i.id));
+    setItems(list);
     if (fresh.length === 0) return;
     const first = fresh[0];
     setToast({
