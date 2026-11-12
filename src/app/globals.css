@@ -8582,3 +8582,24 @@ body.modal-open .new-fab {
 .oops-inline {
   margin-top: 40px;
 }
+
+/* Histórico em páginas (PagedList): cada item em duas colunas, data e texto. */
+.history-list .history-item {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.history-list .history-item time {
+  color: var(--text-3);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 520px) {
+  .history-list .history-item {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

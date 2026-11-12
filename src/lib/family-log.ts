@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, ilike, lt, or } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Tx } from "./leave";
 
@@ -13,15 +13,30 @@ export async function logFamily(
   await db.insert(schema.familyLog).values({ ...e, subjectUserId: e.subjectUserId ?? null });
 }
 
-/** Registro visível para a pessoa: quem administra vê tudo; membro vê o que fez ou o que foi com ele. */
-export async function getFamilyLog(v: { householdId: string; userId: string; role: string }, limit = 200) {
+/**
+ * Registro visível para a pessoa: quem administra vê tudo; membro vê o que fez ou o que foi com ele.
+ * Em páginas: `before` (data do último item da página anterior) e `q` (busca no texto, feita no banco).
+ */
+export async function getFamilyLog(
+  v: { householdId: string; userId: string; role: string },
+  { size = 20, before, q }: { size?: number; before?: string | null; q?: string } = {},
+) {
   const L = schema.familyLog;
-  return getDb()
+  const rows = await getDb()
     .select({ id: L.id, action: L.action, text: L.text, actorName: L.actorName, createdAt: L.createdAt })
     .from(L)
-    .where(and(eq(L.householdId, v.householdId), v.role === "owner" ? undefined : or(eq(L.actorUserId, v.userId), eq(L.subjectUserId, v.userId))))
-    .orderBy(desc(L.createdAt))
-    .limit(limit);
+    .where(
+      and(
+        eq(L.householdId, v.householdId),
+        v.role === "owner" ? undefined : or(eq(L.actorUserId, v.userId), eq(L.subjectUserId, v.userId)),
+        before ? lt(L.createdAt, new Date(before)) : undefined,
+        q?.trim() ? ilike(L.text, `%${q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined,
+      ),
+    )
+    .orderBy(desc(L.createdAt), desc(L.id))
+    .limit(size + 1);
+  const page = rows.slice(0, size);
+  return { rows: page, next: rows.length > size ? page[page.length - 1].createdAt.toISOString() : null };
 }
 
 export type InviteRequestRow = {

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { loadAuditFeed, type FeedRow } from "@/app/actions/history";
+import { PagedList } from "./paged-list";
 
 const fold = (x: string) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const PAGE = 40;
@@ -16,51 +18,28 @@ function Filter({ value, onChange, placeholder }: { value: string; onChange: (v:
   );
 }
 
-type FeedRow = { id: string; when: string; text: string; detail: string | null };
-
-/** Histórico da família na auditoria: busca, agrupado por dia, 40 por vez ("Ver mais"). */
-export function AuditFeed({ items }: { items: FeedRow[] }) {
-  const [q, setQ] = useState("");
-  const [shown, setShown] = useState(PAGE);
-  const list = useMemo(() => (q.trim() ? items.filter((f) => fold(`${f.text} ${f.detail ?? ""}`).includes(fold(q.trim()))) : items), [items, q]);
-  const days = new Map<string, FeedRow[]>();
-  for (const f of list.slice(0, shown)) {
-    const k = new Date(f.when).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
-    days.set(k, [...(days.get(k) ?? []), f]);
-  }
+/** Histórico da família na auditoria: páginas do servidor, com busca, agrupado visualmente por data e hora. */
+export function AuditFeed({ householdId, initial }: { householdId: string; initial: { rows: FeedRow[]; next: string | null } }) {
   return (
-    <>
-      <Filter
-        value={q}
-        onChange={(v) => {
-          setQ(v);
-          setShown(PAGE);
-        }}
-        placeholder="Buscar no histórico (pessoa, lançamento, valor…)"
-      />
-      {list.length === 0 && <p className="faint">Nada encontrado.</p>}
-      {[...days].map(([day, rows]) => (
-        <div key={day} className="audit-day">
-          <p className="audit-day-label">{day}</p>
-          <ol className="audit-feed">
-            {rows.map((f) => (
-              <li key={f.id}>
-                <span className="audit-time">{new Date(f.when).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}</span>
-                <span className="grow">
-                  <span className="audit-text">{f.text}</span>
-                  {f.detail && <span className="faint audit-detail">{f.detail}</span>}
-                </span>
-              </li>
-            ))}
-          </ol>
+    <PagedList
+      initial={initial}
+      load={(input) => loadAuditFeed({ householdId, ...input })}
+      placeholder="Buscar no histórico (pessoa, lançamento, valor…)"
+      empty="Nada registrado ainda."
+      className="audit-feed"
+      render={(f) => (
+        <div className="audit-day">
+          <p className="audit-day-label">
+            {new Date(f.when).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "America/Sao_Paulo" })}{" "}
+            {new Date(f.when).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+          </p>
+          <span className="audit-text">
+            {f.text}
+          </span>
+          {f.detail && <span className="faint audit-detail"> · {f.detail}</span>}
         </div>
-      ))}
-      {list.length > shown && (
-        <button type="button" className="awaiting-more" onClick={() => setShown((n) => n + PAGE)}>
-          Ver mais {Math.min(PAGE, list.length - shown)} de {list.length - shown}
-        </button>
       )}
-    </>
+    />
   );
 }
 

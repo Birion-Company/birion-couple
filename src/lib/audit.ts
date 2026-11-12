@@ -1,7 +1,7 @@
 import "server-only";
 import { and, count, desc, eq, gte, ilike, inArray, isNull, max, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { getActivityFeed } from "./activity";
+import { feedPage } from "./activity";
 import { getLookups } from "./queries";
 
 /**
@@ -141,7 +141,7 @@ export async function auditHousehold(householdId: string, auditorId: string) {
     db.select({ n: count() }).from(t).where(and(eq(t.householdId, householdId), isNull(t.settlesId))),
   ]);
   // Lida como "administrador sem pessoa": vê tudo da família, sem "você" nas frases.
-  const feed = await getActivityFeed({ householdId, userId: auditorId, participantId: null, role: "owner" }, lookups, house.currency, { audit: true, limit: 2000 });
+  const feed = await feedPage({ householdId, userId: auditorId, participantId: null, role: "owner" }, lookups, house.currency, { audit: true, size: 20 });
   return {
     house,
     members,
@@ -149,6 +149,7 @@ export async function auditHousehold(householdId: string, auditorId: string) {
     categories: lookups.categories.length,
     cards: cards.n,
     transactions: txs.n,
-    feed,
+    feed: feed.items,
+    feedNext: feed.next,
   };
 }

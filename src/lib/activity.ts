@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { isAdmin, type Viewer } from "./access";
 import { after } from "next/server";
@@ -182,7 +182,16 @@ export async function getActivityFeed(
   viewer: Viewer,
   lookups: Lookups,
   currency: string,
-  opts: { all?: boolean; /** Auditoria: tudo da família, de todo mundo, sem "já visto". */ audit?: boolean; limit?: number } = {},
+  opts: {
+    all?: boolean;
+    /** Auditoria: tudo da família, de todo mundo, sem "já visto". */
+    audit?: boolean;
+    limit?: number;
+    /** Páginas: só o que é mais antigo que esta data. */
+    before?: Date;
+    /** Devolve onde parou no banco (linhas lidas e data da última), para pedir a página seguinte. */
+    cursor?: { last: Date | null; raw: number };
+  } = {},
 ): Promise<FeedItem[]> {
   const db = getDb();
   if (!isAdmin(viewer) && !viewer.participantId) return [];
@@ -204,11 +213,16 @@ export async function getActivityFeed(
         eq(a.householdId, viewer.householdId),
         opts.audit ? undefined : or(isNull(a.actorUserId), ne(a.actorUserId, viewer.userId)),
         gt(a.createdAt, opts.audit ? new Date(0) : opts.all ? new Date(Date.now() - 60 * 86400000) : m.seen),
+        opts.before ? lt(a.createdAt, opts.before) : undefined,
         isAdmin(viewer) ? undefined : sql`${a.audience} @> ${JSON.stringify([viewer.participantId])}::jsonb`,
       ),
     )
     .orderBy(desc(a.createdAt))
     .limit(opts.limit ?? 30);
+  if (opts.cursor) {
+    opts.cursor.raw = rows.length;
+    opts.cursor.last = rows.length ? rows[rows.length - 1].createdAt : null;
+  }
 
   const me = viewer.participantId;
   const person = (id: unknown) => (typeof id === "string" ? (id === me ? "você" : lookups.participants.find((p) => p.id === id)?.name ?? "alguém") : "ninguém");
@@ -394,4 +408,36 @@ export async function getActivityFeed(
     out.push({ id: r.id, actor, text, detail, when: r.createdAt.toISOString(), href, unread: r.createdAt > m.seen });
   }
   return out;
+}
+
+const foldText = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Uma página do histórico de lançamentos, com busca feita aqui no servidor. As frases são montadas em código (não
+ * dá para buscar no SQL), então lê o banco aos poucos (100 por vez, no máximo ~3000 linhas por pedido) até juntar
+ * `size` resultados. Devolve `next`: de onde pedir a próxima página (nulo = acabou).
+ */
+export async function feedPage(
+  viewer: Viewer,
+  lookups: Lookups,
+  currency: string,
+  opts: { audit?: boolean; before?: string | null; q?: string; size?: number } = {},
+): Promise<{ items: FeedItem[]; next: string | null }> {
+  const size = opts.size ?? 20;
+  const q = opts.q?.trim() ? foldText(opts.q.trim()) : "";
+  const items: FeedItem[] = [];
+  let before: Date | null = opts.before ? new Date(opts.before) : null;
+  let scanned = 0;
+  // Sem busca, lê só o tamanho da página (o cursor fica exato); com busca, lê de 100 em 100 até achar o bastante.
+  const step = q ? 100 : size;
+  while (scanned < 3000) {
+    const cursor = { last: null as Date | null, raw: 0 };
+    const batch = await getActivityFeed(viewer, lookups, currency, { audit: opts.audit, limit: step, before: before ?? undefined, cursor });
+    for (const it of batch) if (!q || foldText(`${it.actor} ${it.text} ${it.detail ?? ""}`).includes(q)) items.push(it);
+    scanned += cursor.raw;
+    if (!cursor.last || cursor.raw < step) return { items, next: null };
+    before = cursor.last;
+    if (items.length >= size) break;
+  }
+  return { items, next: before ? before.toISOString() : null };
 }

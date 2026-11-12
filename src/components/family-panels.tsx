@@ -6,7 +6,8 @@ import { useState, useTransition } from "react";
 import { Check, Copy, History, Mail, Send, X } from "lucide-react";
 import { decideInviteRequest, requestInvite } from "@/app/actions/settings";
 import type { InviteRequestRow } from "@/lib/family-log";
-import type { FeedItem } from "@/lib/activity";
+import { loadFamilyLog, loadFeed, type FeedRow } from "@/app/actions/history";
+import { PagedList } from "./paged-list";
 import { toast, toastResult } from "./toaster";
 
 const when = (iso: string) =>
@@ -158,56 +159,30 @@ export function RequestInvitePanel({ requests }: { requests: InviteRequestRow[] 
   );
 }
 
-type LogRow = { id: string; text: string; createdAt: string };
+type LogRow = { id: string; when: string; text: string };
 
 /**
  * Histórico (não é notificação): o registro do que aconteceu. Quem administra vê a família toda;
- * membro vê o que fez e o que foi com ele. Separado em Família, Lançamentos e (admin) Pedidos.
+ * membro vê o que fez e o que foi com ele. Em páginas do servidor: busca e "Ver mais" sem limite de quantidade.
  */
-export function HistoryPanel({ isAdmin, family, feed, requests }: { isAdmin: boolean; family: LogRow[]; feed: FeedItem[]; requests: InviteRequestRow[] }) {
+export function HistoryPanel({
+  isAdmin,
+  family,
+  feed,
+  requests,
+}: {
+  isAdmin: boolean;
+  family: { rows: LogRow[]; next: string | null };
+  feed: { rows: FeedRow[]; next: string | null };
+  requests: InviteRequestRow[];
+}) {
   type Tab = "familia" | "lancamentos" | "pedidos";
   const [tab, setTab] = useState<Tab>("familia");
-  const [shownN, setShownN] = useState(20);
-  const [q, setQ] = useState("");
-  const tabs: { id: Tab; label: string; n: number }[] = [
-    { id: "familia", label: "Família", n: family.length },
-    { id: "lancamentos", label: "Lançamentos", n: feed.length },
-    ...(isAdmin ? [{ id: "pedidos" as Tab, label: "Pedidos de convite", n: requests.length }] : []),
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "familia", label: "Família" },
+    { id: "lancamentos", label: "Lançamentos" },
+    ...(isAdmin ? [{ id: "pedidos" as Tab, label: "Pedidos de convite" }] : []),
   ];
-  const rows: { id: string; text: React.ReactNode; at: string; href?: string | null; searchText: string }[] =
-    tab === "familia"
-      ? family.map((x) => ({ id: x.id, text: x.text, at: x.createdAt, searchText: x.text }))
-      : tab === "lancamentos"
-        ? feed.map((x) => ({
-            id: x.id,
-            searchText: `${x.actor} ${x.text} ${x.detail ?? ""}`,
-            text: (
-              <>
-                <strong>{x.actor}</strong> {x.text}
-                {x.detail ? <span className="faint"> · {x.detail}</span> : null}
-              </>
-            ),
-            at: x.when,
-            href: x.href,
-          }))
-        : requests.map((r) => ({
-            id: r.id,
-            searchText: `${r.requester} ${r.forName} ${r.status}`,
-            text: (
-              <>
-                <strong>{r.requester}</strong> pediu convite para <strong>{r.forName}</strong> ·{" "}
-                <span className={r.status === "declined" ? "neg" : r.status === "pending" ? "warn" : "pos"}>
-                  {r.status === "pending" ? "esperando" : r.status === "declined" ? "recusado" : r.used ? "aceito, já entrou" : "aceito"}
-                </span>
-              </>
-            ),
-            at: r.createdAt,
-          }));
-  // Busca no texto (sem acento) e 20 por vez: o histórico pode ter milhares de linhas.
-  const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const plain = (r: { searchText: string }) => fold(r.searchText);
-  const filtered = q.trim() ? rows.filter((r) => plain(r).includes(fold(q.trim()))) : rows;
-  const shown = filtered.slice(0, shownN);
   return (
     <section className="card section history" aria-labelledby="historico">
       <h2 id="historico">
@@ -220,60 +195,68 @@ export function HistoryPanel({ isAdmin, family, feed, requests }: { isAdmin: boo
       </p>
       <div className="history-tabs" role="tablist">
         {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            className={tab === t.id ? "on" : ""}
-            onClick={() => {
-              setTab(t.id);
-              setShownN(20);
-            }}
-          >
-            {t.label} <span className="faint">{t.n}</span>
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>
+            {t.label}
           </button>
         ))}
       </div>
-      {rows.length > 10 && (
-        <label className="list-search">
-          <input
-            className="input"
-            type="search"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setShownN(20);
-            }}
-            placeholder="Buscar no histórico (pessoa, lançamento…)"
-            aria-label="Buscar no histórico"
-          />
-        </label>
+      {tab === "familia" && (
+        <PagedList
+          key="familia"
+          className="history-list"
+          initial={family}
+          load={loadFamilyLog}
+          placeholder="Buscar no histórico da família"
+          empty="Nada por aqui ainda."
+          render={(r) => (
+            <div className="history-item">
+              <time dateTime={r.when}>{when(r.when)}</time>
+              <span className="history-text">{r.text}</span>
+            </div>
+          )}
+        />
       )}
-      {filtered.length === 0 ? (
-        <p className="faint" style={{ marginTop: 10 }}>
-          {rows.length === 0 ? "Nada por aqui ainda." : "Nada encontrado."}
-        </p>
-      ) : (
-        <ol className="history-list">
-          {shown.map((r) => (
-            <li key={r.id}>
-              <time dateTime={r.at}>{when(r.at)}</time>
-              {r.href ? (
-                <Link href={r.href} className="history-text">
-                  {r.text}
+      {tab === "lancamentos" && (
+        <PagedList
+          key="lancamentos"
+          className="history-list"
+          initial={feed}
+          load={loadFeed}
+          placeholder="Buscar (pessoa, lançamento, valor…)"
+          empty="Nada por aqui ainda."
+          render={(x) => (
+            <div className="history-item">
+              <time dateTime={x.when}>{when(x.when)}</time>
+              {x.href ? (
+                <Link href={x.href} className="history-text">
+                  {x.text}
+                  {x.detail ? <span className="faint"> · {x.detail}</span> : null}
                 </Link>
               ) : (
-                <span className="history-text">{r.text}</span>
+                <span className="history-text">
+                  {x.text}
+                  {x.detail ? <span className="faint"> · {x.detail}</span> : null}
+                </span>
               )}
-            </li>
-          ))}
-        </ol>
+            </div>
+          )}
+        />
       )}
-      {filtered.length > shownN && (
-        <button type="button" className="awaiting-more" onClick={() => setShownN((n) => n + 20)}>
-          Ver mais {Math.min(20, filtered.length - shownN)} de {filtered.length - shownN}
-        </button>
+      {tab === "pedidos" && (
+        <div className="history-list">
+          {requests.length === 0 && <p className="faint">Nada por aqui ainda.</p>}
+          {requests.map((r) => (
+            <div key={r.id} className="history-item">
+              <time dateTime={r.createdAt}>{when(r.createdAt)}</time>
+              <span className="history-text">
+                <strong>{r.requester}</strong> pediu convite para <strong>{r.forName}</strong> ·{" "}
+                <span className={r.status === "declined" ? "neg" : r.status === "pending" ? "warn" : "pos"}>
+                  {r.status === "pending" ? "esperando" : r.status === "declined" ? "recusado" : r.used ? "aceito, já entrou" : "aceito"}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   );

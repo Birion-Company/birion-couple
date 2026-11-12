@@ -68,7 +68,7 @@ export default async function AuditHouseholdPage({ params }: PageProps<"/auditor
             <h2 id="historico">O que foi feito</h2>
             <span className="faint">{feed.length} ações</span>
           </div>
-          {feed.length === 0 ? <p className="faint">Nada registrado ainda.</p> : <AuditFeed items={feed.map((f) => ({ id: f.id, when: f.when, text: f.text, detail: f.detail }))} />}
+          {feed.length === 0 ? <p className="faint">Nada registrado ainda.</p> : <AuditFeed householdId={id} initial={{ rows: feed.map((f) => ({ id: f.id, when: f.when, actor: f.actor, text: f.text, detail: f.detail, href: null })), next: data.feedNext }} />}
         </section>
       </div>
     </>

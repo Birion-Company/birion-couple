@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Users } from "lucide-react";
 import { DangerZone, HouseholdForm } from "@/components/settings-panels";
 import { HistoryPanel, InviteRequestsAdmin } from "@/components/family-panels";
-import { getActivityFeed } from "@/lib/activity";
+import { feedPage } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { ADMINS_MAX, CONTACTS_ACTIVE_MAX, MEMBERS_MAX } from "@/lib/defaults";
 import { getFamilyLog, getInviteRequests } from "@/lib/family-log";
@@ -22,11 +22,11 @@ export default async function SettingsPage() {
   const [members, lookups, log, requests, [house]] = await Promise.all([
     getMembers(auth.householdId),
     getLookupsFor(auth),
-    getFamilyLog(auth, 1000),
+    getFamilyLog(auth, { size: 20 }),
     getInviteRequests(auth),
     getDb().select({ createdAt: schema.households.createdAt }).from(schema.households).where(eq(schema.households.id, auth.householdId)),
   ]);
-  const feed = await getActivityFeed(auth, lookups, auth.currency, { audit: true, limit: 1000 });
+  const feed = await feedPage(auth, lookups, auth.currency, { audit: true, size: 20 });
   const admins = members.filter((m) => m.role === "owner");
   return (
     <div className="grid">
@@ -72,8 +72,8 @@ export default async function SettingsPage() {
 
       <HistoryPanel
         isAdmin={isAdmin}
-        family={log.map((x) => ({ id: x.id, text: x.text, createdAt: x.createdAt.toISOString() }))}
-        feed={feed}
+        family={{ rows: log.rows.map((x) => ({ id: x.id, when: x.createdAt.toISOString(), text: x.text })), next: log.next }}
+        feed={{ rows: feed.items.map((x) => ({ id: x.id, when: x.when, actor: x.actor, text: x.text, detail: x.detail, href: x.href })), next: feed.next }}
         requests={requests}
       />
 
