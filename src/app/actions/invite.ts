@@ -44,6 +44,8 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
   const homeless = auth ? null : await getHomeless();
   const userId = auth?.userId ?? homeless?.userId ?? null;
   if (!session || !userId) redirect(`/entrar?convite=${encodeURIComponent(code)}`);
+  const [acc] = await getDb().select({ at: schema.users.emailVerifiedAt }).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!acc?.at) redirect(`/verificar-email?convite=${encodeURIComponent(code)}`);
   const invite = await findInvite(code);
   if (!invite) return { ok: false, error: "Este convite não vale mais. Peça um novo para quem administra a família." };
   const db = getDb();

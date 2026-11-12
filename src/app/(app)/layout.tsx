@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
+import { redirect } from "next/navigation";
+import { NewFab } from "@/components/new-fab";
 import { BottomNav, SideNav } from "@/components/nav";
 import { BellButton, NotificationCenter } from "@/components/notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -39,7 +39,13 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   ]);
   const toConfirm = inbox.toMe.length;
   // Tutorial: abre sozinho só no primeiro acesso da conta (pelo Google ou por e-mail e senha), em qualquer aparelho.
-  const [me] = await getDb().select({ tourSeenAt: schema.users.tourSeenAt }).from(schema.users).where(eq(schema.users.id, auth.userId)).limit(1);
+  const [me] = await getDb()
+    .select({ tourSeenAt: schema.users.tourSeenAt, emailVerifiedAt: schema.users.emailVerifiedAt })
+    .from(schema.users)
+    .where(eq(schema.users.id, auth.userId))
+    .limit(1);
+  // Conta criada com e-mail e senha: só usa o app depois de confirmar o e-mail com o código.
+  if (me && !me.emailVerifiedAt) redirect("/verificar-email");
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -69,9 +75,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </div>
       <BottomNav toIdentify={toIdentify} toConfirm={toConfirm} />
       {/* Novo lançamento sempre à mão: botão no canto inferior direito (no celular, é o + da barra de baixo). */}
-      <Link href="/transacoes/nova" className="new-fab" aria-label="Novo lançamento" data-tour="new-fab">
-        <Plus size={20} strokeWidth={2.2} aria-hidden /> <span>Novo lançamento</span>
-      </Link>
+      <NewFab />
       <Tutorial autoOpen={!me?.tourSeenAt} />
       {/* Clicar num lançamento abre a edição numa janela, sem sair da página. */}
       <TxModalHost lookups={myLookups} currency={auth.currency} me={auth.participantId} />

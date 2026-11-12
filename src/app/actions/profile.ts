@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { requireAuth } from "@/lib/auth";
+import { sendVerifyCode } from "@/lib/email-verify";
+import { redirect } from "next/navigation";
 import type { ActionResult } from "./settings";
 
 const ProfileSchema = z.object({
@@ -26,8 +28,13 @@ export async function updateProfile(input: { name: string; email: string }): Pro
     .where(and(eq(schema.users.email, email), ne(schema.users.id, auth.userId)))
     .limit(1);
   if (taken) return { ok: false, error: "Este e-mail já é usado por outra conta." };
+  const newEmail = email !== auth.email;
   await db.transaction(async (tx) => {
-    await tx.update(schema.users).set({ name, email }).where(eq(schema.users.id, auth.userId));
+    // E-mail novo precisa ser confirmado de novo (código de 4 números).
+    await tx
+      .update(schema.users)
+      .set(newEmail ? { name, email, emailVerifiedAt: null } : { name, email })
+      .where(eq(schema.users.id, auth.userId));
     if (auth.participantId) {
       await tx
         .update(schema.participants)
@@ -41,6 +48,10 @@ export async function updateProfile(input: { name: string; email: string }): Pro
         );
     }
   });
+  if (newEmail) {
+    await sendVerifyCode({ id: auth.userId, name, email });
+    redirect("/verificar-email");
+  }
   revalidatePath("/", "layout");
   return { ok: true, message: "Perfil atualizado." };
 }

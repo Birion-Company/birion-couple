@@ -9,6 +9,7 @@ import { getDb, schema } from "@/db";
 import { createHouseholdForUser } from "@/lib/household";
 import { AUDIT_HID, NO_HOUSEHOLD, getHomeless, requireAuth } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
+import { sendVerifyCode } from "@/lib/email-verify";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
 
@@ -49,9 +50,13 @@ export async function signup(_: FormState, form: FormData): Promise<FormState> {
     return { uid: user.id, hid };
   });
   await createSession(ids);
-  // Criou a conta a partir de um convite: vai direto para aceitar a família.
+  // Antes de usar o app, confirma o e-mail com um código de 4 números (depois segue para o convite, se veio de um).
+  const fail = await sendVerifyCode({ id: ids.uid, name: userName, email: mail });
   const invite = inviteFrom(form);
-  redirect(invite ? `/convite/${invite}` : "/painel?bemvindo=1");
+  const q = new URLSearchParams();
+  if (invite) q.set("convite", invite);
+  if (fail) q.set("falhou", "1");
+  redirect(`/verificar-email${q.size ? `?${q}` : ""}`);
 }
 
 export async function login(_: FormState, form: FormData): Promise<FormState> {

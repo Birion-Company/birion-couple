@@ -8228,3 +8228,8 @@ a.row:hover .amount .neg {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* Janela de edição aberta: o botão "Novo lançamento" some (não confunde com o Salvar). */
+body.modal-open .new-fab {
+  display: none;
+}

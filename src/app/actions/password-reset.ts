@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, gte, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { emailConfigured, emailLayout, esc, sendEmail } from "@/lib/email";
@@ -49,14 +49,14 @@ export async function requestPasswordReset(rawEmail: string): Promise<ResetResul
   const recent = await db
     .select({ createdAt: t.createdAt })
     .from(t)
-    .where(and(eq(t.userId, user.id), gte(t.createdAt, new Date(Date.now() - 60 * 60 * 1000))))
+    .where(and(eq(t.userId, user.id), eq(t.purpose, "reset"), gte(t.createdAt, new Date(Date.now() - 60 * 60 * 1000))))
     .orderBy(desc(t.createdAt));
   if (recent.length >= 5) return { ok: false, error: "Muitos pedidos seguidos. Espere um pouco e tente de novo." };
   if (recent[0] && Date.now() - recent[0].createdAt.getTime() < 60 * 1000) return { ok: false, error: "Acabamos de mandar um código. Espere 1 minuto para pedir outro." };
 
   const code = String(randomInt(0, 10000)).padStart(4, "0");
   // Só o último código vale.
-  await db.update(t).set({ usedAt: new Date() }).where(and(eq(t.userId, user.id), isNull(t.usedAt)));
+  await db.update(t).set({ usedAt: new Date() }).where(and(eq(t.userId, user.id), eq(t.purpose, "reset"), isNull(t.usedAt)));
   await db.insert(t).values({ userId: user.id, codeHash: hashCode(user.id, code), expiresAt: new Date(Date.now() + VALID_MIN * 60 * 1000) });
 
   const first = user.name.split(" ")[0] || user.name;
@@ -73,7 +73,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<ResetResul
   });
   if (fail) {
     // O código não chegou: não conta para o limite de 1 por minuto.
-    await db.delete(t).where(and(eq(t.userId, user.id), isNull(t.usedAt)));
+    await db.delete(t).where(and(eq(t.userId, user.id), eq(t.purpose, "reset"), isNull(t.usedAt)));
     return { ok: false, error: `Não conseguimos mandar o e-mail agora (${fail}). Tente de novo em alguns minutos.` };
   }
   return { ok: true, message: SENT };
@@ -88,7 +88,7 @@ async function checkCode(email: string, code: string): Promise<{ ok: true; userI
   const [r] = await db
     .select()
     .from(t)
-    .where(and(eq(t.userId, user.id), isNull(t.usedAt), gte(t.expiresAt, new Date())))
+    .where(and(eq(t.userId, user.id), eq(t.purpose, "reset"), isNull(t.usedAt), gte(t.expiresAt, new Date())))
     .orderBy(desc(t.createdAt))
     .limit(1);
   if (!r) return wrong;
@@ -124,9 +124,13 @@ export async function resetPassword(rawEmail: string, rawCode: string, newPasswo
   if (!r.ok) return r;
   const db = getDb();
   await db.transaction(async (q) => {
-    await q.update(schema.users).set({ passwordHash: await bcrypt.hash(p.data, 10) }).where(eq(schema.users.id, r.userId));
+    // O código chegou no e-mail: ele também fica confirmado.
+    await q
+      .update(schema.users)
+      .set({ passwordHash: await bcrypt.hash(p.data, 10), emailVerifiedAt: sql`coalesce(${schema.users.emailVerifiedAt}, now())` })
+      .where(eq(schema.users.id, r.userId));
     // Código usado (e qualquer outro em aberto da mesma conta) não vale mais.
-    await q.update(t).set({ usedAt: new Date() }).where(and(eq(t.userId, r.userId), isNull(t.usedAt)));
+    await q.update(t).set({ usedAt: new Date() }).where(and(eq(t.userId, r.userId), eq(t.purpose, "reset"), isNull(t.usedAt)));
   });
   return { ok: true, message: "Senha nova criada. Entre com ela." };
 }

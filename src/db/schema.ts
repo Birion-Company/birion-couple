@@ -45,6 +45,8 @@ export const users = pgTable("users", {
   isAuditor: boolean().notNull().default(false),
   /** Quando a pessoa viu (ou pulou) o tutorial: ele só abre sozinho no primeiro acesso, em qualquer aparelho. */
   tourSeenAt: timestamp({ withTimezone: true }),
+  /** Quando o e-mail foi confirmado (código de 4 números, ou login pelo Google). Sem isso, não entra no app. */
+  emailVerifiedAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),
 });
 
@@ -447,6 +449,8 @@ export const passwordResets = pgTable(
     userId: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    /** "reset" (esqueci a senha) ou "verify" (confirmar o e-mail ao criar a conta). */
+    purpose: text().notNull().default("reset"),
     codeHash: text().notNull(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     attempts: integer().notNull().default(0),

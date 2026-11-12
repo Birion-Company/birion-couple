@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const ids = await db.transaction(async (tx) => {
       const [u] = await tx
         .insert(schema.users)
-        .values({ email: profile.email, name: profile.name, passwordHash })
+        .values({ email: profile.email, name: profile.name, passwordHash, emailVerifiedAt: new Date() })
         .returning({ id: schema.users.id });
       const h = await createHouseholdForUser(tx, { userId: u.id, userName: profile.name, householdName: defaultHouseholdName(profile.name) });
       return { uid: u.id, hid: h };
