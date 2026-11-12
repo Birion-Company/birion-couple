@@ -347,6 +347,17 @@ export const inviteRequests = pgTable(
   (t) => [index("invite_requests_household_idx").on(t.householdId)],
 );
 
+/** Senhas erradas no login (por e-mail): depois de 5 em 15 minutos, o login espera. */
+export const loginFailures = pgTable(
+  "login_failures",
+  {
+    id: id(),
+    email: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("login_failures_email_idx").on(t.email, t.createdAt)],
+);
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()

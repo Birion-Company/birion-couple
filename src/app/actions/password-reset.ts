@@ -132,5 +132,7 @@ export async function resetPassword(rawEmail: string, rawCode: string, newPasswo
     // Código usado (e qualquer outro em aberto da mesma conta) não vale mais.
     await q.update(t).set({ usedAt: new Date() }).where(and(eq(t.userId, r.userId), eq(t.purpose, "reset"), isNull(t.usedAt)));
   });
+  // Senha nova: as tentativas erradas de antes não contam mais.
+  await db.delete(schema.loginFailures).where(eq(schema.loginFailures.email, e.data));
   return { ok: true, message: "Senha nova criada. Entre com ela." };
 }

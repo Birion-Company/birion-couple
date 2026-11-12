@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import * as z from "zod";
 import { defaultHouseholdName, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
@@ -11,6 +11,9 @@ import { AUDIT_HID, NO_HOUSEHOLD, getHomeless, requireAuth } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
 import { sendVerifyCode } from "@/lib/email-verify";
 import { validateUsername } from "@/lib/username-server";
+
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_WINDOW_MIN = 15;
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
 
@@ -85,8 +88,25 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     });
     throw error;
   }
+  // Muitas senhas erradas seguidas para este e-mail: espera antes de tentar de novo (vale mesmo com a senha certa).
+  const F = schema.loginFailures;
+  const windowStart = new Date(Date.now() - LOGIN_WINDOW_MIN * 60_000);
+  const fails = await db
+    .select({ at: F.createdAt })
+    .from(F)
+    .where(and(eq(F.email, parsed.data.email), gte(F.createdAt, windowStart)))
+    .orderBy(asc(F.createdAt));
+  if (fails.length >= LOGIN_MAX_FAILS) {
+    const wait = Math.max(1, Math.ceil((fails[0].at.getTime() + LOGIN_WINDOW_MIN * 60_000 - Date.now()) / 60_000));
+    return { error: `Muitas tentativas com senha errada. Espere ${wait} minuto${wait === 1 ? "" : "s"} ou use “Esqueci minha senha”.`, fields };
+  }
   const ok = user && (await bcrypt.compare(parsed.data.password, user.passwordHash));
-  if (!user || !ok) return { error: "E-mail ou senha incorretos.", fields };
+  if (!user || !ok) {
+    await db.insert(F).values({ email: parsed.data.email });
+    const left = LOGIN_MAX_FAILS - fails.length - 1;
+    return { error: left > 0 && left <= 2 ? `E-mail ou senha incorretos. ${left === 1 ? "Resta 1 tentativa" : `Restam ${left} tentativas`} antes de esperar ${LOGIN_WINDOW_MIN} minutos.` : "E-mail ou senha incorretos.", fields };
+  }
+  await db.delete(F).where(eq(F.email, parsed.data.email));
   // Conta de auditoria: não tem família; vai para a área de auditoria (só leitura).
   if (user.isAuditor) {
     await createSession({ uid: user.id, hid: AUDIT_HID });
