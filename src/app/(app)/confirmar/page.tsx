@@ -6,7 +6,10 @@ import { Avatar, Money, formatDate } from "@/components/ui";
 import { roleSentence } from "@/lib/approval-text";
 import { requireAuth } from "@/lib/auth";
 import { seriesLabel } from "@/lib/cards";
-import { getApprovalInbox, getLookupsFor, type ApprovalItem } from "@/lib/queries";
+import { getApprovalInbox, getLookups, getLookupsFor, type ApprovalItem } from "@/lib/queries";
+import { ApprovalInbox, type InboxCard } from "@/components/approval-inbox";
+import { KINDS } from "@/lib/defaults";
+import { formatMoney } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Para confirmar" };
 
@@ -16,7 +19,7 @@ export const metadata: Metadata = { title: "Para confirmar" };
  */
 export default async function ConfirmPage() {
   const auth = await requireAuth();
-  const [inbox, lookups] = await Promise.all([getApprovalInbox(auth), getLookupsFor(auth)]);
+  const [inbox, lookups, all] = await Promise.all([getApprovalInbox(auth), getLookupsFor(auth), getLookups(auth.householdId)]);
   const people = new Map(lookups.participants.map((p) => [p.id, p]));
   const name = (id: string | null) => (id === auth.participantId ? "você" : (id && people.get(id)?.name) || "alguém");
   const me = auth.participantId;
@@ -35,6 +38,43 @@ export default async function ConfirmPage() {
   const creator = (tx: ApprovalItem["tx"]) => {
     const p = tx.approval?.creatorId ? people.get(tx.approval.creatorId) : null;
     return p ? <Avatar name={p.name} color={p.color} size={34} src={p.avatarUrl} /> : <Avatar name="?" color="#94A3B8" size={34} />;
+  };
+
+  // Cartão de quem lançou (nome do cartão, para saber em qual fatura caiu).
+  const cardName = new Map(all.cards.map((c) => [c.id, c.name]));
+  const catName = new Map(lookups.categories.map((c) => [c.id, c.name]));
+  const toCard = (it: ApprovalItem): InboxCard => {
+    const tx = it.tx;
+    const p = tx.approval?.creatorId ? people.get(tx.approval.creatorId) : null;
+    const series = tx.seriesId
+      ? tx.seriesKind === "monthly"
+        ? tx.seriesTotal
+          ? `${tx.seriesTotal} meses`
+          : "todo mês"
+        : `${tx.seriesTotal ?? it.count} parcelas (a partir da ${seriesLabel(tx.seriesKind, tx.seriesIndex, tx.seriesTotal)})`
+      : null;
+    const split = tx.splits.filter((s) => s.amountCents > 0);
+    const facts = [
+      { label: "Tipo", value: KINDS.find((k) => k.value === tx.kind)?.label ?? tx.kind },
+      { label: "Data", value: formatDate(tx.date, { day: "2-digit", month: "short", year: "numeric" }) },
+      { label: "Quem pagou", value: tx.payerId ? name(tx.payerId).replace(/^./, (c) => c.toUpperCase()) : "ninguém ainda" },
+      tx.cardId ? { label: "Como foi pago", value: `Cartão ${cardName.get(tx.cardId) ?? ""}`.trim() } : null,
+      tx.kind === "expense" && split.length > 0
+        ? { label: "Divisão", value: split.map((s) => `${name(s.participantId)} ${formatMoney(s.amountCents, cur)}`).join(" · ") }
+        : null,
+      tx.categoryId ? { label: "Categoria", value: catName.get(tx.categoryId) ?? "—" } : null,
+      series ? { label: "Repete", value: series } : null,
+      tx.notes ? { label: "Observação", value: tx.notes } : null,
+    ].filter((x): x is { label: string; value: string } => !!x);
+    return {
+      id: tx.id,
+      series: !!tx.seriesId,
+      creator: { name: p?.name ?? "Alguém", color: p?.color ?? "#94A3B8", avatarUrl: p?.avatarUrl ?? null },
+      description: tx.description,
+      total: formatMoney(tx.amountCents, cur),
+      role: roleSentence(tx, me!, name, cur),
+      facts,
+    };
   };
 
   const empty = inbox.toMe.length + inbox.refusedByMe.length + inbox.fromMe.length === 0;
@@ -64,22 +104,7 @@ export default async function ConfirmPage() {
             <h2 id="esperando-voce">Esperando você</h2>
             <span className="faint num">{inbox.toMe.length}</span>
           </div>
-          <div className="rows">
-            {inbox.toMe.map((it) => (
-              <div key={it.tx.id} className="row approval-row">
-                {creator(it.tx)}
-                <div className="grow" style={{ minWidth: 0 }}>
-                  <p className="title">
-                    <strong>{name(it.tx.approval?.creatorId ?? null).replace(/^./, (c) => c.toUpperCase())}</strong> lançou{" "}
-                    <Link href={`/transacoes/${it.tx.id}`} className="pos">{it.tx.description}</Link> · <Money cents={it.tx.amountCents} currency={cur} />
-                  </p>
-                  <p className="approval-say">{roleSentence(it.tx, me!, name, cur)}</p>
-                  {what(it)}
-                </div>
-                <ApprovalButtons txId={it.tx.id} series={!!it.tx.seriesId} />
-              </div>
-            ))}
-          </div>
+          <ApprovalInbox items={inbox.toMe.map(toCard)} />
         </section>
       )}
 

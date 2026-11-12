@@ -47,3 +47,19 @@ export async function decideApproval(input: z.input<typeof Schema>): Promise<Act
   const series = tx.seriesId ? (tx.seriesKind === "monthly" ? " (todos os meses)" : " (todas as parcelas)") : "";
   return { ok: true, message: d.decision === "accepted" ? `Aceito${series}. Já vale nas dívidas.` : `Recusado${series}. Quem lançou foi avisado.` };
 }
+
+/** "Aceitar selecionados": aceita vários de uma vez (cada série vale inteira, como no Aceitar). */
+export async function acceptApprovals(ids: string[]): Promise<ActionResult> {
+  const list = z.array(z.uuid()).min(1).max(200).safeParse(ids);
+  if (!list.success) return { ok: false, error: "Escolha pelo menos um lançamento." };
+  let ok = 0;
+  const errors: string[] = [];
+  for (const id of list.data) {
+    const r = await decideApproval({ transactionId: id, decision: "accepted" });
+    if (r.ok) ok++;
+    else if (r.error) errors.push(r.error);
+  }
+  revalidatePath("/", "layout");
+  if (ok === 0) return { ok: false, error: errors[0] ?? "Nada foi aceito." };
+  return { ok: true, message: `${ok} ${ok === 1 ? "lançamento aceito" : "lançamentos aceitos"}.${errors.length ? ` ${errors.length} não deu.` : ""}` };
+}

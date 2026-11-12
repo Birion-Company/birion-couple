@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getDb, schema } from "@/db";
 import { getAuth, getHomeless } from "@/lib/auth";
@@ -34,7 +34,14 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
     return { ok: false, error: `Esta família já está no limite de ${MEMBERS_MAX} pessoas com login.` };
   }
   const [user] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
-  await db.transaction(async (tx) => {
+  const claimed = await db.transaction(async (tx) => {
+    // Convite vale para uma pessoa só: quem usar primeiro "pega" (outra pessoa ao mesmo tempo não entra).
+    const got = await tx
+      .update(schema.invites)
+      .set({ usedAt: new Date() })
+      .where(and(eq(schema.invites.id, invite.id), isNull(schema.invites.usedAt)))
+      .returning({ id: schema.invites.id });
+    if (got.length === 0) return false;
     if (!already) {
       // Sai das outras famílias (a pessoa dele lá vira "sem login").
       const others = await tx.select({ hid: m.householdId }).from(m).where(and(eq(m.userId, userId), ne(m.householdId, invite.householdId)));
@@ -78,8 +85,9 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
         text: `${user?.name ?? "Alguém"} entrou na família${role === "owner" ? " como administrador" : ""}.`,
       });
     }
-    await tx.update(schema.invites).set({ usedAt: new Date() }).where(eq(schema.invites.id, invite.id));
+    return true;
   });
+  if (!claimed) return { ok: false, error: "Este convite já foi usado por outra pessoa. Peça um novo." };
   await createSession({ uid: userId, hid: invite.householdId });
   redirect("/painel?bemvindo=1");
 }
