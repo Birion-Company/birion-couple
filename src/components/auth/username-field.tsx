@@ -10,7 +10,7 @@ export function UsernameField({ defaultValue = "" }: { defaultValue?: string }) 
   const [value, setValue] = useState(defaultValue);
   const [msg, setMsg] = useState<{ ok: boolean; message: string } | null>(null);
   useEffect(() => {
-    if (value.trim().length < 3) return setMsg(null);
+    if (value.trim().length < 3) return;
     const t = setTimeout(async () => setMsg(await checkUsernameAvailable(value)), 400);
     return () => clearTimeout(t);
   }, [value]);
@@ -32,7 +32,12 @@ export function UsernameField({ defaultValue = "" }: { defaultValue?: string }) 
           spellCheck={false}
           maxLength={21}
           value={value}
-          onChange={(e) => setValue(e.target.value.toLowerCase().replace(/\s/g, ""))}
+          onChange={(e) => {
+            const v = e.target.value.toLowerCase().replace(/\s/g, "");
+            setValue(v);
+            // Curto demais: some o aviso antigo (a conferência só roda a partir de 3 letras).
+            if (v.trim().length < 3) setMsg(null);
+          }}
           aria-describedby={`${id}-hint`}
           required
         />
