@@ -217,6 +217,8 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
   const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const q = fold(query.trim());
   const visible = shown.filter((i) => (q ? fold(i.name).includes(q) : showArchived || !i.archived));
+  // Lista grande (ex.: centenas de contatos): mostra 50 por vez. A ordenação por arraste precisa de todos.
+  const [limit, setLimit] = useState(50);
   const save = (list: ListItem[]) =>
     start(async () => {
       setOrdered(list);
@@ -311,7 +313,7 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
       )}
       {visible.length === 0 && editing !== "new" && <div className="empty">{q ? `Ninguém com “${query}”.` : w.empty}</div>}
       <div className="rows" ref={rowsRef}>
-        {visible.map((item) =>
+        {(sortable ? visible : visible.slice(0, limit)).map((item) =>
           editing === item.id ? (
             <ItemForm key={item.id} kind={kind} item={item} onDone={() => setEditing(null)} />
           ) : (
@@ -407,6 +409,11 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
           ),
         )}
       </div>
+      {!sortable && visible.length > limit && (
+        <button type="button" className="awaiting-more" onClick={() => setLimit((n) => n + 50)}>
+          Ver mais {Math.min(50, visible.length - limit)} de {visible.length - limit}
+        </button>
+      )}
       {people ? (
         archivedCount > 0 && !q && (
           <div className="actions" style={{ marginTop: 12, justifyContent: "flex-end" }}>

@@ -167,18 +167,20 @@ type LogRow = { id: string; text: string; createdAt: string };
 export function HistoryPanel({ isAdmin, family, feed, requests }: { isAdmin: boolean; family: LogRow[]; feed: FeedItem[]; requests: InviteRequestRow[] }) {
   type Tab = "familia" | "lancamentos" | "pedidos";
   const [tab, setTab] = useState<Tab>("familia");
-  const [all, setAll] = useState(false);
+  const [shownN, setShownN] = useState(20);
+  const [q, setQ] = useState("");
   const tabs: { id: Tab; label: string; n: number }[] = [
     { id: "familia", label: "Família", n: family.length },
     { id: "lancamentos", label: "Lançamentos", n: feed.length },
     ...(isAdmin ? [{ id: "pedidos" as Tab, label: "Pedidos de convite", n: requests.length }] : []),
   ];
-  const rows: { id: string; text: React.ReactNode; at: string; href?: string | null }[] =
+  const rows: { id: string; text: React.ReactNode; at: string; href?: string | null; searchText: string }[] =
     tab === "familia"
-      ? family.map((x) => ({ id: x.id, text: x.text, at: x.createdAt }))
+      ? family.map((x) => ({ id: x.id, text: x.text, at: x.createdAt, searchText: x.text }))
       : tab === "lancamentos"
         ? feed.map((x) => ({
             id: x.id,
+            searchText: `${x.actor} ${x.text} ${x.detail ?? ""}`,
             text: (
               <>
                 <strong>{x.actor}</strong> {x.text}
@@ -190,6 +192,7 @@ export function HistoryPanel({ isAdmin, family, feed, requests }: { isAdmin: boo
           }))
         : requests.map((r) => ({
             id: r.id,
+            searchText: `${r.requester} ${r.forName} ${r.status}`,
             text: (
               <>
                 <strong>{r.requester}</strong> pediu convite para <strong>{r.forName}</strong> ·{" "}
@@ -200,7 +203,11 @@ export function HistoryPanel({ isAdmin, family, feed, requests }: { isAdmin: boo
             ),
             at: r.createdAt,
           }));
-  const shown = all ? rows : rows.slice(0, 15);
+  // Busca no texto (sem acento) e 20 por vez: o histórico pode ter milhares de linhas.
+  const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const plain = (r: { searchText: string }) => fold(r.searchText);
+  const filtered = q.trim() ? rows.filter((r) => plain(r).includes(fold(q.trim()))) : rows;
+  const shown = filtered.slice(0, shownN);
   return (
     <section className="card section history" aria-labelledby="historico">
       <h2 id="historico">
@@ -221,16 +228,31 @@ export function HistoryPanel({ isAdmin, family, feed, requests }: { isAdmin: boo
             className={tab === t.id ? "on" : ""}
             onClick={() => {
               setTab(t.id);
-              setAll(false);
+              setShownN(20);
             }}
           >
             {t.label} <span className="faint">{t.n}</span>
           </button>
         ))}
       </div>
-      {rows.length === 0 ? (
+      {rows.length > 10 && (
+        <label className="list-search">
+          <input
+            className="input"
+            type="search"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setShownN(20);
+            }}
+            placeholder="Buscar no histórico (pessoa, lançamento…)"
+            aria-label="Buscar no histórico"
+          />
+        </label>
+      )}
+      {filtered.length === 0 ? (
         <p className="faint" style={{ marginTop: 10 }}>
-          Nada por aqui ainda.
+          {rows.length === 0 ? "Nada por aqui ainda." : "Nada encontrado."}
         </p>
       ) : (
         <ol className="history-list">
@@ -248,9 +270,9 @@ export function HistoryPanel({ isAdmin, family, feed, requests }: { isAdmin: boo
           ))}
         </ol>
       )}
-      {rows.length > 15 && (
-        <button type="button" className="awaiting-more" onClick={() => setAll((x) => !x)}>
-          {all ? "Mostrar menos" : `Ver mais ${rows.length - 15}`}
+      {filtered.length > shownN && (
+        <button type="button" className="awaiting-more" onClick={() => setShownN((n) => n + 20)}>
+          Ver mais {Math.min(20, filtered.length - shownN)} de {filtered.length - shownN}
         </button>
       )}
     </section>

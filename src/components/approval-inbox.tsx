@@ -29,6 +29,8 @@ export function ApprovalInbox({ items }: { items: InboxCard[] }) {
   const router = useRouter();
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
+  // Muitos para confirmar: 20 por vez.
+  const [limit, setLimit] = useState(20);
   const allOn = picked.size === items.length && items.length > 0;
   const toggle = (id: string) =>
     setPicked((s) => {
@@ -61,7 +63,7 @@ export function ApprovalInbox({ items }: { items: InboxCard[] }) {
         </div>
       )}
       <div className="inbox-cards">
-        {items.map((it) => (
+        {items.slice(0, limit).map((it) => (
           <article key={it.id} className={`inbox-card ${picked.has(it.id) ? "on" : ""}`}>
             <div className="inbox-top">
               {items.length > 1 && (
@@ -93,6 +95,11 @@ export function ApprovalInbox({ items }: { items: InboxCard[] }) {
           </article>
         ))}
       </div>
+      {items.length > limit && (
+        <button type="button" className="awaiting-more" onClick={() => setLimit((n) => n + 20)}>
+          Ver mais {Math.min(20, items.length - limit)} de {items.length - limit}
+        </button>
+      )}
     </>
   );
 }

@@ -22,11 +22,11 @@ export default async function SettingsPage() {
   const [members, lookups, log, requests, [house]] = await Promise.all([
     getMembers(auth.householdId),
     getLookupsFor(auth),
-    getFamilyLog(auth),
+    getFamilyLog(auth, 1000),
     getInviteRequests(auth),
     getDb().select({ createdAt: schema.households.createdAt }).from(schema.households).where(eq(schema.households.id, auth.householdId)),
   ]);
-  const feed = await getActivityFeed(auth, lookups, auth.currency, { audit: true, limit: 200 });
+  const feed = await getActivityFeed(auth, lookups, auth.currency, { audit: true, limit: 1000 });
   const admins = members.filter((m) => m.role === "owner");
   return (
     <div className="grid">
