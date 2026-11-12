@@ -733,10 +733,13 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
     ? expenses.filter((r) => r.payerId === me).reduce((a, r) => a + (r.splits.find((s) => s.participantId === other)?.amountCents ?? 0), 0)
     : 0;
   // O que essa pessoa ainda te deve das contas do mês que você pagou.
+  // O que falta de uma parte: o valor menos os pagamentos parciais já confirmados (igual à aba Dívidas).
+  const leftOf = (sp: TxRow["splits"][number]) => Math.max(0, sp.amountCents - (sp.partCents ?? 0));
+  // Esperando confirmação ou recusado ainda não é dívida (igual à aba Dívidas).
   const stillOwesMe = other
     ? rows
-        .filter((r) => (r.kind === "expense" || r.kind === "loan") && r.payerId === me && !r.settled)
-        .reduce((a, r) => a + r.splits.filter((sp) => sp.participantId === other && !sp.paidById).reduce((b, sp) => b + sp.amountCents, 0), 0)
+        .filter((r) => (r.kind === "expense" || r.kind === "loan") && r.payerId === me && !r.settled && !r.blocked)
+        .reduce((a, r) => a + r.splits.filter((sp) => sp.participantId === other && !sp.paidById).reduce((b, sp) => b + leftOf(sp), 0), 0)
     : 0;
   const repaidToMe = other
     ? rows.filter((r) => r.kind === "transfer" && r.payerId === other && r.splits.some((s) => s.participantId === me)).reduce((a, r) => a + r.amountCents, 0)
@@ -745,11 +748,11 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
   // ainda não foi paga, por pessoa. Família inteira: tudo que alguém pagou e outra pessoa ainda deve.
   const owedBy = new Map<string, number>();
   for (const r of rows) {
-    if ((r.kind !== "expense" && r.kind !== "loan") || !r.payerId || r.settled || r.settlesId) continue;
+    if ((r.kind !== "expense" && r.kind !== "loan") || !r.payerId || r.settled || r.settlesId || r.blocked) continue;
     if (focus && r.payerId !== focus) continue;
     for (const sp of r.splits) {
-      if (sp.participantId === r.payerId || sp.paidById || sp.amountCents <= 0) continue;
-      owedBy.set(sp.participantId, (owedBy.get(sp.participantId) ?? 0) + sp.amountCents);
+      if (sp.participantId === r.payerId || sp.paidById || leftOf(sp) <= 0) continue;
+      owedBy.set(sp.participantId, (owedBy.get(sp.participantId) ?? 0) + leftOf(sp));
     }
   }
   const paidForOthers = [...owedBy.values()].reduce((a, v) => a + v, 0);
