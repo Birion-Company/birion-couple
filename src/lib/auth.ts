@@ -36,14 +36,17 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
       role: schema.memberships.role,
       participantId: schema.memberships.participantId,
       avatarUpdatedAt: schema.users.avatarUpdatedAt,
+      emailVerifiedAt: schema.users.emailVerifiedAt,
     })
     .from(schema.memberships)
     .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .innerJoin(schema.households, eq(schema.households.id, schema.memberships.householdId))
     .where(and(eq(schema.memberships.userId, session.uid), eq(schema.memberships.householdId, session.hid)))
     .limit(1);
-  if (!row) return null;
-  const { avatarUpdatedAt, ...rest } = row;
+  // E-mail ainda não confirmado: não usa nada do app (telas, APIs e ações) até digitar o código.
+  if (!row || !row.emailVerifiedAt) return null;
+  const { avatarUpdatedAt, emailVerifiedAt: _v, ...rest } = row;
+  void _v;
   return { ...rest, role: row.role === "owner" ? "owner" : "member", avatarVersion: avatarUpdatedAt ? avatarUpdatedAt.getTime() : null };
 });
 
@@ -89,7 +92,14 @@ export const getHomeless = cache(async (): Promise<Homeless | null> => {
 
 export async function requireAuth(): Promise<AuthContext> {
   const auth = await getAuth();
-  if (!auth) redirect((await getHomeless()) ? "/nova-familia" : "/entrar");
+  if (!auth) {
+    const s = await readSession();
+    if (s) {
+      const [u] = await getDb().select({ v: schema.users.emailVerifiedAt }).from(schema.users).where(eq(schema.users.id, s.uid)).limit(1);
+      if (u && !u.v) redirect("/verificar-email");
+    }
+    redirect((await getHomeless()) ? "/nova-familia" : "/entrar");
+  }
   return auth;
 }
 
