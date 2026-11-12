@@ -7,6 +7,7 @@ import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { requireAuth } from "@/lib/auth";
 import { sendVerifyCode } from "@/lib/email-verify";
+import { validateUsername } from "@/lib/username-server";
 import { redirect } from "next/navigation";
 import type { ActionResult } from "./settings";
 
@@ -16,12 +17,18 @@ const ProfileSchema = z.object({
 });
 
 /** Atualiza nome e e-mail de quem está logado. Se a pessoa ligada a você tinha o nome antigo, ela é renomeada junto. */
-export async function updateProfile(input: { name: string; email: string }): Promise<ActionResult> {
+export async function updateProfile(input: { name: string; email: string; username?: string }): Promise<ActionResult> {
   const auth = await requireAuth();
   const parsed = ProfileSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   const { name, email } = parsed.data;
   const db = getDb();
+  let username: string | undefined;
+  if (input.username !== undefined) {
+    const u = await validateUsername(db, input.username, auth.userId);
+    if (!u.ok) return { ok: false, error: u.error };
+    username = u.value;
+  }
   const [taken] = await db
     .select({ id: schema.users.id })
     .from(schema.users)
@@ -33,7 +40,7 @@ export async function updateProfile(input: { name: string; email: string }): Pro
     // E-mail novo precisa ser confirmado de novo (código de 4 números).
     await tx
       .update(schema.users)
-      .set(newEmail ? { name, email, emailVerifiedAt: null } : { name, email })
+      .set({ name, email, ...(username ? { username } : {}), ...(newEmail ? { emailVerifiedAt: null } : {}) })
       .where(eq(schema.users.id, auth.userId));
     if (auth.participantId) {
       await tx

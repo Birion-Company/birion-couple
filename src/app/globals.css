@@ -8458,3 +8458,53 @@ body.modal-open .new-fab {
 .inbox-facts dd {
   margin: 1px 0 0;
 }
+
+/* Pessoas: @usuário e "Adicionar apelido" ao lado. */
+.person-handle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  white-space: normal;
+}
+.person-handle .handle {
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+.nick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.nick-btn:hover {
+  border-color: var(--brand-strong);
+  color: var(--brand-strong);
+}
+.person-handle .nick-form {
+  flex-basis: 100%;
+}
+.profile-username {
+  margin: 2px 0 6px;
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+.at-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.at-input > span {
+  color: var(--text-3);
+  font-weight: 600;
+}
+.at-input .input {
+  flex: 1;
+}

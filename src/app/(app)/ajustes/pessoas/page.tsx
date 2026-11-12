@@ -32,7 +32,7 @@ export default async function PeoplePage() {
           </span>
         </div>
         <p className="faint">
-          Entram no app, veem o que os envolve e recebem avisos. Dois com o mesmo nome? Toque no lápis e dê um <strong>apelido</strong>: só você vê.
+          Entram no app, veem o que os envolve e recebem avisos. Cada um tem um <strong>@nome de usuário</strong> único. Dois com o mesmo nome? Toque em “Adicionar apelido”: só você vê o apelido.
         </p>
         <div className="rows" style={{ marginTop: 8 }}>
           {members.map((p) => (
@@ -43,9 +43,12 @@ export default async function PeoplePage() {
                   {p.name}
                   {p.id === auth.participantId && <span className="faint"> · você</span>}
                 </p>
-                {p.nickname && <p className="sub">Nome cadastrado: {p.realName}</p>}
+                <div className="sub person-handle">
+                  {p.username && <span className="handle">@{p.username}</span>}
+                  {p.nickname && <span>nome: {p.realName}</span>}
+                  {p.id !== auth.participantId && <NicknameEditor participantId={p.id} realName={p.realName} nickname={p.nickname} />}
+                </div>
               </div>
-              {p.id !== auth.participantId && <NicknameEditor participantId={p.id} realName={p.realName} nickname={p.nickname} />}
             </div>
           ))}
         </div>

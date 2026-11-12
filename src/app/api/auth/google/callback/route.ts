@@ -2,6 +2,7 @@ import { NO_HOUSEHOLD } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { freeUsernameFor } from "@/lib/username-server";
 import { NextResponse, type NextRequest } from "next/server";
 import { getDb, schema } from "@/db";
 import { exchangeCode, GOOGLE_COOKIE, publicOrigin } from "@/lib/google";
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     const ids = await db.transaction(async (tx) => {
       const [u] = await tx
         .insert(schema.users)
-        .values({ email: profile.email, name: profile.name, passwordHash, emailVerifiedAt: new Date() })
+        .values({ email: profile.email, name: profile.name, username: await freeUsernameFor(tx, profile.name), passwordHash, emailVerifiedAt: new Date() })
         .returning({ id: schema.users.id });
       const h = await createHouseholdForUser(tx, { userId: u.id, userName: profile.name, householdName: defaultHouseholdName(profile.name) });
       return { uid: u.id, hid: h };

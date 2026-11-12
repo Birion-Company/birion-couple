@@ -5,9 +5,10 @@ import { ArrowRight, Home, User } from "lucide-react";
 import { finishWelcome, type FormState } from "@/app/actions/auth";
 import { AuthHeader } from "./auth-header";
 import { AuthInput } from "./auth-input";
+import { UsernameField } from "./username-field";
 
 /** Primeiro acesso pelo Google: como a pessoa quer ser chamada e o nome da família (dá para mudar depois). */
-export function WelcomeForm({ name, household, canRenameHousehold, convite }: { name: string; household: string; canRenameHousehold: boolean; convite?: string }) {
+export function WelcomeForm({ name, username, household, canRenameHousehold, convite }: { name: string; username: string; household: string; canRenameHousehold: boolean; convite?: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(finishWelcome, undefined);
   return (
     <>
@@ -19,6 +20,7 @@ export function WelcomeForm({ name, household, canRenameHousehold, convite }: { 
       <form action={action} className="auth-form">
         {convite && <input type="hidden" name="convite" value={convite} />}
         <AuthInput label="Seu nome" name="name" autoComplete="name" defaultValue={state?.fields?.name ?? name} icon={User} />
+        <UsernameField defaultValue={state?.fields?.username ?? username} />
         {canRenameHousehold ? (
           <AuthInput label="Nome da família" name="household" autoComplete="off" defaultValue={state?.fields?.household ?? household} icon={Home} />
         ) : (

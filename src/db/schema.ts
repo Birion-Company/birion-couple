@@ -45,6 +45,8 @@ export const users = pgTable("users", {
   isAuditor: boolean().notNull().default(false),
   /** Quando a pessoa viu (ou pulou) o tutorial: ele só abre sozinho no primeiro acesso, em qualquer aparelho. */
   tourSeenAt: timestamp({ withTimezone: true }),
+  /** Nome de usuário (@fulano): único no Birion (sem diferença de maiúsculas). */
+  username: text(),
   /** Quando o e-mail foi confirmado (código de 4 números, ou login pelo Google). Sem isso, não entra no app. */
   emailVerifiedAt: timestamp({ withTimezone: true }),
   createdAt: createdAt(),

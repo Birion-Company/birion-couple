@@ -28,8 +28,8 @@ export function NicknameEditor({ participantId, realName, nickname }: { particip
 
   if (!editing) {
     return (
-      <button type="button" className="icon-btn nick-btn" onClick={() => setEditing(true)} aria-label={`Dar apelido a ${realName}`} title="Apelido (só você vê)">
-        <Pencil size={15} strokeWidth={1.9} />
+      <button type="button" className="nick-btn" onClick={() => setEditing(true)} aria-label={`${nickname ? "Mudar o apelido de" : "Adicionar apelido a"} ${realName}`}>
+        <Pencil size={13} strokeWidth={2} aria-hidden /> {nickname ? "Mudar apelido" : "Adicionar apelido"}
       </button>
     );
   }

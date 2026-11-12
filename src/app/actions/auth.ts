@@ -10,6 +10,7 @@ import { createHouseholdForUser } from "@/lib/household";
 import { AUDIT_HID, NO_HOUSEHOLD, getHomeless, requireAuth } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
 import { sendVerifyCode } from "@/lib/email-verify";
+import { validateUsername } from "@/lib/username-server";
 
 export type FormState = { error?: string; fields?: Record<string, string> } | undefined;
 
@@ -33,19 +34,21 @@ function inviteFrom(form: FormData) {
 }
 
 export async function signup(_: FormState, form: FormData): Promise<FormState> {
-  const fields = Object.fromEntries(["name", "email"].map((k) => [k, String(form.get(k) ?? "")]));
+  const fields = Object.fromEntries(["name", "username", "email"].map((k) => [k, String(form.get(k) ?? "")]));
   const parsed = SignupSchema.safeParse({ ...fields, household: form.get("household") ?? undefined, password: form.get("password") });
   if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
   const { name: userName, email: mail, password: pass } = parsed.data;
   const household = parsed.data.household || defaultHouseholdName(userName);
   const db = getDb();
+  const uname = await validateUsername(db, fields.username);
+  if (!uname.ok) return { error: uname.error, fields };
 
   const [existing] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, mail)).limit(1);
   if (existing) return { error: "Já existe uma conta com este e-mail. Entre com ela.", fields };
 
   const passwordHash = await bcrypt.hash(pass, 10);
   const ids = await db.transaction(async (tx) => {
-    const [user] = await tx.insert(schema.users).values({ email: mail, name: userName, passwordHash }).returning({ id: schema.users.id });
+    const [user] = await tx.insert(schema.users).values({ email: mail, name: userName, username: uname.value, passwordHash }).returning({ id: schema.users.id });
     const hid = await createHouseholdForUser(tx, { userId: user.id, userName, householdName: household });
     return { uid: user.id, hid };
   });
@@ -135,12 +138,14 @@ const WelcomeSchema = z.object({
  */
 export async function finishWelcome(_: FormState, form: FormData): Promise<FormState> {
   const auth = await requireAuth();
-  const fields = { name: String(form.get("name") ?? ""), household: String(form.get("household") ?? "") };
+  const fields = { name: String(form.get("name") ?? ""), household: String(form.get("household") ?? ""), username: String(form.get("username") ?? "") };
   const parsed = WelcomeSchema.safeParse(fields);
   if (!parsed.success) return { error: parsed.error.issues[0].message, fields };
   const db = getDb();
+  const uname = await validateUsername(db, fields.username, auth.userId);
+  if (!uname.ok) return { error: uname.error, fields };
   await db.transaction(async (tx) => {
-    await tx.update(schema.users).set({ name: parsed.data.name }).where(eq(schema.users.id, auth.userId));
+    await tx.update(schema.users).set({ name: parsed.data.name, username: uname.value }).where(eq(schema.users.id, auth.userId));
     if (auth.participantId) {
       await tx
         .update(schema.participants)
