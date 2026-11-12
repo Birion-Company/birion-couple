@@ -364,6 +364,27 @@ export const loginFailures = pgTable(
   (t) => [index("login_failures_email_idx").on(t.email, t.createdAt)],
 );
 
+/**
+ * Orçamento: limite mensal por categoria, de cada pessoa (só a parte dela nos gastos conta).
+ * alertedMonth/alertedLevel guardam o último aviso (80 ou 100) do mês, para não avisar de novo.
+ */
+export const budgets = pgTable(
+  "budgets",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: uuid()
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    monthlyCents: integer().notNull(),
+    alertedMonth: text(),
+    alertedLevel: integer().notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.categoryId] })],
+);
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()

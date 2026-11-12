@@ -8732,3 +8732,54 @@ body.modal-open .new-fab {
   border-color: #e0a526;
   color: #c98a0a;
 }
+
+/* Orçamento: barra gasto x limite e linhas de edição. */
+.bud-bar {
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.bud-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.bud-bar span.ok {
+  background: #3baa7f;
+}
+.bud-bar span.near {
+  background: #e0a526;
+}
+.bud-bar span.over {
+  background: var(--neg);
+}
+.bud-ok {
+  color: var(--text-2);
+}
+.bud-near {
+  color: #c98a0a;
+}
+.bud-over {
+  color: var(--neg);
+  font-weight: 600;
+}
+.bud-row {
+  align-items: center;
+  gap: 10px;
+}
+.bud-input {
+  width: 112px;
+}
+@media (max-width: 520px) {
+  .bud-row {
+    flex-wrap: wrap;
+  }
+  .bud-row .grow {
+    flex-basis: calc(100% - 44px);
+  }
+  .bud-input {
+    flex: 1;
+  }
+}

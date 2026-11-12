@@ -5,6 +5,7 @@ import { isAdmin, type Viewer } from "./access";
 import { after } from "next/server";
 import { formatMoney } from "./money";
 import { pushActivity } from "./push-server";
+import { checkBudgetAlerts } from "./budgets";
 import type { Lookups } from "./queries";
 
 type Db = ReturnType<typeof getDb>;
@@ -146,7 +147,11 @@ export async function logActivity(
     audience: [...new Set(entry.audience)],
   });
   // Notificação no celular de quem foi envolvido, depois da resposta (não atrasa quem fez a ação).
-  const job = () => pushActivity(viewer.householdId, viewer.userId, entry as Parameters<typeof pushActivity>[2]).catch((e) => console.error("push", e));
+  const job = async () => {
+    await pushActivity(viewer.householdId, viewer.userId, entry as Parameters<typeof pushActivity>[2]).catch((e) => console.error("push", e));
+    // Orçamento por categoria: quem chegou perto do limite ou passou recebe um aviso.
+    await checkBudgetAlerts(viewer.householdId).catch((e) => console.error("orçamento", e));
+  };
   try {
     after(job);
   } catch {

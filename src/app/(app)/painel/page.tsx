@@ -11,6 +11,8 @@ import { filtersToQuery, monthRange, parseFilters } from "@/lib/filters";
 import { countUnidentified, getDashboard, getAwaitingIncome, getDebtLedger, getDebtsToReceive, getMonthDebts, navigableMonths, getLookupsFor, getOutlook } from "@/lib/queries";
 import { MoneySummary } from "@/components/money-summary";
 import { AwaitingIncome } from "@/components/awaiting-income";
+import { BudgetBar } from "@/components/budget-editor";
+import { getBudgets } from "@/lib/budgets";
 import { MonthNav } from "@/components/month-nav";
 import { MonthOutlook } from "@/components/month-outlook";
 
@@ -61,6 +63,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
   const nameOf = (id: string) => people.get(id)?.name ?? "Alguém";
   const maxCat = Math.max(1, ...data.byCategory.map((c) => c.cents));
+  // Orçamento: só quando se olha o próprio mês (o gasto de data.byCategory já é a parte da pessoa).
+  const spentOf = new Map(data.byCategory.map((c) => [c.id, c.cents]));
+  const budgetRows = (await getBudgets(auth.userId))
+    .map((b) => ({ categoryId: b.categoryId, limit: b.monthlyCents, spent: spentOf.get(b.categoryId) ?? 0 }))
+    .sort((a, b) => b.spent / b.limit - a.spent / a.limit);
   // Dívidas que envolvem você primeiro.
   const welcome = sp.bemvindo === "1";
 
@@ -276,6 +283,34 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
               ))}
             </div>
           </section>
+
+          {mode === "me" && budgetRows.length > 0 && (
+            <section className="card" aria-labelledby="orc">
+              <div className="card-head">
+                <h2 id="orc">Orçamento do mês</h2>
+                <Link href="/ajustes/orcamento" className="faint">
+                  ajustar
+                </Link>
+              </div>
+              <div className="rows">
+                {budgetRows.map((b) => {
+                  const cat = cats.get(b.categoryId);
+                  return (
+                    <Link key={b.categoryId} href={`/transacoes${filtersToQuery({ ...filters, category: b.categoryId })}`} className="row" style={{ display: "block" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <CategoryIcon icon={cat?.icon} color={cat?.color ?? "#CBD5E1"} size={26} />
+                        <span className="grow title">{cat?.name ?? "Categoria"}</span>
+                        <span className={`num bud-${b.spent >= b.limit ? "over" : b.spent >= b.limit * 0.8 ? "near" : "ok"}`}>
+                          <Money cents={b.spent} currency={cur} /> de <Money cents={b.limit} currency={cur} />
+                        </span>
+                      </div>
+                      <BudgetBar spent={b.spent} limit={b.limit} />
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           <section className="card" aria-labelledby="cats">
             <div className="card-head">
