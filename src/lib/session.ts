@@ -27,7 +27,8 @@ export async function createSession(payload: SessionPayload) {
   const store = await cookies();
   store.set(COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // LOCAL_HTTP=1: app de produção rodando no seu computador, aberto por http na rede privada (Tailscale).
+    secure: process.env.NODE_ENV === "production" && process.env.LOCAL_HTTP !== "1",
     sameSite: "lax",
     path: "/",
     maxAge: MAX_AGE,

@@ -39,7 +39,7 @@ const SENT = "Se existir uma conta com esse e-mail, mandamos um código de 4 nú
 export async function requestPasswordReset(rawEmail: string): Promise<ResetResult> {
   const parsed = emailSchema.safeParse(rawEmail);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  if (process.env.NODE_ENV === "production" && !emailConfigured()) {
+  if (process.env.NODE_ENV === "production" && process.env.LOCAL_HTTP !== "1" && !emailConfigured()) {
     return { ok: false, error: "O envio de e-mail ainda não foi configurado neste site. Fale com quem administra o Birion." };
   }
   const user = await findUser(parsed.data);

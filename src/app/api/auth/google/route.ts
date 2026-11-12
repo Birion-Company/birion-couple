@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const res = NextResponse.redirect(url);
   res.cookies.set(GOOGLE_COOKIE, `${state}.${verifier}.${invite}`, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && process.env.LOCAL_HTTP !== "1",
     sameSite: "lax",
     path: "/api/auth/google",
     maxAge: 600,

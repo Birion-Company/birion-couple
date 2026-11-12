@@ -18,7 +18,8 @@ export function emailConfigured() {
 export async function sendEmail(mail: Email): Promise<string | null> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
-    if (process.env.NODE_ENV !== "production") {
+    // No computador (desenvolvimento, ou produção local com LOCAL_HTTP=1) sem chave: o e-mail aparece no log.
+    if (process.env.NODE_ENV !== "production" || process.env.LOCAL_HTTP === "1") {
       console.info(`[e-mail de teste] para ${mail.to} · ${mail.subject}\n${mail.text}`);
       return null;
     }
