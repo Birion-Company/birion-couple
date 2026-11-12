@@ -8,6 +8,7 @@ import { canManageCard, checkEditable } from "@/lib/access";
 import { involved, logActivity, snapshots, type TxSnapshot } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { matchCategory } from "@/lib/import/dedupe";
+import { reopenUnderpaid } from "@/lib/settle";
 import { splitEqually } from "@/lib/money";
 import { loadRules } from "@/lib/rules-server";
 import type { ActionResult } from "./settings";
@@ -172,6 +173,7 @@ export async function bulkEdit(ids: string[], patch: BulkPatch): Promise<ActionR
         const paidBy = new Map(old.map((x) => [x.participantId, x.paidById]));
         await tx.delete(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, id));
         if (next.splits.length) await tx.insert(schema.transactionSplits).values(next.splits.map((x) => ({ ...x, paidById: paidBy.get(x.participantId) ?? null, transactionId: id })));
+        await reopenUnderpaid(tx, [id]);
       }
       items.push({ d: s.description, a: involved(s, next) });
     }

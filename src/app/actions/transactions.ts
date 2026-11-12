@@ -18,6 +18,7 @@ import { getMembers, getRecurringState, getSeriesItems, getTransaction, listTran
 import { parseFilters } from "@/lib/filters";
 import { firstDateOf, isReal, planSeries, scaleSplits } from "@/lib/series-plan";
 import { formatMoney, splitEqually } from "@/lib/money";
+import { reopenUnderpaid } from "@/lib/settle";
 import type { ActionResult } from "./settings";
 
 const uuid = z.uuid();
@@ -395,6 +396,8 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     // Quem já pagou a própria parte (com um acerto) continua quitado.
     const paidBy = new Map((existing?.splits ?? []).map((x) => [x.participantId, x.paidById]));
     await tx.insert(schema.transactionSplits).values(splits.map((s) => ({ ...s, paidById: paidBy.get(s.participantId) ?? null, transactionId: txId! })));
+    // Valor ou parte mudou depois de alguém pagar: se o que foi pago não cobre mais, a parte reabre com o que falta.
+    if (id) await reopenUnderpaid(tx, [txId!]);
     if (!id) {
       await logActivity(tx, auth, { action: "created", transactionId: txId, data: { tx: snapshot }, audience: involved(snapshot) });
     } else if (before) {
@@ -975,6 +978,7 @@ export async function reshapeSeries(transactionId: string, input: z.input<typeof
     if (plan.remove.length) {
       await tx.delete(t).where(and(eq(t.householdId, auth.householdId), inArray(t.id, plan.remove.map((x) => x.id))));
     }
+    await reopenUnderpaid(tx, plan.steps.filter((x) => x.action === "update").map((x) => x.id!));
     const audience = involved({ payerId: ref.payerId, splits: refSplits });
     await logActivity(tx, auth, {
       action: "bulk",
