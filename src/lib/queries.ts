@@ -702,6 +702,14 @@ export async function getRecurringFor(viewer: Viewer, f: Filters) {
   return series.filter((s) => matchesFilters({ ...s, splits: s.splits as Filterable["splits"] }, f));
 }
 
+/**
+ * A pessoa ainda não aceitou (ou recusou) este lançamento que outra pessoa colocou no nome dela:
+ * até aceitar, a parte dela não conta como gasto dela.
+ */
+function notAccepted(r: Pick<TxRow, "approval">, pid: string) {
+  return !!r.approval && (r.approval.waiting.includes(pid) || r.approval.refused.some((x) => x.id === pid));
+}
+
 /** Tudo o que o painel precisa, calculado a partir das transações filtradas. */
 export async function getDashboard(viewer: Viewer, f: Filters) {
   await ensureRecurring(viewer.householdId);
@@ -722,7 +730,7 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
   // pessoas não é gasto seu: elas te devolvem (fica em "Pagou por outros" e em Dívidas).
   // Sem pessoa nenhuma (conta sem pessoa ligada), conta o valor inteiro.
   const focus = f.person ?? (f.everyone ? null : viewer.participantId) ?? null;
-  const share = (r: TxRow) => (focus ? r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0 : r.amountCents);
+  const share = (r: TxRow) => (focus ? (notAccepted(r, focus) ? 0 : r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0) : r.amountCents);
   const expenses = rows.filter((r) => r.kind === "expense");
   const spent = expenses.reduce((a, r) => a + share(r), 0);
   const familySpent = expenses.reduce((a, r) => a + r.amountCents, 0);
@@ -765,7 +773,7 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
     byCategory.set(key, (byCategory.get(key) ?? 0) + share(r));
   }
   const byPerson = new Map<string, number>();
-  for (const r of expenses) for (const s of r.splits) byPerson.set(s.participantId, (byPerson.get(s.participantId) ?? 0) + s.amountCents);
+  for (const r of expenses) for (const s of r.splits) if (!notAccepted(r, s.participantId)) byPerson.set(s.participantId, (byPerson.get(s.participantId) ?? 0) + s.amountCents);
 
   return {
     spent,
@@ -994,7 +1002,7 @@ export async function getOutlook(viewer: Viewer, f: Filters, months = 12) {
   const projected = await projectedRecurring(viewer, range, range.from, range.to);
   // Mesma regra do painel: a parte de quem está sendo visto (a pessoa do filtro, ou você).
   const focus = f.person ?? (f.everyone ? null : viewer.participantId) ?? null;
-  const share = (r: TxRow) => (focus ? r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0 : r.amountCents);
+  const share = (r: TxRow) => (focus ? (notAccepted(r, focus) ? 0 : r.splits.find((s) => s.participantId === focus)?.amountCents ?? 0) : r.amountCents);
   const byMonth = new Map<string, { cents: number; recurringCents: number; count: number }>();
   for (let k = first; k <= last; k = addMonthsKey(k, 1)) byMonth.set(k, { cents: 0, recurringCents: 0, count: 0 });
   for (const r of [...saved, ...projected]) {
