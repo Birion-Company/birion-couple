@@ -1,9 +1,9 @@
-import { BarChart3, ShieldCheck, Target } from "lucide-react";
+import { CreditCard, ShieldCheck, Users } from "lucide-react";
 
 const BENEFITS = [
-  { icon: BarChart3, text: "Visualização completa do seu financeiro" },
-  { icon: Target, text: "Defina metas e acompanhe seu progresso" },
-  { icon: ShieldCheck, text: "Seus dados sempre seguros" },
+  { icon: Users, text: "Quem pagou e quem deve, sem planilha" },
+  { icon: CreditCard, text: "Faturas, parcelas e contas fixas no lugar certo" },
+  { icon: ShieldCheck, text: "Cada pessoa vê só o que é dela" },
 ];
 
 /** Painel esquerdo: marca, título, descrição e benefícios. */
@@ -27,7 +27,7 @@ export function BrandPanel() {
             <em>simples e eficiente.</em>
           </h2>
           <p className="brand-desc">
-            Controle seus gastos, acompanhe seus investimentos e conquiste seus objetivos.
+            Controle seus gastos, divida as contas da família e importe o extrato do banco.
           </p>
         </div>
         <ul className="brand-benefits">
