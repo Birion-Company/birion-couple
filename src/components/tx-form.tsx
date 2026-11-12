@@ -37,10 +37,10 @@ const KIND_HELP: Record<Kind, { text: string; steps?: { title: string; items: st
   income: {
     text: "Dinheiro que entrou: salário, venda, bolsa.",
     steps: {
-      title: "É um estorno?",
+      title: "É um estorno do cartão?",
       items: [
         "Não lance como receita.",
-        "Em Lançamentos, abra a despesa da compra (a que já foi lançada).",
+        "Em Lançamentos, abra a compra no cartão (a que já foi lançada).",
         "Na edição, toque no botão “Estorno”, embaixo, ao lado de Excluir, e diga quanto voltou.",
       ],
     },
@@ -995,7 +995,8 @@ export function TxForm({
         {/* Canto inferior esquerdo: cadastrar ou convidar pessoas (vale para qualquer campo de pessoa). */}
         <div className="actions">
         <PeopleMenu suggestions={contactNames} canInvite={canInvite} onAdd={(p) => setExtra((x) => [...x.filter((y) => y.id !== p.id), p])} />
-        {initial && initial.kind === "expense" && (
+        {/* Estorno é só de compra no cartão (numa dívida ou despesa paga em dinheiro, quebraria a conta). */}
+        {initial && initial.kind === "expense" && initial.cardId && (
           <div className="refund-wrap">
             <button type="button" className="btn ghost" onClick={() => setRefundOpen((o) => !o)} disabled={pending} aria-expanded={refundOpen}>
               <RotateCcw size={16} strokeWidth={1.7} /> Estorno

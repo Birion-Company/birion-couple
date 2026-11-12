@@ -68,7 +68,7 @@ const SECTIONS: Section[] = [
       { term: "Todo mês", text: "Repete sem data para acabar (ex.: aluguel, Spotify). Para parar: abra o lançamento em Lançamentos e toque em “Parar de repetir”." },
       { term: "Começou no passado?", text: "O app olha de hoje para frente: parcelas que já venceram não entram. Ex.: celular em 24x desde abril começa na 7ª." },
       { term: "Virar repetição depois", text: "Abra um lançamento avulso e escolha Parcelado ou Todo mês: ele vira o primeiro." },
-      { term: "Estorno", text: "Dinheiro que voltou de uma compra não é receita: abra a despesa e toque em Estorno. O valor sai da própria despesa (a parte de cada um diminui junto); estorno do valor inteiro exclui a despesa." },
+      { term: "Estorno", text: "Dinheiro que voltou de uma compra no cartão não é receita: abra a compra e toque em Estorno (só aparece em compras no cartão). O valor sai da própria despesa (a parte de cada um diminui junto); estorno do valor inteiro exclui a despesa." },
       { term: "Mudar uma parcela", text: "Ao editar, escolha “Só esta parcela” (um mês diferente, ex.: sua mãe pagou o aluguel inteiro) ou “Esta e as próximas” (valor e divisão mudam daqui para frente)." },
     ],
   },

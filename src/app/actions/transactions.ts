@@ -1125,11 +1125,11 @@ export async function refundExpense(transactionId: string, amountCents: number):
   const db = getDb();
   const t = schema.transactions;
   const [tx] = await db
-    .select({ id: t.id, kind: t.kind, amountCents: t.amountCents, notes: t.notes, description: t.description })
+    .select({ id: t.id, kind: t.kind, cardId: t.cardId, amountCents: t.amountCents, notes: t.notes, description: t.description })
     .from(t)
     .where(and(eq(t.id, transactionId), eq(t.householdId, auth.householdId)));
   if (!tx) return { ok: false, error: "Lançamento não encontrado." };
-  if (tx.kind !== "expense") return { ok: false, error: "Só dá para estornar uma despesa." };
+  if (tx.kind !== "expense" || !tx.cardId) return { ok: false, error: "Estorno é só para compra no cartão." };
   if (amountCents > tx.amountCents) return { ok: false, error: `O estorno não pode passar do valor da despesa (${formatMoney(tx.amountCents, auth.currency)}).` };
   const splits = await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, transactionId));
   if (splits.some((s) => s.paidById)) return { ok: false, error: "Alguém já pagou a parte desta despesa. Desfaça o pagamento antes de estornar." };
