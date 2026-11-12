@@ -60,7 +60,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<ResetResul
   await db.insert(t).values({ userId: user.id, codeHash: hashCode(user.id, code), expiresAt: new Date(Date.now() + VALID_MIN * 60 * 1000) });
 
   const first = user.name.split(" ")[0] || user.name;
-  const ok = await sendEmail({
+  const fail = await sendEmail({
     to: parsed.data,
     subject: `${code} é o seu código do Birion Finance`,
     text: `Olá, ${first}!\n\nSeu código para criar uma senha nova no Birion Finance é: ${code}\n\nEle vale por ${VALID_MIN} minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.`,
@@ -71,7 +71,11 @@ export async function requestPasswordReset(rawEmail: string): Promise<ResetResul
 <p style="margin:0;font-size:13px;line-height:1.5;color:#475569">O código vale por ${VALID_MIN} minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.</p>`,
     ),
   });
-  if (!ok) return { ok: false, error: "Não conseguimos mandar o e-mail agora. Tente de novo em alguns minutos." };
+  if (fail) {
+    // O código não chegou: não conta para o limite de 1 por minuto.
+    await db.delete(t).where(and(eq(t.userId, user.id), isNull(t.usedAt)));
+    return { ok: false, error: `Não conseguimos mandar o e-mail agora (${fail}). Tente de novo em alguns minutos.` };
+  }
   return { ok: true, message: SENT };
 }
 

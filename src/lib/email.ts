@@ -14,15 +14,16 @@ export function emailConfigured() {
   return !!process.env.RESEND_API_KEY;
 }
 
-export async function sendEmail(mail: Email): Promise<boolean> {
+/** Envia o e-mail. Devolve null se deu certo, ou o motivo da falha (para mostrar a quem tentou). */
+export async function sendEmail(mail: Email): Promise<string | null> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     if (process.env.NODE_ENV !== "production") {
       console.info(`[e-mail de teste] para ${mail.to} · ${mail.subject}\n${mail.text}`);
-      return true;
+      return null;
     }
     console.error("RESEND_API_KEY não configurada: e-mail não enviado.");
-    return false;
+    return "a chave do Resend (RESEND_API_KEY) não está configurada no site";
   }
   try {
     const r = await fetch("https://api.resend.com/emails", {
@@ -30,11 +31,18 @@ export async function sendEmail(mail: Email): Promise<boolean> {
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify({ from: FROM, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
     });
-    if (!r.ok) console.error("Resend recusou o e-mail", r.status, (await r.text()).slice(0, 300));
-    return r.ok;
+    if (r.ok) return null;
+    const body = (await r.text()).slice(0, 300);
+    console.error("Resend recusou o e-mail", r.status, body);
+    let msg = body;
+    try {
+      msg = (JSON.parse(body) as { message?: string }).message ?? body;
+    } catch {}
+    return `o Resend respondeu ${r.status}: ${msg}`;
   } catch (e) {
-    console.error("Falha ao enviar e-mail", e instanceof Error ? e.message : e);
-    return false;
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Falha ao enviar e-mail", msg);
+    return `não conectou ao Resend (${msg})`;
   }
 }
 
