@@ -42,6 +42,7 @@ export const DEFAULT_STATUSES = [
 
 export const DEFAULT_CATEGORIES = [
   { name: "Mercado", icon: "cart", color: "#3BAA7F" },
+  { name: "Restaurantes", icon: "food", color: "#F08A4B" },
   { name: "Moradia", icon: "home", color: "#5B7FDB" },
   { name: "Transporte", icon: "car", color: "#E0A526" },
   { name: "Saúde", icon: "health", color: "#E26D5C" },

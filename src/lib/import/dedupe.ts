@@ -22,15 +22,21 @@ export function externalIds(rows: ParsedRow[], format: "ofx" | "csv"): string[] 
   });
 }
 
-/** Aplica as regras "descrição contém texto → categoria". A primeira regra que bate vence. */
+const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Aplica as regras "descrição contém texto → categoria", sem diferença de acento ou maiúsculas.
+ * Quando mais de uma bate, vence a mais específica (o texto mais longo): "uber eats" ganha de "uber".
+ */
 export function matchCategory(
   description: string,
   rules: { pattern: string; categoryId: string }[],
 ): string | null {
-  const d = description.toLowerCase();
+  const d = fold(description);
+  let best: { len: number; categoryId: string } | null = null;
   for (const r of rules) {
-    const p = r.pattern.trim().toLowerCase();
-    if (p && d.includes(p)) return r.categoryId;
+    const p = fold(r.pattern).trim();
+    if (p && d.includes(p) && (!best || p.length > best.len)) best = { len: p.length, categoryId: r.categoryId };
   }
-  return null;
+  return best?.categoryId ?? null;
 }

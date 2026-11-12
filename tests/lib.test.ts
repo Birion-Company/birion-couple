@@ -545,3 +545,36 @@ describe("nome de usuário", () => {
     expect(checkUsername("p0rr4").ok).toBe(false);
   });
 });
+
+describe("regras prontas de categoria", () => {
+  test("Uber e 99 são transporte; Uber Eats e 99Food são restaurante; sem acento e a mais específica vence", async () => {
+    const { missingDefaultRules } = await import("../src/lib/default-rules");
+    const { matchCategory } = await import("../src/lib/import/dedupe");
+    const cats = [
+      { id: "T", name: "Transporte" },
+      { id: "R", name: "Restaurantes" },
+      { id: "S", name: "Saúde" },
+      { id: "M", name: "Mercado" },
+    ];
+    const rules = missingDefaultRules(cats, []);
+    const cat = (d: string) => matchCategory(d, rules);
+    expect(cat("Uber *Trip 123")).toBe("T");
+    expect(cat("99 Tecnologia Ltda")).toBe("T");
+    expect(cat("99Pop viagem")).toBe("T");
+    expect(cat("UBER EATS PEDIDO")).toBe("R");
+    expect(cat("99Food")).toBe("R");
+    expect(cat("FARMACIA SAO JOAO")).toBe("S");
+    expect(cat("Drogaria Pacheco")).toBe("S");
+    expect(cat("Supermercado Extra")).toBe("M");
+    expect(cat("Mercado Livre")).toBeNull();
+    expect(cat("Família Silva")).toBeNull();
+    expect(cat("Quiosque Praia")).toBeNull();
+  });
+  test("não repete nem sobrescreve o que a família já tem", async () => {
+    const { missingDefaultRules } = await import("../src/lib/default-rules");
+    const r = missingDefaultRules([{ id: "T", name: "transporte" }], ["UBER", "taxi"]);
+    expect(r.some((x) => x.pattern === "uber" || x.pattern === "taxi")).toBe(false);
+    expect(r.some((x) => x.pattern === "cabify")).toBe(true);
+    expect(missingDefaultRules([{ id: "X", name: "Minha categoria" }], [])).toEqual([]);
+  });
+});

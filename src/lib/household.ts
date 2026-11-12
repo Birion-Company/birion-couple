@@ -1,6 +1,7 @@
 import "server-only";
 import { and, count, eq, isNotNull, notInArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { missingDefaultRules } from "./default-rules";
 import { DEFAULT_CATEGORIES, DEFAULT_STATUSES, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "./defaults";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -47,7 +48,13 @@ export async function createHouseholdForUser(
 ): Promise<string> {
   const [home] = await tx.insert(schema.households).values({ name: input.householdName.trim().slice(0, HOUSEHOLD_NAME_MAX) }).returning({ id: schema.households.id });
   await tx.insert(schema.statuses).values(DEFAULT_STATUSES.map((s, i) => ({ ...s, householdId: home.id, sortOrder: i })));
-  await tx.insert(schema.categories).values(DEFAULT_CATEGORIES.map((c, i) => ({ ...c, householdId: home.id, sortOrder: i })));
+  const cats = await tx
+    .insert(schema.categories)
+    .values(DEFAULT_CATEGORIES.map((c, i) => ({ ...c, householdId: home.id, sortOrder: i })))
+    .returning({ id: schema.categories.id, name: schema.categories.name });
+  // Regras prontas de categorização (uber → Transporte, ifood → Restaurantes…).
+  const rules = missingDefaultRules(cats, []);
+  if (rules.length) await tx.insert(schema.categoryRules).values(rules.map((r) => ({ ...r, householdId: home.id })));
   const [me] = await tx
     .insert(schema.participants)
     .values({ householdId: home.id, name: input.userName, color: "#1AC4DB", sortOrder: 0 })
