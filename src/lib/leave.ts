@@ -17,6 +17,7 @@ export async function leaveHousehold(tx: Tx, userId: string, householdId: string
   if (!mine) return;
   await tx.delete(m).where(and(eq(m.userId, userId), eq(m.householdId, householdId)));
   const [u] = await tx.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId));
+  await releaseContacts(tx, userId, householdId, u?.name ?? "alguém");
   await tx.insert(schema.familyLog).values({
     householdId,
     actorUserId: userId,
@@ -42,6 +43,29 @@ export async function leaveHousehold(tx: Tx, userId: string, householdId: string
     const [{ n }] = await tx.select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, householdId));
     if (n === 0 || wipeIfEmpty) await tx.delete(schema.households).where(eq(schema.households.id, householdId));
   }
+}
+
+/**
+ * Contatos de quem sai da família (ou é removido): os que não aparecem em nada são apagados; os que
+ * aparecem em lançamentos ficam sem dono e sem o nome real ("Contato de Fulano"), visíveis a todos.
+ */
+export async function releaseContacts(tx: Tx, userId: string, householdId: string, ownerName: string) {
+  const P = schema.participants;
+  const mine = and(eq(P.householdId, householdId), eq(P.ownerUserId, userId));
+  await tx
+    .delete(P)
+    .where(
+      and(
+        mine,
+        sql`not exists (select 1 from "memberships" m where m."participantId" = ${P.id})`,
+        sql`not exists (select 1 from "transactions" x where x."payerId" = ${P.id})`,
+        sql`not exists (select 1 from "transaction_splits" s where s."participantId" = ${P.id})`,
+      ),
+    );
+  await tx
+    .update(P)
+    .set({ name: `Contato de ${ownerName.split(" ")[0]}`.slice(0, 60), photoData: null, photoUpdatedAt: null, ownerUserId: null })
+    .where(mine);
 }
 
 /**

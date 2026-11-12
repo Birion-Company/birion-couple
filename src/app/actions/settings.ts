@@ -10,7 +10,7 @@ import { involved, logActivity, snapshots } from "@/lib/activity";
 import { requireAuth, requireOwner, type AuthContext } from "@/lib/auth";
 import { ruleMatches } from "@/lib/rules-server";
 import { findOrCreateContact, hasRoomForContact } from "@/lib/contacts";
-import { deletePersonalData, leaveHousehold } from "@/lib/leave";
+import { deletePersonalData, leaveHousehold, releaseContacts } from "@/lib/leave";
 import { logFamily } from "@/lib/family-log";
 import { destroySession } from "@/lib/session";
 import { redirect } from "next/navigation";
@@ -452,9 +452,12 @@ export async function removeMember(userId: string): Promise<ActionResult> {
   if (userId === auth.userId) return fail("Você não pode remover a si mesmo.");
   const db = getDb();
   const [who] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId));
-  await db
-    .delete(schema.memberships)
-    .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, userId)));
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(schema.memberships)
+      .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.userId, userId)));
+    await releaseContacts(tx, userId, auth.householdId, who?.name ?? "alguém");
+  });
   await logFamily(db, {
     householdId: auth.householdId,
     actorUserId: auth.userId,
