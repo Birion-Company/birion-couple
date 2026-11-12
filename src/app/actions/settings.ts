@@ -292,7 +292,7 @@ async function makeInvite(
   const [{ open }] = await getDb()
     .select({ open: count() })
     .from(schema.invites)
-    .where(and(eq(schema.invites.householdId, auth.householdId), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date())));
+    .where(and(eq(schema.invites.householdId, auth.householdId), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date()), sql`${schema.invites.createdAt} > now() - interval '1 day'`));
   if (open >= INVITES_OPEN_MAX) return fail(`Já há ${INVITES_OPEN_MAX} convites abertos, o máximo. Cancele um ou espere vencer.`);
   // Convite de um contato: a conta nova fica ligada a ele (só se for mesmo um contato desta família, sem login).
   if (participantId) {

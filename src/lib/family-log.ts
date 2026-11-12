@@ -70,6 +70,7 @@ export async function getInviteRequests(v: { householdId: string; userId: string
       code: I.code,
       usedAt: I.usedAt,
       expiresAt: I.expiresAt,
+      invitedAt: I.createdAt,
     })
     .from(R)
     .innerJoin(schema.users, eq(schema.users.id, R.requestedBy))
@@ -87,7 +88,7 @@ export async function getInviteRequests(v: { householdId: string; userId: string
     decidedAt: r.decidedAt?.toISOString() ?? null,
     requester: r.requester,
     requestedBy: r.requestedBy,
-    code: r.code && !r.usedAt && r.expiresAt && r.expiresAt.getTime() > now ? r.code : null,
+    code: r.code && !r.usedAt && r.expiresAt && r.expiresAt.getTime() > now && r.invitedAt && r.invitedAt.getTime() > now - 86_400_000 ? r.code : null,
     used: !!r.usedAt,
   }));
 }

@@ -1087,7 +1087,7 @@ export async function getInvites(householdId: string) {
   return db
     .select()
     .from(schema.invites)
-    .where(and(eq(schema.invites.householdId, householdId), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date())))
+    .where(and(eq(schema.invites.householdId, householdId), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date()), sql`${schema.invites.createdAt} > now() - interval '1 day'`))
     .orderBy(desc(schema.invites.createdAt));
 }
 

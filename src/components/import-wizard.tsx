@@ -55,7 +55,13 @@ export function ImportWizard({
 
   const load = (f: { name: string; text: string }, m?: CsvMapping) =>
     start(async () => {
-      const r = await previewImport({ fileName: f.name, text: f.text, mapping: m });
+      let r: Awaited<ReturnType<typeof previewImport>>;
+      try {
+        r = await previewImport({ fileName: f.name, text: f.text, mapping: m });
+      } catch {
+        toast("Não consegui enviar o arquivo (conexão ou tamanho). Tente de novo.", "error");
+        return;
+      }
       if (!r.ok) {
         toast(r.error ?? "Não consegui ler o arquivo.", "error");
         return;
@@ -74,11 +80,16 @@ export function ImportWizard({
   const onFile = async (f: File | undefined) => {
     if (!f) return;
     if (f.size > 3_000_000) return toast("Arquivo grande demais (máximo 3 MB).", "error");
-    const text = await readText(f);
-    const next = { name: f.name, text };
-    setFile(next);
-    setDone(null);
-    load(next);
+    if (f.size === 0) return toast("O arquivo está vazio. Baixe o extrato de novo.", "error");
+    try {
+      const text = await readText(f);
+      const next = { name: f.name, text };
+      setFile(next);
+      setDone(null);
+      load(next);
+    } catch {
+      toast("Não consegui abrir esse arquivo no aparelho. Tente baixar de novo e escolher outra vez.", "error");
+    }
   };
 
   const rows = useMemo(() => preview?.rows ?? [], [preview]);
@@ -181,7 +192,21 @@ export function ImportWizard({
             <button className="btn primary" onClick={() => inputRef.current?.click()} disabled={pending}>
               {file ? "Trocar arquivo" : "Escolher arquivo"}
             </button>
-            <input ref={inputRef} type="file" accept=".ofx,.qfx,.csv,.txt,text/csv" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+            {/* Sem "accept": no celular, filtrar por extensão deixa .ofx cinza (o sistema não conhece o tipo) e a pessoa não consegue escolher.
+                Quem confere o tipo é o próprio app depois (pelo conteúdo). */}
+            <input
+              ref={inputRef}
+              type="file"
+              className="sr-only"
+              tabIndex={-1}
+              aria-label="Escolher arquivo de extrato"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                // Limpa para poder escolher o mesmo arquivo de novo (sem isso o celular não avisa a segunda vez).
+                e.target.value = "";
+                void onFile(f);
+              }}
+            />
           </div>
         </div>
       </div>

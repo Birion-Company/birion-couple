@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gte, isNull } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 
 /** Convite válido (não usado e não vencido), com o nome da família e de quem convidou. */
@@ -16,7 +16,7 @@ export async function findInvite(code: string) {
     })
     .from(schema.invites)
     .innerJoin(schema.households, eq(schema.households.id, schema.invites.householdId))
-    .where(and(eq(schema.invites.code, code), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date())))
+    .where(and(eq(schema.invites.code, code), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date()), sql`${schema.invites.createdAt} > now() - interval '1 day'`))
     .limit(1);
   return invite ?? null;
 }
