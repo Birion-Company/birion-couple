@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getDb, schema } from "@/db";
 import { requireAuth } from "@/lib/auth";
+import { LIMITS, limitMessage } from "@/lib/defaults";
 import { parseAmountToCents } from "@/lib/money";
 import type { ActionResult } from "./settings";
 
@@ -17,6 +18,8 @@ export async function createGoal(name: string, amount: string, targetMonth: stri
   const cents = parseAmountToCents(amount, ",");
   if (cents === null || cents <= 0 || cents > MAX) return { ok: false, error: "Digite o valor da meta." };
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(targetMonth)) return { ok: false, error: "Escolha o mês final." };
+  const [{ c }] = await getDb().select({ c: sql<number>`count(*)::int` }).from(G).where(eq(G.userId, auth.userId));
+  if (c >= LIMITS.goals) return { ok: false, error: limitMessage("metas", LIMITS.goals) };
   await getDb().insert(G).values({ userId: auth.userId, name: n, targetCents: cents, targetMonth });
   revalidatePath("/", "layout");
   return { ok: true, message: `Meta "${n}" criada.` };

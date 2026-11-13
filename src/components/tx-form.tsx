@@ -66,7 +66,7 @@ const KIND_HELP: Record<Kind, { text: string; steps?: { title: string; items: st
   },
 };
 
-export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" | "description">> & { toId?: string };
+export type TxPrefill = Partial<Pick<TxRow, "kind" | "payerId" | "amountCents" | "description">> & { toId?: string; accountId?: string };
 
 function today() {
   const d = new Date();
@@ -218,6 +218,7 @@ export function TxForm({
   me,
   canInvite = false,
   recurring = null,
+  accounts = [],
   readOnly = false,
   createdByName,
   returnTo,
@@ -232,6 +233,8 @@ export function TxForm({
   canInvite?: boolean;
   /** Lançamento de um "todo mês" sem fim: se a repetição ainda está ativa e desde quando. */
   recurring?: { active: boolean; startDate: string } | null;
+  /** Suas contas (para dizer em qual a receita entrou). */
+  accounts?: { value: string; label: string }[];
   /** Lançamento de outra pessoa: só para ver. */
   readOnly?: boolean;
   createdByName?: string | null;
@@ -283,6 +286,7 @@ export function TxForm({
   // "Não precisa de categoria": despesa sem categoria de propósito (não vai para A identificar).
   const [noCategory, setNoCategory] = useState(!!initial?.noCategory && !initial?.categoryId);
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
+  const [accountId, setAccountId] = useState(initial?.accountId ?? prefill?.accountId ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const cards = lookups.cards.filter((c) => !c.archived || c.id === initial?.cardId);
   const [cardId, setCardId] = useState(initial?.cardId ?? "");
@@ -410,6 +414,7 @@ export function TxForm({
         categoryId: kind === "expense" && !noCategory ? categoryId || null : null,
         noCategory: kind === "expense" && noCategory,
         projectId: projectId || null,
+        accountId: (kind === "income" || (kind === "expense" && !cardId)) && accounts.length > 0 ? accountId || null : null,
         cardId: kind === "expense" ? cardId || null : null,
         notes,
         series: isSeries ? { kind: repeat as "installment" | "monthly", count: isForever ? null : n } : null,
@@ -920,6 +925,18 @@ export function TxForm({
             </div>
           )}
 
+          {accounts.length > 0 && (kind === "income" || (kind === "expense" && !cardId)) && (
+            <div className="field">
+              <span>{kind === "income" ? "Entrou na conta" : "Saiu da conta"}</span>
+              <Select
+                value={accountId}
+                onChange={setAccountId}
+                disabled={readOnly}
+                options={[{ value: "", label: "Nenhuma conta" }, ...accounts]}
+              />
+              {kind === "income" && <span className="faint">O saldo da conta sobe com esta receita.</span>}
+            </div>
+          )}
           <div className="field-row">
             {kind === "expense" && (
               <div className="field" data-tour="tx-category">

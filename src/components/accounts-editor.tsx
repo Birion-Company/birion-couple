@@ -2,22 +2,23 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { createAccount, deleteAccount, setAccountBalance } from "@/app/actions/accounts";
+import { Plus, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { createAccount, deleteAccount } from "@/app/actions/accounts";
 import { brandOf, CARD_BRANDS } from "@/lib/card-brands";
-import { centsToInput, formatMoney } from "@/lib/money";
+import { LIMITS } from "@/lib/defaults";
+import { formatMoney } from "@/lib/money";
 import { CountMoney } from "./count-money";
 import { toastResult } from "./toaster";
 import { CardDot } from "./ui";
 
-type Row = { id: string; name: string; balanceCents: number; updatedAt: string };
+type Row = { id: string; name: string; openingCents: number; inCents: number; outCents: number; balanceCents: number };
 
-const asInput = (c: number) => (c < 0 ? "-" : "") + centsToInput(Math.abs(c));
 const FALLBACK = "#85756A";
 
 /**
- * Contas: o total em destaque e cada conta num cartão com a cor e a sigla do banco. O saldo se edita ali mesmo
- * (toque no lápis) e a conta nova entra pelo cartão tracejado, sugerindo os bancos conhecidos.
+ * Contas: o total em destaque e cada conta num cartão com a cor e a sigla do banco. O saldo
+ * não se digita: ele vem das receitas lançadas na conta (botão "Receita") menos as despesas pagas por ela.
  */
 export function AccountsEditor({ accounts, currency }: { accounts: Row[]; currency: string }) {
   const router = useRouter();
@@ -25,8 +26,6 @@ export function AccountsEditor({ accounts, currency }: { accounts: Row[]; curren
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [balance, setBalance] = useState("");
-  const [editing, setEditing] = useState<string | null>(null);
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(accounts.map((a) => [a.id, asInput(a.balanceCents)])));
   const run = (fn: () => Promise<{ ok: boolean }>, after?: () => void) =>
     start(async () => {
       const res = await fn();
@@ -52,54 +51,33 @@ export function AccountsEditor({ accounts, currency }: { accounts: Row[]; curren
       <div className="accounts-grid">
         {accounts.map((a, i) => {
           const color = brandOf(a.name)?.color ?? FALLBACK;
-          const isEditing = editing === a.id;
           return (
             <article key={a.id} className="account-card rise" style={{ "--i": i + 1, "--ac": color } as React.CSSProperties}>
               <div className="account-top">
                 <CardDot name={a.name} color={color} size={40} />
                 <div className="grow" style={{ minWidth: 0 }}>
                   <h3>{a.name}</h3>
-                  <p className="faint">atualizado em {new Date(a.updatedAt).toLocaleDateString("pt-BR")}</p>
+                  <p className="faint">{a.inCents > 0 || a.outCents > 0 ? "saldo pelos lançamentos" : "sem lançamentos ainda"}</p>
                 </div>
-                {!isEditing && (
-                  <button type="button" className="icon-btn" aria-label={`Editar saldo de ${a.name}`} onClick={() => setEditing(a.id)}>
-                    <Pencil size={16} strokeWidth={1.7} />
-                  </button>
-                )}
-              </div>
-              {isEditing ? (
-                <form
-                  className="account-edit"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    run(() => setAccountBalance(a.id, values[a.id] ?? ""), () => setEditing(null));
-                  }}
+                <button
+                  type="button"
+                  className="icon-btn"
+                  disabled={pending}
+                  aria-label={`Apagar conta ${a.name}`}
+                  onClick={() => confirm(`Apagar a conta "${a.name}"? As receitas continuam nos lançamentos.`) && run(() => deleteAccount(a.id))}
                 >
-                  <label className="bud-input">
-                    <span className="sr-only">Saldo de {a.name}</span>
-                    <input className="input" autoFocus inputMode="decimal" value={values[a.id] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [a.id]: e.target.value.replace(/[^\d,.-]/g, "") }))} />
-                  </label>
-                  <button className="btn primary small" disabled={pending} aria-label={`Salvar saldo de ${a.name}`}>
-                    <Check size={15} /> Salvar
-                  </button>
-                  <button type="button" className="icon-btn" aria-label="Cancelar" onClick={() => setEditing(null)}>
-                    <X size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    disabled={pending}
-                    aria-label={`Apagar conta ${a.name}`}
-                    onClick={() => confirm(`Apagar a conta "${a.name}"?`) && run(() => deleteAccount(a.id), () => setEditing(null))}
-                  >
-                    <Trash2 size={16} strokeWidth={1.7} />
-                  </button>
-                </form>
-              ) : (
-                <p className={`account-balance ${a.balanceCents < 0 ? "neg" : ""}`} aria-label={formatMoney(a.balanceCents, currency)}>
-                  <CountMoney cents={a.balanceCents} currency={currency} />
-                </p>
-              )}
+                  <Trash2 size={16} strokeWidth={1.7} />
+                </button>
+              </div>
+              <p className={`account-balance ${a.balanceCents < 0 ? "neg" : ""}`} aria-label={formatMoney(a.balanceCents, currency)}>
+                <CountMoney cents={a.balanceCents} currency={currency} />
+              </p>
+              <p className="faint account-flow">
+                {a.openingCents !== 0 ? `começou com ${formatMoney(a.openingCents, currency)} · ` : ""}+ {formatMoney(a.inCents, currency)} entrou · − {formatMoney(a.outCents, currency)} saiu
+              </p>
+              <Link className="btn small account-income" href={`/transacoes/nova?tipo=receita&conta=${a.id}`}>
+                <Plus size={14} /> Receita nesta conta
+              </Link>
             </article>
           );
         })}
@@ -134,24 +112,26 @@ export function AccountsEditor({ accounts, currency }: { accounts: Row[]; curren
               </datalist>
             </label>
             <label className="field">
-              <span>Saldo agora</span>
+              <span>Já tinha na conta (só no começo)</span>
               <input className="input" inputMode="decimal" placeholder="1.000,00" value={balance} onChange={(e) => setBalance(e.target.value.replace(/[^\d,.-]/g, ""))} />
             </label>
             <button className="btn primary" disabled={pending || !name.trim()}>
               Criar conta
             </button>
           </form>
+        ) : accounts.length >= LIMITS.accounts ? (
+          <p className="faint account-help">Limite de {LIMITS.accounts} contas.</p>
         ) : (
           <button type="button" className="account-card account-add" onClick={() => setAdding(true)}>
             <span className="account-add-ico">
               <Plus size={22} />
             </span>
             <strong>Nova conta</strong>
-            <span className="faint">banco, carteira, poupança</span>
+            <span className="faint">{accounts.length} de {LIMITS.accounts} · banco, carteira, poupança</span>
           </button>
         )}
       </div>
-      <p className="faint account-help">O saldo entra em &quot;Minha posição&quot; no Início, junto com faturas e dívidas.</p>
+      <p className="faint account-help">Para o saldo mudar, lance uma <strong>receita</strong> na conta (ou uma despesa pagando por ela). Ele entra em &quot;Minha posição&quot; no Início.</p>
     </section>
   );
 }

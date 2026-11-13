@@ -515,6 +515,8 @@ export const transactions = pgTable(
     externalId: text(),
     /** Entrou de fora (compra recebida): só aparece em "A identificar" até a pessoa confirmar. */
     needsReview: boolean().notNull().default(false),
+    /** Conta (de "Contas") em que a receita entrou ou de onde a despesa saiu: o saldo da conta vem daí. */
+    accountId: uuid().references((): AnyPgColumn => accounts.id, { onDelete: "set null" }),
     /** Importado reaproveitando o que já foi feito no mesmo lugar, mas o histórico varia (ex.: uber às vezes é de outra pessoa): fica em A identificar até confirmar. */
     reuseCheck: boolean().notNull().default(false),
     importBatchId: uuid().references(() => importBatches.id, { onDelete: "set null" }),

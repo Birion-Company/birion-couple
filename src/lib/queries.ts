@@ -214,6 +214,8 @@ export type TxRow = {
   awaitingReceipt: boolean;
   /** Despesa que não precisa de categoria (não vai para "A identificar"). */
   noCategory: boolean;
+  /** Conta em que a receita entrou ou de onde a despesa saiu. */
+  accountId: string | null;
   /** Acerto que paga a dívida de outro lançamento. */
   settlesId: string | null;
   /** Para acertos ligados: o lançamento pago e quanto era devido (o resto é o valor a mais). */
@@ -368,6 +370,7 @@ const txColumns = {
   invoicePaid: t.invoicePaid,
   awaitingReceipt: t.awaitingReceipt,
   noCategory: t.noCategory,
+  accountId: t.accountId,
   settlesId: t.settlesId,
   notes: t.notes,
   source: t.source,
@@ -686,6 +689,7 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         invoicePaid: false,
         awaitingReceipt: s.kind === "income",
         noCategory: s.noCategory,
+        accountId: null,
         settlesId: null,
         settles: null,
         notes: s.notes,

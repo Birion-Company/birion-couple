@@ -554,3 +554,28 @@ html.vt-reveal::view-transition-new(root) {
     animation: none !important;
   }
 }
+
+/* =========================================================
+   Blocos da página animam ao entrar na tela (rolagem)
+   ========================================================= */
+.sr {
+  opacity: 0;
+  transform: translateY(32px) scale(0.985);
+}
+.sr.sr-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) var(--sr-d, 0ms),
+    transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) var(--sr-d, 0ms) !important;
+}
+:root[data-palette="sobrio"] .sr {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sr {
+    opacity: 1;
+    transform: none;
+  }
+}

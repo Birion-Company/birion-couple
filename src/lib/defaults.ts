@@ -28,6 +28,10 @@ export const CONTACTS_TOTAL_MESSAGE = `Você chegou a ${CONTACTS_TOTAL_MAX} cont
 /** Confirmação entre o casal desligada: "vale a partir de" uma data bem no futuro, então tudo conta como aceito. */
 export const APPROVALS_OFF = new Date("9999-01-01T00:00:00Z");
 
+/** Limites do que se cadastra (tudo tem teto, para as telas e as contas não crescerem sem fim). */
+export const LIMITS = { projects: 12, categories: 40, statuses: 10, goals: 12, accounts: 10 } as const;
+export const limitMessage = (what: string, max: number) => `Você chegou ao limite de ${max} ${what}. Arquive ou apague um para criar outro.`;
+
 /** Tamanho máximo do nome da família (aparece no menu lateral, abaixo da marca). */
 export const HOUSEHOLD_NAME_MAX = 20;
 

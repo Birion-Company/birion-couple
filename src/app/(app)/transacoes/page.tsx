@@ -9,7 +9,6 @@ import { requireAuth } from "@/lib/auth";
 import { MonthNav } from "@/components/month-nav";
 
 import { defaultPanelMonth } from "@/lib/card-queries";
-import { longMonth } from "@/lib/cards";
 import { filtersToQuery, parseFilters } from "@/lib/filters";
 import {
   getDebtLedger,
@@ -69,7 +68,7 @@ export default async function TransactionsPage({
     <>
       <div className="page-head">
         <div>
-          <h1>Gastos</h1>
+          <h1>{debtsTab ? "Acerto" : "Gastos"}</h1>
           <p className="muted">
             {debtsTab ? (
               <>
@@ -94,28 +93,6 @@ export default async function TransactionsPage({
           </Link>
         </div>
       </div>
-
-      {/* Duas visões: o mês (com o seletor na barra de cima) e as dívidas em aberto de todos os meses. */}
-      <nav className="tx-tabs" aria-label="O que mostrar" data-tour="debts-tab">
-        <Link
-          href={`/transacoes${month !== current ? `?mes=${month}` : ""}`}
-          className={debtsTab ? "" : "on"}
-          aria-current={debtsTab ? undefined : "page"}
-        >
-          {lookups.cards.some((c) => !c.archived)
-            ? `Fatura de ${longMonth(month)
-                .replace(/ de \d{4}$/, "")
-                .toLowerCase()}`
-            : longMonth(month).replace(/ de \d{4}$/, "")}
-        </Link>
-        <Link
-          href="/transacoes?dividas=1"
-          className={debtsTab ? "on" : ""}
-          aria-current={debtsTab ? "page" : undefined}
-        >
-          Acerto
-        </Link>
-      </nav>
 
       {ledger && (
         <DebtsPanel

@@ -9,6 +9,7 @@ import { getCardAlerts } from "@/lib/card-queries";
 import { countUnidentified, getApprovalInbox, getLookups, getLookupsFor } from "@/lib/queries";
 import { TxModalHost } from "@/components/tx-modal";
 import { NavProgress } from "@/components/nav-progress";
+import { ScrollReveal } from "@/components/scroll-reveal";
 
 function Brand() {
   return (
@@ -59,6 +60,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <BottomNav toIdentify={toIdentify} toConfirm={toConfirm} />
       {/* Novo lançamento sempre à mão: botão no canto inferior direito (no celular, é o + da barra de baixo). */}
       <NewFab />
+      <ScrollReveal />
       <Tutorial autoOpen={!auth.tourSeenAt} />
       {/* Clicar num lançamento abre a edição numa janela, sem sair da página. */}
       <TxModalHost lookups={myLookups} currency={auth.currency} me={auth.participantId} />

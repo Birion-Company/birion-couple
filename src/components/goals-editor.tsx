@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { createGoal, deleteGoal, saveToGoal } from "@/app/actions/goals";
+import { LIMITS } from "@/lib/defaults";
 import { goalPlan } from "@/lib/goals";
 import { formatMoney } from "@/lib/money";
 import { CountMoney } from "./count-money";
@@ -153,13 +154,15 @@ export function GoalsEditor({ goals, currency, nowMonth }: { goals: GoalRow[]; c
               Criar meta
             </button>
           </form>
+        ) : goals.length >= LIMITS.goals ? (
+          <p className="faint account-help">Limite de {LIMITS.goals} metas.</p>
         ) : (
           <button type="button" className="account-card account-add" onClick={() => setAdding(true)}>
             <span className="account-add-ico">
               <Plus size={22} />
             </span>
             <strong>Nova meta</strong>
-            <span className="faint">quanto e até quando</span>
+            <span className="faint">{goals.length} de {LIMITS.goals} · quanto e até quando</span>
           </button>
         )}
       </div>

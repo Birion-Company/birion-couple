@@ -50,6 +50,8 @@ const TxSchema = z.object({
   received: z.boolean().optional(),
   /** Despesa sem categoria de propósito ("Não precisa de categoria"): não vai para "A identificar". */
   noCategory: z.boolean().optional(),
+  /** Conta em que a receita entrou (ou de onde a despesa, fora do cartão, saiu). */
+  accountId: optionalId.optional().transform((v) => v ?? null),
   splitMode: z.enum(["equal", "custom"]),
   splits: z.array(z.object({ participantId: uuid, amountCents: z.number().int().min(0) })),
 });
@@ -200,6 +202,13 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   const actx = await approvalContext(auth.householdId);
   const toConfirm = [...new Set([data.payerId, ...splits.map((x) => x.participantId)])].filter((p): p is string => !!p && p !== auth.participantId && actx.members.has(p));
   const askNote = !id && toConfirm.length ? ` ${toConfirm.length === 1 ? "A outra pessoa precisa" : `${toConfirm.length} pessoas precisam`} aceitar para valer nas dívidas.` : "";
+  // Conta: só nas suas contas, e só em receita ou despesa fora do cartão.
+  let accountId: string | null = null;
+  if (data.accountId && (data.kind === "income" || (data.kind === "expense" && !data.cardId))) {
+    const [acc] = await getDb().select({ id: schema.accounts.id }).from(schema.accounts).where(and(eq(schema.accounts.id, data.accountId), eq(schema.accounts.userId, auth.userId)));
+    if (!acc) return { ok: false, error: "Conta não encontrada." };
+    accountId = acc.id;
+  }
   const db = getDb();
   const snapshot: TxSnapshot = {
     description: data.description,
@@ -226,6 +235,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     // Receita: "a receber" até confirmar. Sem a escolha (edição antiga), mantém como estava.
     awaitingReceipt: data.kind === "income" ? (data.received === undefined ? existing?.awaitingReceipt ?? false : !data.received) : false,
     noCategory,
+    accountId,
     notes: data.notes || null,
     updatedAt: new Date(),
   };
@@ -1066,8 +1076,10 @@ export async function loadTxForEdit(id: string) {
   const canEdit = canEditTx(auth, tx.createdBy);
   const members = await getMembers(auth.householdId);
   const series = tx.seriesId && tx.seriesTotal && canEdit ? await getSeriesItems(auth, tx.seriesId) : null;
+  const accounts = (await getDb().select({ id: schema.accounts.id, name: schema.accounts.name }).from(schema.accounts).where(eq(schema.accounts.userId, auth.userId)).orderBy(asc(schema.accounts.createdAt))).map((a) => ({ value: a.id, label: a.name }));
   return {
     tx,
+    accounts,
     canEdit,
     createdByName: members.find((m) => m.userId === tx.createdBy)?.name ?? null,
     series: series ? { items: series, total: tx.seriesTotal!, monthly: tx.seriesKind === "monthly" } : null,

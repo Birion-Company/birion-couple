@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
 import { TxForm } from "@/components/tx-form";
 import { requireAuth } from "@/lib/auth";
 import { canEditTx } from "@/lib/access";
@@ -26,6 +28,7 @@ export default async function EditTransactionPage({ params, searchParams }: Page
   const canEdit = canEditTx(auth, tx.createdBy);
   const createdByName = members.find((m) => m.userId === tx.createdBy)?.name ?? null;
   const series = tx.seriesId && tx.seriesTotal && canEdit ? await getSeriesItems(auth, tx.seriesId) : null;
+  const accounts = (await getDb().select({ id: schema.accounts.id, name: schema.accounts.name }).from(schema.accounts).where(eq(schema.accounts.userId, auth.userId)).orderBy(asc(schema.accounts.createdAt))).map((a) => ({ value: a.id, label: a.name }));
   const recurring = tx.seriesKind === "monthly" && !tx.seriesTotal ? await getRecurringState(auth.householdId, tx.seriesId) : null;
   return (
     <div className="tx-page">
@@ -37,7 +40,7 @@ export default async function EditTransactionPage({ params, searchParams }: Page
       </div>
       {series && <SeriesEditor txId={tx.id} items={series} total={tx.seriesTotal!} currency={auth.currency} monthly={tx.seriesKind === "monthly"} />}
       <div className="card">
-        <TxForm key={`${tx.date}-${tx.amountCents}-${tx.seriesTotal ?? 0}`} lookups={lookups} currency={auth.currency} initial={tx} recurring={recurring} me={auth.participantId} canInvite={auth.role === "owner"} readOnly={!canEdit} createdByName={createdByName} returnTo={returnTo} />
+        <TxForm key={`${tx.date}-${tx.amountCents}-${tx.seriesTotal ?? 0}`} lookups={lookups} currency={auth.currency} initial={tx} recurring={recurring} accounts={accounts} me={auth.participantId} canInvite={auth.role === "owner"} readOnly={!canEdit} createdByName={createdByName} returnTo={returnTo} />
       </div>
     </div>
   );

@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import { asc, eq } from "drizzle-orm";
-import { getDb, schema } from "@/db";
 import { MoneyTabs } from "@/components/money-tabs";
 import { AccountsEditor } from "@/components/accounts-editor";
+import { accountBalances } from "@/lib/account-balances";
 import { requireAuth } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Contas" };
 
-/** Contas e saldos, só seus: entram em "Minha posição" no painel. */
+/** Contas, só suas: o saldo vem das receitas e despesas lançadas nelas e entra em "Minha posição" no Início. */
 export default async function AccountsPage() {
   const auth = await requireAuth();
-  const rows = await getDb().select().from(schema.accounts).where(eq(schema.accounts.userId, auth.userId)).orderBy(asc(schema.accounts.createdAt));
+  const rows = await accountBalances(auth.userId);
   return (
     <>
       <MoneyTabs on="contas" />
-      <AccountsEditor currency={auth.currency} accounts={rows.map((a) => ({ id: a.id, name: a.name, balanceCents: a.balanceCents, updatedAt: a.updatedAt.toISOString() }))} />
+      <AccountsEditor
+        currency={auth.currency}
+        accounts={rows.map((a) => ({ id: a.id, name: a.name, openingCents: a.openingCents, inCents: a.inCents, outCents: a.outCents, balanceCents: a.balanceCents }))}
+      />
     </>
   );
 }

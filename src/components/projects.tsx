@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Check, Plus, Search, Trash2, X } from "lucide-react";
 import { bulkEdit } from "@/app/actions/batch";
 import { deleteListItem, saveListItem } from "@/app/actions/settings";
-import { PALETTE } from "@/lib/defaults";
+import { LIMITS, PALETTE } from "@/lib/defaults";
 import { formatMoney } from "@/lib/money";
 import { toastResult } from "./toaster";
 
@@ -31,9 +31,10 @@ export function NewProject({ count }: { count: number }) {
       }}
     >
       <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do projeto (ex.: Viagem para a praia)" maxLength={60} aria-label="Nome do projeto" />
-      <button className="btn primary" disabled={pending || !name.trim()}>
+      <button className="btn primary" disabled={pending || !name.trim() || count >= LIMITS.projects}>
         <Plus size={16} /> Criar projeto
       </button>
+      <span className="faint">{count} de {LIMITS.projects}</span>
     </form>
   );
 }

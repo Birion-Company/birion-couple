@@ -1,9 +1,10 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getDb, schema } from "@/db";
 import { requireAuth } from "@/lib/auth";
+import { LIMITS, limitMessage } from "@/lib/defaults";
 import { parseAmountToCents } from "@/lib/money";
 import type { ActionResult } from "./settings";
 
@@ -23,19 +24,11 @@ export async function createAccount(name: string, balance: string): Promise<Acti
   if (!n) return { ok: false, error: "Dê um nome para a conta." };
   const cents = balance.trim() ? parse(balance) : 0;
   if (cents === null) return { ok: false, error: "Saldo inválido." };
+  const [{ c }] = await getDb().select({ c: sql<number>`count(*)::int` }).from(A).where(eq(A.userId, auth.userId));
+  if (c >= LIMITS.accounts) return { ok: false, error: limitMessage("contas", LIMITS.accounts) };
   await getDb().insert(A).values({ userId: auth.userId, name: n, balanceCents: cents });
   revalidatePath("/", "layout");
   return { ok: true, message: `Conta "${n}" criada.` };
-}
-
-export async function setAccountBalance(id: string, balance: string): Promise<ActionResult> {
-  const auth = await requireAuth();
-  const cents = parse(balance);
-  if (cents === null) return { ok: false, error: "Saldo inválido." };
-  const res = await getDb().update(A).set({ balanceCents: cents, updatedAt: new Date() }).where(and(eq(A.id, id), eq(A.userId, auth.userId))).returning({ id: A.id });
-  if (!res.length) return { ok: false, error: "Conta não encontrada." };
-  revalidatePath("/", "layout");
-  return { ok: true, message: "Saldo atualizado." };
 }
 
 export async function deleteAccount(id: string): Promise<ActionResult> {

@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "accountId" uuid;--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_accountId_accounts_id_fkey" FOREIGN KEY ("accountId") REFERENCES "accounts"("id") ON DELETE SET NULL;

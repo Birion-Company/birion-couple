@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Inbox, Plus, ScanSearch, Upload } from "lucide-react";
+import { accountBalances } from "@/lib/account-balances";
 import { MonthStatement } from "@/components/month-statement";
 import { DashBoard } from "@/components/dash-board";
 import { FilterBar } from "@/components/filter-bar";
@@ -79,7 +80,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
     ...g,
     plan: goalPlan(g.targetCents, g.savedCents, g.targetMonth, current),
   }));
-  const accountRows = await getDb().select({ id: schema.accounts.id, name: schema.accounts.name, balanceCents: schema.accounts.balanceCents }).from(schema.accounts).where(eq(schema.accounts.userId, auth.userId));
+  const accountRows = (await accountBalances(auth.userId)).map((a) => ({ id: a.id, name: a.name, balanceCents: a.balanceCents }));
   const pos = position({
     accountsCents: accountRows.map((a) => a.balanceCents),
     invoices: invoices.map((v) => ({ mineCents: v.mineCents, paid: v.paid, due: v.due })),
