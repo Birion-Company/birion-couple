@@ -9118,3 +9118,75 @@ body.modal-open .new-fab {
   gap: 10px;
   cursor: pointer;
 }
+
+/* ---------- Painel organizável ---------- */
+.dash-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 4px 0 12px;
+}
+.dash-bar .btn.on {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand-strong);
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.dash-block {
+  min-width: 0;
+  position: relative;
+}
+.dash-block .section {
+  margin-top: 0;
+}
+.dash-block.editing {
+  outline: 2px dashed var(--line-strong);
+  outline-offset: 4px;
+  border-radius: var(--radius);
+}
+.dash-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.dash-grip,
+.dash-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  cursor: grab;
+  touch-action: none;
+}
+.dash-size {
+  cursor: pointer;
+}
+.dash-body.no-click {
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 899px) {
+  .dash-block {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+/* Página larga: a área de conteúdo estica para os dois lados */
+:root[data-wide="1"] .main {
+  max-width: none;
+}

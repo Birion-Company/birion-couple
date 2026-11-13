@@ -22,7 +22,7 @@ export const PALETTES = [
 export type Palette = (typeof PALETTES)[number]["id"];
 const PALETTE_KEY = "bf-palette";
 
-export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}var r=document.documentElement;r.setAttribute("data-theme",t);var p=localStorage.getItem("${PALETTE_KEY}");if(p==="jardim"||p==="oceano"||p==="sobrio"){r.setAttribute("data-palette",p)}var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="light"?"#fbf6f0":"#1c1613")}catch(e){}})()`;
+export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}var r=document.documentElement;r.setAttribute("data-theme",t);var p=localStorage.getItem("${PALETTE_KEY}");if(p==="jardim"||p==="oceano"||p==="sobrio"){r.setAttribute("data-palette",p)}if(localStorage.getItem("bf-wide")==="1"){r.setAttribute("data-wide","1")}var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="light"?"#fbf6f0":"#1c1613")}catch(e){}})()`;
 
 /** Troca a cor da barra do celular junto com o tema. */
 function paintBar(theme: Theme) {

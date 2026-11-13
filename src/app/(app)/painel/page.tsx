@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Inbox, Plus, ScanSearch, Upload } from "lucide-react";
+import { DashBoard } from "@/components/dash-board";
 import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
 import { CategoryIcon, Money, formatDate } from "@/components/ui";
@@ -156,6 +157,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
       <AwaitingIncome month={month} items={awaiting} debts={debtsDue} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} today={todayIn()} currency={cur} />
 
+      <DashBoard
+        blocks={[
+          {
+            id: "resumo",
+            label: "Resumo",
+            size: "full",
+            node: (
+              <>
       {mode === "me" ? (
         <>
           <MoneySummary
@@ -242,10 +251,17 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         )}
       </div>
       )}
-
-      <MonthOutlook months={outlook} selected={month} current={current} filters={filters} currency={cur} />
-
-      {diff > 0 ? (
+              </>
+            ),
+          },
+          { id: "meses", label: "Próximos meses", size: "full", node: <MonthOutlook months={outlook} selected={month} current={current} filters={filters} currency={cur} /> },
+          ...(diff > 0
+            ? [
+                {
+                  id: "plan",
+                  label: "Já lançado",
+                  size: "full" as const,
+                  node: (
         <section className="card section" aria-labelledby="plan">
           <div className="card-head">
             <h2 id="plan">Já lançado para {monthName}</h2>
@@ -273,7 +289,16 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             </div>
           )}
         </section>
-      ) : data.count === 0 ? (
+                  ),
+                },
+              ]
+            : data.count === 0
+              ? [
+                  {
+                    id: "vazio",
+                    label: "Começar",
+                    size: "full" as const,
+                    node: (
         <div className="card section">
           <div className="empty">
             <Inbox size={36} strokeWidth={1.2} />
@@ -284,8 +309,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             </div>
           </div>
         </div>
-      ) : (
-        <div className="grid dash-bottom section">
+                    ),
+                  },
+                ]
+              : [
+                  {
+                    id: "recent",
+                    label: "Últimos lançamentos",
+                    size: "medium" as const,
+                    node: (
           <section className="card" aria-labelledby="recent" data-tour="dash-recent">
             <div className="card-head">
               <h2 id="recent">Últimos lançamentos de {monthName}</h2>
@@ -299,8 +331,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
               ))}
             </div>
           </section>
-
-          {mode === "me" && budgetRows.length > 0 && (
+                    ),
+                  },
+                  ...(mode === "me" && budgetRows.length > 0
+                    ? [
+                        {
+                          id: "orc",
+                          label: "Orçamento",
+                          size: "medium" as const,
+                          node: (
             <section className="card" aria-labelledby="orc">
               <div className="card-head">
                 <h2 id="orc">Orçamento do mês</h2>
@@ -326,9 +365,17 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                 })}
               </div>
             </section>
-          )}
-
-          {mode === "me" && (accountRows.length > 0 || pos.payInvoices > 0 || pos.payDebts > 0 || pos.receive > 0) && (
+                          ),
+                        },
+                      ]
+                    : []),
+                  ...(mode === "me" && (accountRows.length > 0 || pos.payInvoices > 0 || pos.payDebts > 0 || pos.receive > 0)
+                    ? [
+                        {
+                          id: "posicao",
+                          label: "Minha posição",
+                          size: "medium" as const,
+                          node: (
             <section className="card" aria-labelledby="posicao">
               <div className="card-head">
                 <h2 id="posicao">Minha posição</h2>
@@ -361,9 +408,17 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                 {pos.receive > 0 && <p className="sub">Se te pagarem o que devem: {formatMoney(pos.projectedWithReceive, cur)}.</p>}
               </div>
             </section>
-          )}
-
-          {mode === "me" && goalRows.length > 0 && (
+                          ),
+                        },
+                      ]
+                    : []),
+                  ...(mode === "me" && goalRows.length > 0
+                    ? [
+                        {
+                          id: "metas",
+                          label: "Metas",
+                          size: "medium" as const,
+                          node: (
             <section className="card" aria-labelledby="metas-painel">
               <div className="card-head">
                 <h2 id="metas-painel">Metas</h2>
@@ -388,8 +443,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                 ))}
               </div>
             </section>
-          )}
-
+                          ),
+                        },
+                      ]
+                    : []),
+                  {
+                    id: "cats",
+                    label: "Gastos por categoria",
+                    size: "medium" as const,
+                    node: (
           <section className="card" aria-labelledby="cats">
             <div className="card-head">
               <h2 id="cats">Gastos por categoria</h2>
@@ -422,9 +484,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
               </div>
             )}
           </section>
-
-        </div>
-      )}
+                    ),
+                  },
+                ]),
+        ]}
+      />
     </>
   );
 }
