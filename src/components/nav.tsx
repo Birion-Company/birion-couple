@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, CreditCard, FolderKanban, LayoutGrid, Plus, ScanSearch, UserCheck } from "lucide-react";
+import { ArrowLeftRight, CreditCard, FolderKanban, LayoutGrid, Plus, ScanSearch, UserCheck, Wallet } from "lucide-react";
 
 const items = [
   { href: "/painel", label: "Painel", icon: LayoutGrid },
   { href: "/transacoes", label: "Lançamentos", icon: ArrowLeftRight },
   { href: "/transacoes/nova", label: "Novo", icon: Plus, add: true },
   { href: "/identificar", label: "A identificar", icon: ScanSearch, short: "Identificar" },
-  { href: "/cartoes", label: "Cartões e contas", icon: CreditCard, short: "Cartões" },
+  { href: "/cartoes", label: "Cartões", icon: CreditCard },
+  { href: "/contas", label: "Contas", icon: Wallet },
   { href: "/projetos", label: "Projetos", icon: FolderKanban },
   { href: "/confirmar", label: "Para confirmar", icon: UserCheck, short: "Confirmar" },
 ];

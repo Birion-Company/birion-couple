@@ -27,7 +27,7 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
         <div className="empty">
           Cadastre as pessoas da família antes de lançar.
           <div style={{ marginTop: 12 }}>
-            <Link className="btn primary" href="/ajustes/pessoas">Cadastrar pessoas</Link>
+            <Link className="btn primary" href="/ajustes#familia">Cadastrar pessoas</Link>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Contas moraram em Ajustes por um tempo; agora ficam junto com os cartões. */
+/** Contas ganharam um lugar próprio no menu lateral. */
 export default function AccountsRedirect() {
-  redirect("/cartoes#contas");
+  redirect("/contas");
 }

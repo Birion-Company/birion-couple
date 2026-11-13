@@ -16,11 +16,8 @@ import { invoiceDates, longMonth, shortDate } from "@/lib/cards";
 import { filtersToQuery } from "@/lib/filters";
 import { CARDS_PER_PERSON_MAX } from "@/lib/defaults";
 import { getLookupsFor } from "@/lib/queries";
-import { asc, eq } from "drizzle-orm";
-import { getDb, schema } from "@/db";
-import { AccountsEditor } from "@/components/accounts-editor";
 
-export const metadata: Metadata = { title: "Cartões e contas" };
+export const metadata: Metadata = { title: "Cartões" };
 
 function inDays(n: number) {
   if (n === 0) return "hoje";
@@ -252,11 +249,9 @@ function InvoiceRows({
 
 export default async function CardsPage() {
   const auth = await requireAuth();
-  const [overview, lookups, accounts] = await Promise.all([
+  const [overview, lookups] = await Promise.all([
     getCardOverview(auth),
     getLookupsFor(auth),
-    // Contas (banco, carteira) e o saldo de cada uma: só da própria pessoa.
-    getDb().select().from(schema.accounts).where(eq(schema.accounts.userId, auth.userId)).orderBy(asc(schema.accounts.createdAt)),
   ]);
   const me = auth.participantId;
   const names: Names = new Map(
@@ -308,8 +303,8 @@ export default async function CardsPage() {
     <div className="cards-page">
       <div className="page-head">
         <div>
-          <h1>Cartões e contas</h1>
-          <p className="muted">Quanto você tem, faturas e vencimentos.</p>
+          <h1>Cartões</h1>
+          <p className="muted">Faturas e vencimentos.</p>
         </div>
         {active.length > 0 && (
           <NewCard
@@ -572,11 +567,6 @@ export default async function CardsPage() {
           </section>
         ))}
       </div>
-
-      <AccountsEditor
-        currency={auth.currency}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name, balanceCents: a.balanceCents, updatedAt: a.updatedAt.toISOString() }))}
-      />
 
       {archived.length > 0 && (
         <section className="card section" aria-label="Cartões arquivados">

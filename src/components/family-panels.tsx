@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Check, Copy, History, Mail, Send, X } from "lucide-react";
+import { Check, ChevronDown, Copy, History, Mail, Send, X } from "lucide-react";
 import { decideInviteRequest, requestInvite } from "@/app/actions/settings";
 import type { InviteRequestRow } from "@/lib/family-log";
 import { loadFamilyLog, loadFeed, type FeedRow } from "@/app/actions/history";
@@ -184,10 +184,14 @@ export function HistoryPanel({
     ...(isAdmin ? [{ id: "pedidos" as Tab, label: "Pedidos de convite" }] : []),
   ];
   return (
-    <section className="card section history" aria-labelledby="historico">
-      <h2 id="historico">
-        <History size={17} strokeWidth={1.9} aria-hidden /> {isAdmin ? "Histórico da família" : "Seu histórico"}
-      </h2>
+    // Recolhido por padrão: o histórico é longo e quase nunca é o que se veio fazer em Ajustes.
+    <details className="card section history history-fold">
+      <summary>
+        <h2 id="historico">
+          <History size={17} strokeWidth={1.9} aria-hidden /> {isAdmin ? "Histórico da família" : "Seu histórico"}
+        </h2>
+        <ChevronDown size={18} strokeWidth={1.8} className="history-chevron" aria-hidden />
+      </summary>
       <p className="faint">
         {isAdmin
           ? "Tudo que aconteceu na família, de todo mundo. Não é notificação: fica guardado aqui."
@@ -258,6 +262,6 @@ export function HistoryPanel({
           ))}
         </div>
       )}
-    </section>
+    </details>
   );
 }

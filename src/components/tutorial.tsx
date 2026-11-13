@@ -286,14 +286,14 @@ const STEPS: Step[] = [
   },
   {
     chapter: "Ajustes",
-    route: "/ajustes/pessoas",
+    route: "/ajustes",
     targets: ["people-login"],
     title: "Pessoas com login",
     text: "Quem **entra no app**: vê o que o envolve, recebe avisos e **confirma** o que você lança no nome dele. Conta no limite de pessoas do plano, junto com você.",
   },
   {
     chapter: "Ajustes",
-    route: "/ajustes/pessoas",
+    route: "/ajustes",
     targets: ["people-contacts"],
     title: "Contatos sem login",
     text: "Quem **entra nas contas, mas não usa o app**: sua mãe, o amigo do churrasco. Não confirma nada; o que você lança vale direto. Parado e sem dever nada, some das listas sozinho e volta ao aparecer num lançamento. O **aviãozinho** manda um convite para ele virar “com login”.",

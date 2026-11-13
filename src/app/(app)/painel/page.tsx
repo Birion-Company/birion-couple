@@ -114,7 +114,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
       {welcome && (
         <div className="notice" style={{ marginBottom: 16 }}>
-          Conta criada. Próximos passos: cadastre as pessoas em <Link href="/ajustes/pessoas" className="pos">Ajustes → Pessoas</Link>,
+          Conta criada. Próximos passos: cadastre as pessoas em <Link href="/ajustes#familia" className="pos">Ajustes → Pessoas</Link>,
           depois registre um gasto ou importe um extrato. Categorias e projetos também são editáveis em Ajustes.
         </div>
       )}
@@ -332,7 +332,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             <section className="card" aria-labelledby="posicao">
               <div className="card-head">
                 <h2 id="posicao">Minha posição</h2>
-                <Link href="/cartoes#contas" className="faint">
+                <Link href="/contas" className="faint">
                   {accountRows.length > 0 ? "contas" : "cadastrar contas"}
                 </Link>
               </div>

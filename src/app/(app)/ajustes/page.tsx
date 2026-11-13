@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { HouseholdForm } from "@/components/settings-panels";
 import { FamilyOverview } from "@/components/family-overview";
 import { HistoryPanel, InviteRequestsAdmin } from "@/components/family-panels";
+import { PeopleSections } from "@/components/people-sections";
 import { feedPage } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { ADMINS_MAX, MEMBERS_MAX } from "@/lib/defaults";
@@ -48,6 +49,8 @@ export default async function SettingsPage() {
         createdAt={house ? house.createdAt.toLocaleDateString("pt-BR") : ""}
         currency={auth.currency}
       />
+
+      <PeopleSections auth={auth} />
 
       {isAdmin && (
         <div id="pedidos">

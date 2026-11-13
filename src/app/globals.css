@@ -8812,3 +8812,29 @@ body.modal-open .new-fab {
   align-items: center;
   gap: 8px;
 }
+
+/* Histórico da família recolhível. */
+.history-fold > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+.history-fold > summary::-webkit-details-marker {
+  display: none;
+}
+.history-fold > summary h2 {
+  margin: 0;
+}
+.history-fold .history-chevron {
+  transition: transform 0.15s ease;
+  flex: none;
+}
+.history-fold[open] .history-chevron {
+  transform: rotate(180deg);
+}
+.history-fold[open] > summary {
+  margin-bottom: 8px;
+}
