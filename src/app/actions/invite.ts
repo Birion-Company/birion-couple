@@ -7,7 +7,7 @@ import { getAuth, getHomeless } from "@/lib/auth";
 import { hasRoomForMember } from "@/lib/household";
 import { createSession, readSession } from "@/lib/session";
 import { findInvite } from "@/lib/invites";
-import { leaveHousehold } from "@/lib/leave";
+import { bringHomeInto, MergeBlocked } from "@/lib/merge-household";
 import { logFamily } from "@/lib/family-log";
 import { MEMBERS_MAX } from "@/lib/defaults";
 import { insertReturning, updateReturning } from "@/db/ops";
@@ -35,14 +35,12 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
     return { ok: false, error: `Este casal já está no limite de ${MEMBERS_MAX} pessoas com login.` };
   }
   const [user] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  let blocked: string | null = null;
   const claimed = await db.transaction(async (tx) => {
     // Convite vale para uma pessoa só: quem usar primeiro "pega" (outra pessoa ao mesmo tempo não entra).
     const got = await updateReturning(tx, schema.invites, { usedAt: new Date() }, and(eq(schema.invites.id, invite.id), isNull(schema.invites.usedAt)), { id: schema.invites.id });
     if (got.length === 0) return false;
     if (!already) {
-      // Sai das outras famílias (a pessoa dele lá vira "sem login").
-      const others = await tx.select({ hid: m.householdId }).from(m).where(and(eq(m.userId, userId), ne(m.householdId, invite.householdId)));
-      for (const o of others) await leaveHousehold(tx, userId, o.hid);
       // Convite feito a partir de um contato: a conta assume essa pessoa (com o histórico e as dívidas dela).
       const [contact] = invite.participantId
         ? await tx
@@ -56,7 +54,11 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
               ),
             )
         : [];
-      let participantId = contact?.id;
+      // Nunca perder dados: o que a pessoa tinha na própria família vem junto para o casal.
+      const others = await tx.select({ hid: m.householdId }).from(m).where(and(eq(m.userId, userId), ne(m.householdId, invite.householdId)));
+      let broughtPid = "";
+      for (const o of others) broughtPid = (await bringHomeInto(tx, { userId, fromHid: o.hid, toHid: invite.householdId, claimedPid: contact?.id ?? null })) || broughtPid;
+      let participantId = contact?.id ?? (broughtPid || undefined);
       if (participantId) {
         await tx.update(schema.participants).set({ archived: false, temporary: false }).where(eq(schema.participants.id, participantId));
       } else {
@@ -76,7 +78,14 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
       });
     }
     return true;
+  }).catch((e) => {
+    if (e instanceof MergeBlocked) {
+      blocked = e.message;
+      return false;
+    }
+    throw e;
   });
+  if (blocked) return { ok: false, error: blocked };
   if (!claimed) return { ok: false, error: "Este convite já foi usado por outra pessoa. Peça um novo." };
   await createSession({ uid: userId, hid: invite.householdId });
   redirect("/painel?bemvindo=1");

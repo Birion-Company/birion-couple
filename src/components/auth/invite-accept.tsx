@@ -70,11 +70,10 @@ export function InviteAccept({
       {current.household && (
         <div className="invite-note">
           <p>
-            Ao aceitar, você <strong>sai de “{current.household}”</strong> e passa para “{household}”.
+            Ao aceitar, <strong>tudo o que você já lançou vem junto</strong> para “{household}”: lançamentos, parcelas, cartões, contatos e
+            categorias. Nada se perde.
           </p>
-          <p>
-            Lá, você continua aparecendo como <strong>pessoa sem login</strong>, com tudo que já foi lançado: ninguém perde histórico nem dívidas.
-          </p>
+          <p>Cada um continua vendo só o que é seu; o que vocês dividirem aparece em Nós dois.</p>
         </div>
       )}
       <div className="auth-form">
