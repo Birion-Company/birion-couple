@@ -389,14 +389,14 @@
   background: var(--text);
   color: var(--bg);
 }
-:root[data-palette="sobrio"] h1,
-:root[data-palette="sobrio"] h2 {
+:root[data-palette="sobrio"] .shell h1,
+:root[data-palette="sobrio"] .shell h2 {
   font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
   font-size: 0.95rem;
 }
-:root[data-palette="sobrio"] h1 {
+:root[data-palette="sobrio"] .shell h1 {
   font-size: 1.15rem;
 }
 :root[data-palette="sobrio"] .hero-title {
@@ -1076,3 +1076,9 @@ html[data-navigating] .main {
 .dash-block.fit .card-head {
   margin-bottom: 8px;
 }
+
+/* Sóbrio: na entrada o título e a arte do Couple mantêm o tamanho e a forma (círculos), só sem enfeite de cor */
+:root[data-palette="sobrio"] .couple-art .ring,
+:root[data-palette="sobrio"] .couple-ghost,
+:root[data-palette="sobrio"] .couple-hero-faces .avatar { border-radius: 50% !important; }
+:root[data-palette="sobrio"] .auth-scene .brand-title { font-weight: 700; }
