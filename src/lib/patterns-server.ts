@@ -119,7 +119,20 @@ async function cleanInstallmentDescriptions(householdId: string) {
   }
 }
 
-export type Learned = { categoryId: string | null; participantIds: string[] };
+export type Learned = {
+  categoryId: string | null;
+  participantIds: string[];
+  /**
+   * O histórico deste lugar é sempre igual (mesma divisão nas últimas vezes)? Se não (ex.: uber quase sempre é seu,
+   * mas às vezes é de outra pessoa), a importação não decide sozinha: marca para conferir em A identificar.
+   */
+  consistent: boolean;
+  /** Quantas vezes já apareceu. */
+  seen: number;
+};
+
+/** Quantas ocorrências recentes valem para dizer que o histórico é sempre igual. */
+export const REUSE_WINDOW = 4;
 
 /**
  * O que a família já fez com cada estabelecimento: a categoria e de quem é a conta da vez mais recente.
@@ -139,17 +152,23 @@ export async function learnedByMerchant(householdId: string, conn: Conn | Return
     .orderBy(desc(t.date), desc(t.createdAt))
     .limit(5000);
   const out = new Map<string, Learned>();
+  const recent = new Map<string, string[]>();
   for (const r of rows) {
     const key = merchantKey(r.description);
     if (!key) continue;
     const cur = out.get(key);
     // A mais recente com categoria manda na categoria; a mais recente com divisão, na divisão.
-    if (!cur) out.set(key, { categoryId: r.categoryId, participantIds: r.participantIds ?? [] });
+    if (!cur) out.set(key, { categoryId: r.categoryId, participantIds: r.participantIds ?? [], consistent: true, seen: 1 });
     else {
+      cur.seen++;
       if (!cur.categoryId && r.categoryId) cur.categoryId = r.categoryId;
       if (cur.participantIds.length === 0 && r.participantIds?.length) cur.participantIds = r.participantIds;
     }
+    const list = recent.get(key) ?? [];
+    if (list.length < REUSE_WINDOW) list.push(`${r.categoryId ?? ""}|${[...(r.participantIds ?? [])].sort().join(",")}`);
+    recent.set(key, list);
   }
+  for (const [key, list] of recent) out.get(key)!.consistent = new Set(list).size === 1;
   return out;
 }
 

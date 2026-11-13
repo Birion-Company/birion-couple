@@ -9296,3 +9296,169 @@ body.modal-open .new-fab {
 .wide-ico.w0 i { width: 18px; }
 .wide-ico.w1 i { width: 26px; }
 .wide-ico.w2 i { width: 34px; }
+
+/* ---------- Extrato do mês ---------- */
+.statement-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+@media (max-width: 640px) {
+  .statement-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.st-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.st-label {
+  font-size: 12px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.st-value {
+  font-size: 22px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.st-final {
+  background: var(--brand-soft);
+}
+.st-gap {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+  display: grid;
+  gap: 10px;
+}
+.st-gap p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+.st-gap-rows p span {
+  color: var(--text-2);
+}
+.st-gap-result p:last-child {
+  font-weight: 600;
+}
+
+/* Paleta Lavanda */
+:root[data-palette="lavanda"] {
+  --brand: #8b7cf6;
+  --brand-strong: #5b4bd6;
+  --brand-soft: #ece9fd;
+  --brand-tint: #f5f3fe;
+  --bg: #f7f5fc;
+  --surface: #ffffff;
+  --surface-2: #f1eefa;
+  --line: #e3ddf3;
+  --line-strong: #ebe6f7;
+  --field-bg: #f1eefa;
+  --field-edge: #ddd6f1;
+  --text: #2a2540;
+  --text-2: #655d82;
+  --text-3: #7d7599;
+  --on-brand: #ffffff;
+  --focus: 0 0 0 3px rgba(139, 124, 246, 0.38);
+  --topbar-bg: rgba(247, 245, 252, 0.9);
+  --float-bg: #2a2540;
+  --hero-bg: #ece9fd;
+  --hero-edge: #ddd6f1;
+  --tile-bg: #ece9fd;
+  --tile-edge: #d9d1f5;
+  --logo-tile-bg: #ece9fd;
+}
+:root[data-palette="lavanda"][data-theme="dark"] {
+  --brand: #9a8dfa;
+  --brand-strong: #b9afff;
+  --brand-soft: #2b2540;
+  --brand-tint: rgba(154, 141, 250, 0.08);
+  --bg: #16131f;
+  --surface: #1e1a2a;
+  --surface-2: #262136;
+  --line: #3a3354;
+  --line-strong: #2f2a45;
+  --field-bg: #262136;
+  --field-edge: #3a3354;
+  --panel-bg: #191624;
+  --text: #f3f1fb;
+  --text-2: #c2bbd9;
+  --text-3: #9d95b8;
+  --on-brand: #15112a;
+  --topbar-bg: rgba(22, 19, 31, 0.88);
+  --nav-bg: rgba(25, 22, 36, 0.96);
+  --float-bg: #2b2540;
+  --hero-bg: #241f36;
+  --hero-edge: #3a3354;
+  --tile-bg: #2b2540;
+  --tile-edge: #443c66;
+  --logo-tile-bg: #2b2540;
+}
+
+/* Paleta Rosé */
+:root[data-palette="rose"] {
+  --brand: #e0728f;
+  --brand-strong: #b83f60;
+  --brand-soft: #fce8ed;
+  --brand-tint: #fef3f6;
+  --bg: #fdf6f7;
+  --surface: #ffffff;
+  --surface-2: #f9eff1;
+  --line: #f0dfe3;
+  --line-strong: #f5e8eb;
+  --field-bg: #f9eff1;
+  --field-edge: #ecd8dd;
+  --text: #3a2a2f;
+  --text-2: #7d6269;
+  --text-3: #92787f;
+  --on-brand: #ffffff;
+  --focus: 0 0 0 3px rgba(224, 114, 143, 0.38);
+  --topbar-bg: rgba(253, 246, 247, 0.9);
+  --float-bg: #3a2a2f;
+  --hero-bg: #fce8ed;
+  --hero-edge: #f0d3da;
+  --tile-bg: #fce8ed;
+  --tile-edge: #f2cfd8;
+  --logo-tile-bg: #fce8ed;
+}
+:root[data-palette="rose"][data-theme="dark"] {
+  --brand: #ea7f9b;
+  --brand-strong: #f4a3b8;
+  --brand-soft: #3d2530;
+  --brand-tint: rgba(234, 127, 155, 0.08);
+  --bg: #1c1417;
+  --surface: #261a1f;
+  --surface-2: #2f2127;
+  --line: #4d3540;
+  --line-strong: #3d2a32;
+  --field-bg: #2f2127;
+  --field-edge: #4d3540;
+  --panel-bg: #20161a;
+  --text: #fbf1f3;
+  --text-2: #d6bcc4;
+  --text-3: #b0959d;
+  --on-brand: #2a0f18;
+  --topbar-bg: rgba(28, 20, 23, 0.88);
+  --nav-bg: rgba(32, 22, 26, 0.96);
+  --float-bg: #3d2530;
+  --hero-bg: #34212a;
+  --hero-edge: #4d3540;
+  --tile-bg: #3d2530;
+  --tile-edge: #5d4350;
+  --logo-tile-bg: #3d2530;
+}
+
+/* O gráfico dos próximos meses segue a cor da paleta */
+:root .outlook,
+:root[data-theme] .outlook {
+  --ol-other: var(--brand);
+}

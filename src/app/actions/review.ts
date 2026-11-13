@@ -28,3 +28,14 @@ export async function confirmPurchase(id: string): Promise<ActionResult> {
   revalidatePath("/", "layout");
   return { ok: true, message: "Confirmado." };
 }
+
+/** "Confirmar" um lançamento reaproveitado de importação cujo histórico varia: sai de A identificar. */
+export async function confirmReuse(id: string): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const denied = await checkEditable(auth, [id]);
+  if (denied) return { ok: false, error: denied };
+  const T = schema.transactions;
+  await getDb().update(T).set({ reuseCheck: false }).where(and(eq(T.id, id), eq(T.householdId, auth.householdId)));
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Confirmado." };
+}

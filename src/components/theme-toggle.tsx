@@ -16,13 +16,15 @@ export const BAR_COLOR: Record<Theme, string> = { light: "#fbf6f0", dark: "#1c16
 export const PALETTES = [
   { id: "aconchego", name: "Aconchego", color: "#e07a5f" },
   { id: "jardim", name: "Jardim", color: "#6f9c7c" },
+  { id: "lavanda", name: "Lavanda", color: "#8b7cf6" },
+  { id: "rose", name: "Rosé", color: "#e0728f" },
   { id: "oceano", name: "Oceano", color: "#1ac4db" },
   { id: "sobrio", name: "Sóbrio", color: "#5b6573" },
 ] as const;
 export type Palette = (typeof PALETTES)[number]["id"];
 const PALETTE_KEY = "bf-palette";
 
-export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}var r=document.documentElement;r.setAttribute("data-theme",t);var p=localStorage.getItem("${PALETTE_KEY}");if(p==="jardim"||p==="oceano"||p==="sobrio"){r.setAttribute("data-palette",p)}var w=localStorage.getItem("bf-wide");if(w==="1"||w==="2"){r.setAttribute("data-wide",w)}var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="light"?"#fbf6f0":"#1c1613")}catch(e){}})()`;
+export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}var r=document.documentElement;r.setAttribute("data-theme",t);var p=localStorage.getItem("${PALETTE_KEY}");if(p==="jardim"||p==="lavanda"||p==="rose"||p==="oceano"||p==="sobrio"){r.setAttribute("data-palette",p)}var w=localStorage.getItem("bf-wide");if(w==="1"||w==="2"){r.setAttribute("data-wide",w)}var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="light"?"#fbf6f0":"#1c1613")}catch(e){}})()`;
 
 /** Troca a cor da barra do celular junto com o tema. */
 function paintBar(theme: Theme) {
@@ -82,7 +84,7 @@ export function ThemeToggle({ className = "icon-btn", withLabel = false }: { cla
 function currentPalette(): Palette {
   if (typeof document === "undefined") return "aconchego";
   const p = document.documentElement.getAttribute("data-palette");
-  return p === "jardim" || p === "oceano" || p === "sobrio" ? p : "aconchego";
+  return PALETTES.some((x) => x.id === p) ? (p as Palette) : "aconchego";
 }
 
 function subscribePalette(onChange: () => void) {

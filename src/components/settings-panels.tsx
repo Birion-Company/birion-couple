@@ -21,7 +21,7 @@ const TABS: { href: string; label: string; help: string; danger?: boolean; needs
   { href: "/ajustes", label: "Nós", help: "O casal, o convite e o histórico." },
   { href: "/ajustes/aparencia", label: "Aparência", help: "Cores, claro ou escuro e a largura das páginas." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Ordem, limite por mês e regras automáticas." },
-  { href: "/ajustes/automacao", label: "Automação", help: "Aceitar sozinho o que já é de confiança.", needsApprovals: true },
+  { href: "/ajustes/automacao", label: "Automação", help: "O que o app reaproveita ao importar um mês novo." },
   { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir." },
   { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou PDF." },
   { href: "/ajustes/perigo", label: "Perigo", help: "Apagar seus dados ou a conta. Sem volta.", danger: true },

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Inbox, Plus, ScanSearch, Upload } from "lucide-react";
+import { MonthStatement } from "@/components/month-statement";
 import { DashBoard } from "@/components/dash-board";
 import { FilterBar } from "@/components/filter-bar";
 import { TxRowLink } from "@/components/tx-row";
@@ -9,7 +10,7 @@ import { requireAuth } from "@/lib/auth";
 import { longMonth, monthsBetween, shortDate, todayIn } from "@/lib/cards";
 import { defaultPanelMonth, getInvoicesDue } from "@/lib/card-queries";
 import { filtersToQuery, monthRange, parseFilters } from "@/lib/filters";
-import { countUnidentified, getDashboard, getAwaitingIncome, getDebtLedger, getDebtsToReceive, getMonthDebts, navigableMonths, getLookupsFor, getOutlook } from "@/lib/queries";
+import { countUnidentified, getDashboard, getAwaitingIncome, getDebtLedger, getDebtsToReceive, getMonthDebts, navigableMonths, getLookupsFor, getOutlook, monthCarry } from "@/lib/queries";
 import { MoneySummary } from "@/components/money-summary";
 import { AwaitingIncome } from "@/components/awaiting-income";
 import { BudgetBar } from "@/components/budget-editor";
@@ -85,6 +86,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
     debts: debts.map((d) => ({ net: d.net })),
     receivableMonthCents: debtsDue.reduce((a, x) => a + x.leftCents, 0),
   });
+  const carry = mode === "me" ? await monthCarry(auth, month) : 0;
   // Dívidas que envolvem você primeiro.
   const welcome = sp.bemvindo === "1";
 
@@ -159,6 +161,22 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
       <DashBoard
         blocks={[
+          ...(mode === "me" && diff <= 0
+            ? [
+                {
+                  id: "extrato",
+                  label: "Extrato do mês",
+                  size: "wide" as const,
+                  node: (
+                    <MonthStatement
+                      monthName={monthName}
+                      currency={cur}
+                      input={{ initialCents: carry, incomeCents: data.income, spentCents: data.spent, owedToMeCents: data.paidForOthers, iOweCents: data.iOweMonth }}
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             id: "resumo",
             label: "Resumo",

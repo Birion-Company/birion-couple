@@ -193,9 +193,16 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
         .map((x) => x.id)
         .filter((id) => usable.has(id)),
     );
+    // Só reaproveita a divisão quando o histórico do lugar é sempre igual. Se varia (uber às vezes é de outra
+    // pessoa), usa a divisão padrão da importação e marca para conferir em A identificar: nada se perde.
     const splitFor = (description: string, amountCents: number) => {
-      const known = amountCents < 0 ? learned.get(merchantKey(description))?.participantIds.filter((id) => alive.has(id)) : undefined;
+      const l = amountCents < 0 ? learned.get(merchantKey(description)) : undefined;
+      const known = l?.consistent ? l.participantIds.filter((id) => alive.has(id)) : undefined;
       return known?.length ? known : null;
+    };
+    const mustCheck = (description: string, amountCents: number) => {
+      const l = amountCents < 0 ? learned.get(merchantKey(description)) : undefined;
+      return !!l && l.seen >= 2 && !l.consistent;
     };
     // Parcela que o app já tinha previsto ("Parcela 4/10" criada pela importação anterior): vira a de verdade.
     const rest: typeof data.rows = [];
@@ -258,6 +265,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
             source: data.format,
             externalId: r.key,
             importBatchId: batch.id,
+            reuseCheck: mustCheck(r.description, r.amountCents),
             createdBy: auth.userId,
           })),
         )

@@ -135,7 +135,7 @@ export function AvatarEditor({ name, avatarUrl }: { name: string; avatarUrl: str
         aria-controls={open ? menuId : undefined}
         aria-label="Foto de perfil"
       >
-        <Avatar name={name} color="#1AC4DB" size={120} src={shown} />
+        <Avatar name={name} color="#E07A5F" size={120} src={shown} />
         <span className="avatar-editor-badge" aria-hidden>
           <Camera size={16} strokeWidth={2} />
         </span>

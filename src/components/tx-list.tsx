@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Loader2, Pencil, Repeat, X } from "lucide-react";
 import { BulkEditDialog } from "./bulk-edit";
-import { confirmPurchase } from "@/app/actions/review";
+import { confirmPurchase, confirmReuse } from "@/app/actions/review";
 import {
   deleteTransactions,
   loadMoreTransactions,
@@ -281,6 +281,11 @@ export function TxList({
                             <span className="missing-chip">Compra recebida do cartão: confira e confirme</span>
                           </p>
                         )}
+                        {showMissing && tx.reuseCheck && (
+                          <p className="missing-line">
+                            <span className="missing-chip">Já foi diferente antes neste lugar: confira quem divide</span>
+                          </p>
+                        )}
                         {showMissing && missingInfo(tx).length > 0 && (
                           <p className="missing-line">
                             <span className="missing-chip">
@@ -297,6 +302,11 @@ export function TxList({
                         <ProfitAmount tx={tx} currency={currency} />
                       </span>
                     </Link>
+                    {showMissing && tx.reuseCheck && !tx.needsReview && canEdit(tx) && (
+                      <button type="button" className="btn small skip-category" disabled={pending} onClick={() => run(() => confirmReuse(tx.id))} title="Está certo: sai de A identificar">
+                        Confirmar
+                      </button>
+                    )}
                     {showMissing && tx.needsReview && canEdit(tx) && (
                       <button
                         type="button"

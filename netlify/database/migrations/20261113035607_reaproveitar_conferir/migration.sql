@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "reuseCheck" boolean DEFAULT false NOT NULL;

@@ -328,7 +328,7 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
                     <ul className="notif-list">
                       {items.map((a) => (
                         <li key={a.id} className={a.unread ? "unread" : undefined}>
-                          <Avatar name={a.actor} color="#1AC4DB" size={30} />
+                          <Avatar name={a.actor} color="#E07A5F" size={30} />
                           <div style={{ minWidth: 0 }}>
                             <p className="title">{a.text}</p>
                             {a.detail && <p className="sub">{a.detail}</p>}

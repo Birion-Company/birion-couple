@@ -515,6 +515,8 @@ export const transactions = pgTable(
     externalId: text(),
     /** Entrou de fora (compra recebida): só aparece em "A identificar" até a pessoa confirmar. */
     needsReview: boolean().notNull().default(false),
+    /** Importado reaproveitando o que já foi feito no mesmo lugar, mas o histórico varia (ex.: uber às vezes é de outra pessoa): fica em A identificar até confirmar. */
+    reuseCheck: boolean().notNull().default(false),
     importBatchId: uuid().references(() => importBatches.id, { onDelete: "set null" }),
     createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
     createdAt: createdAt(),

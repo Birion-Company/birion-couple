@@ -27,7 +27,7 @@ function subscribe(onChange: () => void) {
 const readTheme = (): Theme => (root().getAttribute("data-theme") === "light" ? "light" : "dark");
 const readPalette = (): Palette => {
   const p = root().getAttribute("data-palette");
-  return p === "jardim" || p === "oceano" || p === "sobrio" ? p : "aconchego";
+  return PALETTES.some((x) => x.id === p) ? (p as Palette) : "aconchego";
 };
 const readWide = (): Wide => {
   const w = root().getAttribute("data-wide");

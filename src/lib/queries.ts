@@ -223,6 +223,8 @@ export type TxRow = {
   source: string;
   /** Compra recebida de fora, esperando "Confirmar" em A identificar. */
   needsReview: boolean;
+  /** Reaproveitado de importação anterior, mas o histórico varia: confira em A identificar. */
+  reuseCheck: boolean;
   cardId: string | null;
   seriesId: string | null;
   seriesKind: string | null;
@@ -370,6 +372,7 @@ const txColumns = {
   notes: t.notes,
   source: t.source,
   needsReview: t.needsReview,
+  reuseCheck: t.reuseCheck,
   cardId: t.cardId,
   seriesId: t.seriesId,
   seriesKind: t.seriesKind,
@@ -433,6 +436,7 @@ function unidentifiedWhere(viewer: Viewer): SQL {
     // Compra recebida de fora espera confirmação mesmo com tudo preenchido.
     or(
       eq(t.needsReview, true),
+      eq(t.reuseCheck, true),
       and(
         lte(t.date, todayIn()),
         or(and(eq(t.kind, "expense"), isNull(t.categoryId), eq(t.noCategory, false)), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
@@ -687,6 +691,7 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         notes: s.notes,
         source: "projetado",
         needsReview: false,
+        reuseCheck: false,
         cardId: s.cardId,
         seriesId: s.id,
         seriesKind: "monthly",
@@ -801,6 +806,15 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
     }
   }
   const paidForOthers = [...owedBy.values()].reduce((a, v) => a + v, 0);
+  // O contrário: o que a pessoa vista ainda deve, das contas do mês que outras pessoas pagaram.
+  let iOweMonth = 0;
+  if (focus) {
+    for (const r of rows) {
+      if ((r.kind !== "expense" && r.kind !== "loan") || !r.payerId || r.payerId === focus || r.settled || r.settlesId || r.blocked) continue;
+      const sp = r.splits.find((x) => x.participantId === focus);
+      if (sp && !sp.paidById) iOweMonth += leftOf(sp);
+    }
+  }
   const owedToMe = [...owedBy].map(([id, cents]) => ({ id, cents })).sort((a, b) => b.cents - a.cents);
   // Entradas: só o que já foi recebido ("a receber" fica de fora até o "Recebi").
   const income = rows.filter((r) => r.kind === "income" && !r.awaitingReceipt && !r.cardId).reduce((a, r) => a + share(r), 0);
@@ -820,6 +834,7 @@ export async function getDashboard(viewer: Viewer, f: Filters) {
     spent,
     familySpent,
     paidForOthers,
+    iOweMonth,
     /** Quem deve (e quanto) das contas do mês que a pessoa vista pagou. */
     owedToMe,
     paidByMeForFocus,
@@ -1178,4 +1193,23 @@ export async function getImportBatches(viewer: Viewer) {
     .groupBy(t.importBatchId);
   const left = new Map(counts.map((c) => [c.batchId, c.n]));
   return batches.map((b) => ({ ...b, remaining: left.get(b.id) ?? 0 }));
+}
+
+
+/**
+ * Saldo inicial de um mês: o que sobrou (entradas recebidas menos a sua parte dos gastos) em todos os meses
+ * antes dele, desde o primeiro mês de uso. Cartão conta no mês da fatura, como no resto do painel.
+ */
+export async function monthCarry(viewer: Viewer, month: string): Promise<number> {
+  const me = viewer.participantId;
+  if (!me) return 0;
+  const [row] = await getDb()
+    .select({
+      spent: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then s."amountCents" when ${t.kind} = 'income' and ${t.cardId} is not null then -s."amountCents" else 0 end), 0)::bigint`,
+      income: sql<number>`coalesce(sum(case when ${t.kind} = 'income' and ${t.cardId} is null and ${t.awaitingReceipt} = false then s."amountCents" else 0 end), 0)::bigint`,
+    })
+    .from(t)
+    .innerJoin(sql`"transaction_splits" s`, sql`s."transactionId" = ${t.id} and s."participantId" = ${me}`)
+    .where(txScope(viewer, isNull(t.settlesId), sql`${competenceSql} < ${`${month}-01`}::date`, sql`${t.kind} in ('expense', 'income')`));
+  return Number(row?.income ?? 0) - Number(row?.spent ?? 0);
 }

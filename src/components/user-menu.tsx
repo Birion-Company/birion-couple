@@ -103,7 +103,7 @@ export function UserMenu({
           }
         }}
       >
-        <Avatar name={name} color="#1AC4DB" size={compact ? 30 : 34} src={avatarUrl} />
+        <Avatar name={name} color="#E07A5F" size={compact ? 30 : 34} src={avatarUrl} />
         {!compact && (
           <span className="user-btn-text">
             <span className="user-btn-name">{name}</span>
