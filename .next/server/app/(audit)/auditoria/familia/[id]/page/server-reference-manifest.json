@@ -1,0 +1,65 @@
+{
+  "node": {
+    "007b9ea8ad6a1743be0bf408cef18c70e584a292ad": {
+      "workers": {
+        "app/(audit)/auditoria/familia/[id]/page": {
+          "moduleId": 7167,
+          "async": true
+        }
+      },
+      "exportedName": "logout",
+      "filename": "src/app/actions/auth.ts"
+    },
+    "60022b0f13f0e4979e877ffbaa9683deb73f0781e3": {
+      "workers": {
+        "app/(audit)/auditoria/familia/[id]/page": {
+          "moduleId": 7167,
+          "async": true
+        }
+      },
+      "exportedName": "login",
+      "filename": "src/app/actions/auth.ts"
+    },
+    "6042c6adb80e727879553504d2a1816f2dd668a18c": {
+      "workers": {
+        "app/(audit)/auditoria/familia/[id]/page": {
+          "moduleId": 7167,
+          "async": true
+        }
+      },
+      "exportedName": "signup",
+      "filename": "src/app/actions/auth.ts"
+    },
+    "60ddef0eba5d205d38cb63dd902bda2a2767580e7c": {
+      "workers": {
+        "app/(audit)/auditoria/familia/[id]/page": {
+          "moduleId": 7167,
+          "async": true
+        }
+      },
+      "exportedName": "finishWelcome",
+      "filename": "src/app/actions/auth.ts"
+    },
+    "60eaf38a5d76e5709738b0b0aac3fefae914daef91": {
+      "workers": {
+        "app/(audit)/auditoria/familia/[id]/page": {
+          "moduleId": 7167,
+          "async": true
+        }
+      },
+      "exportedName": "createNewHousehold",
+      "filename": "src/app/actions/auth.ts"
+    },
+    "403e2079ce11fc158cbcbf427aa6f9bca90586b980": {
+      "workers": {
+        "app/(audit)/auditoria/familia/[id]/page": {
+          "moduleId": 7167,
+          "async": true
+        }
+      },
+      "exportedName": "loadAuditFeed",
+      "filename": "src/app/actions/history.ts"
+    }
+  },
+  "edge": {}
+}

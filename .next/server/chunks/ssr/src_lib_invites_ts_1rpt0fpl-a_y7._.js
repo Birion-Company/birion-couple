@@ -1,0 +1,3 @@
+module.exports=[91335,a=>{"use strict";var b=a.i(93321),c=a.i(51674),d=a.i(49887),e=a.i(75203),f=a.i(40626);async function g(a){if(!/^[A-Za-z0-9_-]{6,80}$/.test(a))return null;let[g]=await (0,d.f)().select({id:e.f.invites.id,householdId:e.f.invites.householdId,role:e.f.invites.role,participantId:e.f.invites.participantId,household:f.f.households.name,createdBy:e.f.invites.createdBy}).from(e.f.invites).innerJoin(f.f.households,(0,b.u)(f.f.households.id,e.f.invites.householdId)).where((0,b.b)((0,b.u)(e.f.invites.code,a),(0,b.M)(e.f.invites.usedAt),(0,b.B)(e.f.invites.expiresAt,new Date),c.B`${e.f.invites.createdAt} > now() - interval 1 day`)).limit(1);return g??null}a.s(["f",0,g])}];
+
+//# sourceMappingURL=src_lib_invites_ts_1rpt0fpl-a_y7._.js.map

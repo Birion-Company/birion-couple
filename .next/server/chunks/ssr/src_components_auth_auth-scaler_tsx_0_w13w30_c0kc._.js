@@ -1,0 +1,3 @@
+module.exports=[29772,a=>{"use strict";var b=a.i(72131);a.s(["AuthScaler",0,function(){return(0,b.useEffect)(()=>{let a=document.querySelector(".auth-scene");if(!a)return;let b=()=>Math.min((window.innerWidth-64)/1440,(window.innerHeight-64)/810),c=b(),d=window.devicePixelRatio,e=window.innerWidth*d,f=window.innerHeight*d,g=()=>a.style.setProperty("--auth-scale",String(Math.max(.2,c)));g();let h=()=>{let a=window.devicePixelRatio,h=window.innerWidth*a,i=window.innerHeight*a,j=Math.abs(h-e)>2||Math.abs(i-f)>2;(a===d||j)&&(c=b()),d=a,e=h,f=i,g()};return window.addEventListener("resize",h),()=>{window.removeEventListener("resize",h),a.style.removeProperty("--auth-scale")}},[]),null}])}];
+
+//# sourceMappingURL=src_components_auth_auth-scaler_tsx_0_w13w30_c0kc._.js.map

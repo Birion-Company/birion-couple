@@ -1,0 +1,37 @@
+1:"$Sreact.fragment"
+2:"/_next/static/chunks/0od8s3wg-p_rl.js"
+3:I[79520,["$2"],""]
+4:I[94013,["$2"],"THEME_SCRIPT"]
+5:"/_next/static/chunks/3qfy96eoyh-ek.js"
+6:I[39756,["$5"],"default"]
+7:I[37457,["$5"],"default"]
+8:"/_next/static/chunks/3zt_16xndew4w.js"
+9:I[22016,["$2","$8"],""]
+a:I[58503,["$2"],"Toaster"]
+11:I[97367,["$5"],"OutletBoundary"]
+12:"$Sreact.suspense"
+15:"ViewportBoundary"
+16:I[97367,["$5"],"$15"]
+17:"MetadataBoundary"
+18:I[97367,["$5"],"$17"]
+:HL["/_next/static/chunks/2p0xl8mbh63zl.css","style"]
+:HL["/_next/static/chunks/3uqhpv6eh18kw.css","style"]
+:HL["/_next/static/chunks/2rejswyub46wg.css","style"]
+c:X
+f:X
+f:C
+10:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$1","c",{"children":[["$","main",null,{"className":"oops","children":["$","div",null,{"className":"oops-card","children":[["$","i",null,{"className":"bmark","aria-hidden":true,"style":{"width":48,"height":48}}],["$","h1",null,{"children":"Página não encontrada"}],["$","p",null,{"children":"Esse endereço não existe, ou é de algo que você não tem acesso."}],["$","$L9",null,{"href":"/painel","className":"btn primary","children":"Voltar ao painel"}]]}]}],[["$","script","script-0",{"src":"/_next/static/chunks/3zt_16xndew4w.js","async":true}]],["$","$L11",null,{"children":["$","$12",null,{"name":"Next.MetadataOutlet","children":"$@13"}]}]]}],"p":"$@14","v":null,"s":"$c"}}]]
+d:[["children",{"s":"/_not-found","h":96,"d":{"r":["$","$1","c",{"children":[null,["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}]}]]}],"p":"$@e","v":"$f","s":"$c"},"c":"$Q10"}]]
+0:{"t":{"t":{"s":"","h":80,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/2p0xl8mbh63zl.css","precedence":"next"}],["$","link","1",{"rel":"stylesheet","href":"/_next/static/chunks/3uqhpv6eh18kw.css","precedence":"next"}],["$","link","2",{"rel":"stylesheet","href":"/_next/static/chunks/2rejswyub46wg.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/0od8s3wg-p_rl.js","async":true}]],["$","html",null,{"lang":"pt-BR","className":"MMaAbG_variable jLNgIa_variable ZuLYwq_variable re7eHW_variable cgTQqG_variable -yFhkq_variable paa25G_variable","data-theme":"dark","suppressHydrationWarning":true,"children":[["$","head",null,{"children":[["$","meta",null,{"name":"theme-color","content":"#1c1613"}],["$","$L3",null,{"id":"bf-theme","strategy":"beforeInteractive","children":"$4"}]]}],["$","body",null,{"children":[["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}],"notFound":[["$","main",null,{"className":"oops","children":["$","div",null,{"className":"oops-card","children":[["$","i",null,{"className":"bmark","aria-hidden":true,"style":{"width":48,"height":48}}],["$","h1",null,{"children":"Página não encontrada"}],["$","p",null,{"children":"Esse endereço não existe, ou é de algo que você não tem acesso."}],["$","$L9",null,{"href":"/painel","className":"btn primary","children":"Voltar ao painel"}]]}]}],[]]}],["$","$La",null,{}]]}]]}]]}],"p":"$@b","v":null,"s":"$c"},"c":"$Qd"},"h":{"r":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$L16",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"}]]}],["$","$L18",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$12",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Página não encontrada - Birion Couple"}],["$","meta","1",{"name":"description","content":"Finanças do casal, simples: quem pagou, quem deve e para onde vai o dinheiro dos dois."}],["$","meta","2",{"name":"application-name","content":"Birion Couple"}],["$","link","3",{"rel":"manifest","href":"/manifest.webmanifest"}],["$","meta","4",{"name":"mobile-web-app-capable","content":"yes"}],["$","meta","5",{"name":"apple-mobile-web-app-title","content":"Birion"}],["$","meta","6",{"name":"apple-mobile-web-app-status-bar-style","content":"default"}],["$","meta","7",{"property":"og:title","content":"Birion Couple - Finanças do casal, sem complicação"}],["$","meta","8",{"property":"og:description","content":"Finanças do casal, simples: quem pagou, quem deve e para onde vai o dinheiro dos dois."}],["$","meta","9",{"property":"og:site_name","content":"Birion Couple"}],["$","meta","10",{"property":"og:locale","content":"pt_BR"}],["$","meta","11",{"property":"og:image","content":"https://couple.birion.com.br/opengraph-image.png?opengraph-image.44tntvfw7cggz.png"}],["$","meta","12",{"property":"og:image:type","content":"image/png"}],["$","meta","13",{"property":"og:image:width","content":"1200"}],["$","meta","14",{"property":"og:image:height","content":"630"}],["$","meta","15",{"property":"og:image:alt","content":"Birion Couple: finanças do casal, sem complicação"}],["$","meta","16",{"property":"og:type","content":"website"}],["$","meta","17",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","18",{"name":"twitter:title","content":"Birion Couple - Finanças do casal, sem complicação"}],["$","meta","19",{"name":"twitter:description","content":"Finanças do casal, simples: quem pagou, quem deve e para onde vai o dinheiro dos dois."}],["$","meta","20",{"name":"twitter:image","content":"https://couple.birion.com.br/twitter-image.png?twitter-image.44tntvfw7cggz.png"}],["$","meta","21",{"name":"twitter:image:alt","content":"Birion Couple: finanças do casal, sem complicação"}],["$","meta","22",{"name":"twitter:image:type","content":"image/png"}],["$","meta","23",{"name":"twitter:image:width","content":"1200"}],["$","meta","24",{"name":"twitter:image:height","content":"630"}],["$","link","25",{"rel":"icon","href":"/favicon.ico?favicon.15jfjc3s-5s0q.ico","sizes":"64x64","type":"image/x-icon"}],["$","link","26",{"rel":"icon","href":"/icon.png?icon.284unicstaahf.png","sizes":"512x512","type":"image/png"}],["$","link","27",{"rel":"apple-touch-icon","href":"/apple-icon.png?apple-icon.20xkl4ttekj5z.png","sizes":"180x180","type":"image/png"}],"$L19"]}]}],null]}],"$L1a"]}],"p":"$@1b","v":null,"s":"$c"}},"a":"$@1c","u":"$@1d","b":"92jS7Rywj3cb1ikkxk_u6"}
+1e:I[27201,["$5"],"IconMark"]
+13:null
+19:["$","$L1e","28",{}]
+1a:["$","meta",null,{"name":"next-size-adjust","content":""}]
+c:300
+1d:true
+c:C
+1c:0
+e:"$undefined"
+b:"$undefined"
+1b:"$undefined"
+14:"$undefined"

@@ -1,0 +1,426 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/avatar/pessoa/[id]",
+      "regex": "^/api/avatar/pessoa/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/avatar/pessoa/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/avatar/[userId]",
+      "regex": "^/api/avatar/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPuserId": "nxtPuserId"
+      },
+      "namedRegex": "^/api/avatar/(?<nxtPuserId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/auditoria/familia/[id]",
+      "regex": "^/auditoria/familia/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/auditoria/familia/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/convite/[code]",
+      "regex": "^/convite/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPcode": "nxtPcode"
+      },
+      "namedRegex": "^/convite/(?<nxtPcode>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/exportar/[mes]",
+      "regex": "^/exportar/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPmes": "nxtPmes"
+      },
+      "namedRegex": "^/exportar/(?<nxtPmes>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/projetos/[id]",
+      "regex": "^/projetos/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/projetos/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/transacoes/[id]",
+      "regex": "^/transacoes/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/transacoes/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/acerto",
+      "regex": "^/acerto(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/acerto(?:/)?$"
+    },
+    {
+      "page": "/ajuda",
+      "regex": "^/ajuda(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajuda(?:/)?$"
+    },
+    {
+      "page": "/ajustes",
+      "regex": "^/ajustes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes(?:/)?$"
+    },
+    {
+      "page": "/ajustes/aparencia",
+      "regex": "^/ajustes/aparencia(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/aparencia(?:/)?$"
+    },
+    {
+      "page": "/ajustes/automacao",
+      "regex": "^/ajustes/automacao(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/automacao(?:/)?$"
+    },
+    {
+      "page": "/ajustes/categorias",
+      "regex": "^/ajustes/categorias(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/categorias(?:/)?$"
+    },
+    {
+      "page": "/ajustes/contas",
+      "regex": "^/ajustes/contas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/contas(?:/)?$"
+    },
+    {
+      "page": "/ajustes/exportacao",
+      "regex": "^/ajustes/exportacao(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/exportacao(?:/)?$"
+    },
+    {
+      "page": "/ajustes/importacao",
+      "regex": "^/ajustes/importacao(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/importacao(?:/)?$"
+    },
+    {
+      "page": "/ajustes/membros",
+      "regex": "^/ajustes/membros(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/membros(?:/)?$"
+    },
+    {
+      "page": "/ajustes/metas",
+      "regex": "^/ajustes/metas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/metas(?:/)?$"
+    },
+    {
+      "page": "/ajustes/orcamento",
+      "regex": "^/ajustes/orcamento(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/orcamento(?:/)?$"
+    },
+    {
+      "page": "/ajustes/perigo",
+      "regex": "^/ajustes/perigo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/perigo(?:/)?$"
+    },
+    {
+      "page": "/ajustes/pessoas",
+      "regex": "^/ajustes/pessoas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/pessoas(?:/)?$"
+    },
+    {
+      "page": "/ajustes/projetos",
+      "regex": "^/ajustes/projetos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/projetos(?:/)?$"
+    },
+    {
+      "page": "/ajustes/status",
+      "regex": "^/ajustes/status(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ajustes/status(?:/)?$"
+    },
+    {
+      "page": "/api/aceitar",
+      "regex": "^/api/aceitar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/aceitar(?:/)?$"
+    },
+    {
+      "page": "/api/auth/google",
+      "regex": "^/api/auth/google(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/google(?:/)?$"
+    },
+    {
+      "page": "/api/auth/google/callback",
+      "regex": "^/api/auth/google/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/google/callback(?:/)?$"
+    },
+    {
+      "page": "/api/compra",
+      "regex": "^/api/compra(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/compra(?:/)?$"
+    },
+    {
+      "page": "/api/cron/alertas",
+      "regex": "^/api/cron/alertas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/alertas(?:/)?$"
+    },
+    {
+      "page": "/api/exportar",
+      "regex": "^/api/exportar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/exportar(?:/)?$"
+    },
+    {
+      "page": "/api/notificacoes",
+      "regex": "^/api/notificacoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/notificacoes(?:/)?$"
+    },
+    {
+      "page": "/apple-icon.png",
+      "regex": "^/apple\\-icon\\.png(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/apple\\-icon\\.png(?:/)?$"
+    },
+    {
+      "page": "/auditoria",
+      "regex": "^/auditoria(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auditoria(?:/)?$"
+    },
+    {
+      "page": "/boas-vindas",
+      "regex": "^/boas\\-vindas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/boas\\-vindas(?:/)?$"
+    },
+    {
+      "page": "/cartoes",
+      "regex": "^/cartoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/cartoes(?:/)?$"
+    },
+    {
+      "page": "/confirmar",
+      "regex": "^/confirmar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/confirmar(?:/)?$"
+    },
+    {
+      "page": "/contas",
+      "regex": "^/contas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contas(?:/)?$"
+    },
+    {
+      "page": "/criar-conta",
+      "regex": "^/criar\\-conta(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/criar\\-conta(?:/)?$"
+    },
+    {
+      "page": "/dividas",
+      "regex": "^/dividas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dividas(?:/)?$"
+    },
+    {
+      "page": "/entrar",
+      "regex": "^/entrar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/entrar(?:/)?$"
+    },
+    {
+      "page": "/esqueci-senha",
+      "regex": "^/esqueci\\-senha(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/esqueci\\-senha(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/icon.png",
+      "regex": "^/icon\\.png(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/icon\\.png(?:/)?$"
+    },
+    {
+      "page": "/identificar",
+      "regex": "^/identificar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/identificar(?:/)?$"
+    },
+    {
+      "page": "/importar",
+      "regex": "^/importar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/importar(?:/)?$"
+    },
+    {
+      "page": "/manifest.webmanifest",
+      "regex": "^/manifest\\.webmanifest(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/manifest\\.webmanifest(?:/)?$"
+    },
+    {
+      "page": "/metas",
+      "regex": "^/metas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/metas(?:/)?$"
+    },
+    {
+      "page": "/nos",
+      "regex": "^/nos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/nos(?:/)?$"
+    },
+    {
+      "page": "/nova-familia",
+      "regex": "^/nova\\-familia(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/nova\\-familia(?:/)?$"
+    },
+    {
+      "page": "/opengraph-image.png",
+      "regex": "^/opengraph\\-image\\.png(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/opengraph\\-image\\.png(?:/)?$"
+    },
+    {
+      "page": "/painel",
+      "regex": "^/painel(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/painel(?:/)?$"
+    },
+    {
+      "page": "/perfil",
+      "regex": "^/perfil(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/perfil(?:/)?$"
+    },
+    {
+      "page": "/privacidade",
+      "regex": "^/privacidade(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacidade(?:/)?$"
+    },
+    {
+      "page": "/projetos",
+      "regex": "^/projetos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/projetos(?:/)?$"
+    },
+    {
+      "page": "/transacoes",
+      "regex": "^/transacoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/transacoes(?:/)?$"
+    },
+    {
+      "page": "/transacoes/lote",
+      "regex": "^/transacoes/lote(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/transacoes/lote(?:/)?$"
+    },
+    {
+      "page": "/transacoes/nova",
+      "regex": "^/transacoes/nova(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/transacoes/nova(?:/)?$"
+    },
+    {
+      "page": "/twitter-image.png",
+      "regex": "^/twitter\\-image\\.png(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/twitter\\-image\\.png(?:/)?$"
+    },
+    {
+      "page": "/verificar-email",
+      "regex": "^/verificar\\-email(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/verificar\\-email(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

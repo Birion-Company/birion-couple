@@ -1,0 +1,335 @@
+{
+  "node": {
+    "00eaf471fe741d3dfd0a521ec85d0f01ffb9fddcbb": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "getPushPrefs",
+      "filename": "src/app/actions/push.ts"
+    },
+    "402b58f35d1750d09f2d7ed12cdaadb87afc2bed39": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "removePushSubscription",
+      "filename": "src/app/actions/push.ts"
+    },
+    "40582543a929cb85e5e519b20aa0410324bf5735ea": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "savePushSubscription",
+      "filename": "src/app/actions/push.ts"
+    },
+    "606e8a89ec943b0bce8d4612c28bce07fe787f6ce7": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "setPushPref",
+      "filename": "src/app/actions/push.ts"
+    },
+    "00271ec05d6a20911b729c8be08b286048015b032d": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "markActivitySeen",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "002157dbe93cd75fe814a7abd30ac9ff45e22c88d9": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "markTourSeen",
+      "filename": "src/app/actions/profile.ts"
+    },
+    "007b9ea8ad6a1743be0bf408cef18c70e584a292ad": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "logout",
+      "filename": "src/app/actions/auth.ts"
+    },
+    "40743a5f7df9425bf48224ea669db01312654e8a78": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "loadTxForEdit",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "40b72af38871a8a3bd3e905b7add0dcfa84f50c269": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "makeSeriesEndless",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "60fc6d806bc482d19ba631a61dea3a3e988528c8d0": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "reshapeSeries",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "40af599c51b3d0f6e8a6c234f8344d1ec471abf2fd": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "deleteTransactions",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "402d55e865b00cdddc6694aa3cc267c0b2416adccf": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "payDebt",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "60c0f3bd6b5bc711f5f42497a668e00f3dba3358e0": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "setTransactionsSettled",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "40ac82d754ca40362c82961ee24061e68079b9bf9d": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "decideApproval",
+      "filename": "src/app/actions/approvals.ts"
+    },
+    "6034e5aeccfe203b0a852054fb6c46677f7e78eadc": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "debtsOwedTo",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "60cc45c2852435309d431bc9f2f7c569d2ac2662a1": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "deleteSeries",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "70bf17be42119736c8c6542149f746945d0e0de09c": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "offsetDebt",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "604c610ae13217ad5fee3e7c03c547724a40c6ca5d": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "refundExpense",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "608a60b68e47f432cbb41c9a76f5087acd4c3eedb5": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "saveTransaction",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "401447568c16b9ae7bd7de35d63f591d3686d60d44": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "stopRecurring",
+      "filename": "src/app/actions/transactions.ts"
+    },
+    "402bfde42bbc5b19821cfca212baa5f5f16112da9f": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "addContact",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "40c8803e25ee61ed4bd87e5011e68f431610949c0a": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "changePassword",
+      "filename": "src/app/actions/profile.ts"
+    },
+    "00b57b1bd775367cdfa67bea4bf0657357d9ce59f7": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "removeAvatar",
+      "filename": "src/app/actions/profile.ts"
+    },
+    "40d0b8729381f79db9bdde331ae3b0327504a9982a": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "updateProfile",
+      "filename": "src/app/actions/profile.ts"
+    },
+    "402fbd3b60dd55043534ad51f774ce41b80a45fdd4": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "uploadAvatar",
+      "filename": "src/app/actions/profile.ts"
+    },
+    "40e9cd3d242216f1b52b9e8aa4299b0a08cc281a82": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "setMyColor",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "60df4c88101b3d30df9d3b0c9f8dbeeb490c773af5": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "deleteListItem",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "407afdea5809694a49295517eb2296d8afd271873e": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "reorderCategories",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "705be0e71d4896cd7b4dddb5e4e8ce811a7b7de235": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "saveListItem",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "70fd4e9b389d6b35051e582f64b30097083af32b03": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "setArchived",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "60dafa09bfdcb08c927788e9ca966fdeb4b7618992": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "setPersonPhoto",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "60f99575d73c04498f47ba14ff55c4be02f2aff9b2": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "setPinned",
+      "filename": "src/app/actions/settings.ts"
+    },
+    "00ce494e03eb6df467c4a5d53e7c45f7aec1ca4a09": {
+      "workers": {
+        "app/(app)/perfil/page": {
+          "moduleId": 79247,
+          "async": true
+        }
+      },
+      "exportedName": "sortCategoriesByUse",
+      "filename": "src/app/actions/settings.ts"
+    }
+  },
+  "edge": {}
+}

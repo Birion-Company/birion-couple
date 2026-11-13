@@ -1,0 +1,3 @@
+{
+  "/(audit)/auditoria/familia/[id]/page": "app/(audit)/auditoria/familia/[id]/page.js"
+}

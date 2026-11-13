@@ -1,0 +1,15 @@
+{
+  "node": {
+    "6042c6adb80e727879553504d2a1816f2dd668a18c": {
+      "workers": {
+        "app/(auth)/criar-conta/page": {
+          "moduleId": 68065,
+          "async": false
+        }
+      },
+      "exportedName": "signup",
+      "filename": "src/app/actions/auth.ts"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,25 @@
+{
+  "node": {
+    "60eaf38a5d76e5709738b0b0aac3fefae914daef91": {
+      "workers": {
+        "app/(auth)/nova-familia/page": {
+          "moduleId": 78028,
+          "async": false
+        }
+      },
+      "exportedName": "createNewHousehold",
+      "filename": "src/app/actions/auth.ts"
+    },
+    "007b9ea8ad6a1743be0bf408cef18c70e584a292ad": {
+      "workers": {
+        "app/(auth)/nova-familia/page": {
+          "moduleId": 78028,
+          "async": false
+        }
+      },
+      "exportedName": "logout",
+      "filename": "src/app/actions/auth.ts"
+    }
+  },
+  "edge": {}
+}

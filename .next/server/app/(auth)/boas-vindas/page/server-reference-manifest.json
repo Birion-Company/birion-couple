@@ -1,0 +1,15 @@
+{
+  "node": {
+    "60ddef0eba5d205d38cb63dd902bda2a2767580e7c": {
+      "workers": {
+        "app/(auth)/boas-vindas/page": {
+          "moduleId": 13289,
+          "async": false
+        }
+      },
+      "exportedName": "finishWelcome",
+      "filename": "src/app/actions/auth.ts"
+    }
+  },
+  "edge": {}
+}

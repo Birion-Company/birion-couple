@@ -1,0 +1,25 @@
+{
+  "node": {
+    "407c20aa1b954d4a185b55ba98c32b088670cbc3a9": {
+      "workers": {
+        "app/api/aceitar/route": {
+          "moduleId": 85189,
+          "async": true
+        }
+      },
+      "exportedName": "acceptApprovals",
+      "filename": "src/app/actions/approvals.ts"
+    },
+    "40ac82d754ca40362c82961ee24061e68079b9bf9d": {
+      "workers": {
+        "app/api/aceitar/route": {
+          "moduleId": 85189,
+          "async": true
+        }
+      },
+      "exportedName": "decideApproval",
+      "filename": "src/app/actions/approvals.ts"
+    }
+  },
+  "edge": {}
+}

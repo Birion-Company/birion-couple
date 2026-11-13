@@ -1,0 +1,35 @@
+{
+  "node": {
+    "60693e6e8b82655adeb7963a9830e51b5135fa8aaf": {
+      "workers": {
+        "app/(auth)/verificar-email/page": {
+          "moduleId": 88153,
+          "async": false
+        }
+      },
+      "exportedName": "confirmEmail",
+      "filename": "src/app/actions/email-verify.ts"
+    },
+    "009f2c9f2a76a06d37b33bc731a7a94c47dd17ed59": {
+      "workers": {
+        "app/(auth)/verificar-email/page": {
+          "moduleId": 88153,
+          "async": false
+        }
+      },
+      "exportedName": "resendVerifyCode",
+      "filename": "src/app/actions/email-verify.ts"
+    },
+    "007b9ea8ad6a1743be0bf408cef18c70e584a292ad": {
+      "workers": {
+        "app/(auth)/verificar-email/page": {
+          "moduleId": 88153,
+          "async": false
+        }
+      },
+      "exportedName": "logout",
+      "filename": "src/app/actions/auth.ts"
+    }
+  },
+  "edge": {}
+}

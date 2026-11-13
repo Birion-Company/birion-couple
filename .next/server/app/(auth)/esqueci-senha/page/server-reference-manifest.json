@@ -1,0 +1,35 @@
+{
+  "node": {
+    "408a7b8c5956a99e243f0563080ecdea68a9aeeb58": {
+      "workers": {
+        "app/(auth)/esqueci-senha/page": {
+          "moduleId": 63085,
+          "async": false
+        }
+      },
+      "exportedName": "requestPasswordReset",
+      "filename": "src/app/actions/password-reset.ts"
+    },
+    "782dbaebece4c3312f67b293ebcf087b3689022f23": {
+      "workers": {
+        "app/(auth)/esqueci-senha/page": {
+          "moduleId": 63085,
+          "async": false
+        }
+      },
+      "exportedName": "resetPassword",
+      "filename": "src/app/actions/password-reset.ts"
+    },
+    "605aff10b5973231c2e7e24c68c47ebb2cc5b92873": {
+      "workers": {
+        "app/(auth)/esqueci-senha/page": {
+          "moduleId": 63085,
+          "async": false
+        }
+      },
+      "exportedName": "verifyResetCode",
+      "filename": "src/app/actions/password-reset.ts"
+    }
+  },
+  "edge": {}
+}

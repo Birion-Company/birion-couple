@@ -1,0 +1,11 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/avatar/pessoa/[id]/route.js")
+R.c("server/chunks/[root-of-the-server]__207_qpt3vvlsd._.js")
+R.c("server/chunks/node_modules_jose_dist_webapi_1rfxg1236sqnw._.js")
+R.c("server/chunks/_0ad1kz3ryiw17._.js")
+R.c("server/chunks/_1rce_qpy19neg._.js")
+R.c("server/chunks/_0bzqycueuim0k._.js")
+R.c("server/chunks/[root-of-the-server]__12uj0887q1ayr._.js")
+R.c("server/chunks/node_modules_next_02fizutvxh2sl._.js")
+R.c("server/chunks/_next-internal_server_app_api_avatar_pessoa_[id]_route_actions_0uqvw_t10nszw.js")
+R.m(27108)
+module.exports=R.m(27108).exports

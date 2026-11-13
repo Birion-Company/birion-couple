@@ -1,0 +1,15 @@
+{
+  "node": {
+    "40baf1fbf38a472357d2565b7cecbdd4a02ffb3d09": {
+      "workers": {
+        "app/(auth)/convite/[code]/page": {
+          "moduleId": 85254,
+          "async": false
+        }
+      },
+      "exportedName": "acceptInviteLoggedIn",
+      "filename": "src/app/actions/invite.ts"
+    }
+  },
+  "edge": {}
+}

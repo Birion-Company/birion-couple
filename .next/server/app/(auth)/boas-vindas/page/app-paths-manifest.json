@@ -1,0 +1,3 @@
+{
+  "/(auth)/boas-vindas/page": "app/(auth)/boas-vindas/page.js"
+}

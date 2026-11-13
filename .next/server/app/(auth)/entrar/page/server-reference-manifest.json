@@ -1,0 +1,15 @@
+{
+  "node": {
+    "60022b0f13f0e4979e877ffbaa9683deb73f0781e3": {
+      "workers": {
+        "app/(auth)/entrar/page": {
+          "moduleId": 67169,
+          "async": false
+        }
+      },
+      "exportedName": "login",
+      "filename": "src/app/actions/auth.ts"
+    }
+  },
+  "edge": {}
+}
