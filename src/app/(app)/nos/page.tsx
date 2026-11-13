@@ -124,7 +124,7 @@ export default async function CouplePage({ searchParams }: { searchParams: Promi
           ))}
         </section>
 
-        <section className="card" aria-labelledby="cat-nos">
+        <section className="card static-layout" aria-labelledby="cat-nos">
           <div className="card-head">
             <h2 id="cat-nos">Onde mais gastamos</h2>
           </div>

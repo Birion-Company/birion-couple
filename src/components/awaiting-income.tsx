@@ -44,7 +44,6 @@ export function AwaitingIncome({
   names = {},
   today,
   currency,
-  month,
 }: {
   /** Mês visto no painel (para o link "ver todas" abrir no mesmo mês). */
   month: string;
@@ -138,16 +137,6 @@ export function AwaitingIncome({
               </span>
             ) : null}
           </p>
-          {/* O que este quadro mostra (só o urgente) e quando conta como recebido. */}
-          <p className="awaiting-help">
-            Aqui aparece <strong>só o mais importante</strong>: o que já venceu
-            ou vence neste mês, do mais atrasado para o mais novo
-            {list.length > SHOWN
-              ? ` (os ${SHOWN} primeiros de ${list.length}; “Ver mais” abre o resto)`
-              : ""}
-            . Só conta como recebido depois que você toca em{" "}
-            <strong>Recebi</strong>.
-          </p>
           <div className="rows">
             {visible.map(({ key, debt: x, income: y }) => {
               if (x) {
@@ -188,6 +177,7 @@ export function AwaitingIncome({
                         owedCents={x.leftCents}
                         currency={currency}
                         label="Recebi"
+                        primary
                       />
                     )}
                   </div>
@@ -255,14 +245,7 @@ export function AwaitingIncome({
               />
             </button>
           )}
-          <p className="awaiting-where">
-            Todas as receitas a receber ficam em{" "}
-            <Link href={`/transacoes?mes=${month}&status=a-receber`}>
-              Lançamentos → filtro Status “A receber”
-            </Link>{" "}
-            (troque o mês para ver as dos próximos). Quem te deve, de todos os
-            meses: <Link href="/transacoes?dividas=1">aba Dívidas</Link>.
-          </p>
+
         </div>
       )}
     </section>

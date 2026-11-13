@@ -23,8 +23,6 @@ export default async function ImportSettingsPage() {
         currency={auth.currency}
         me={auth.participantId}
       />
-      {/* Como tirar o CSV ou o OFX do banco (recolhível). */}
-      <ExportGuide />
       {batches.length > 0 && (
         <section className="card section" aria-labelledby="hist">
           <h2 id="hist" style={{ marginBottom: 8 }}>Importações recentes</h2>
@@ -51,6 +49,8 @@ export default async function ImportSettingsPage() {
         <h2 id="modelos" style={{ marginBottom: 8 }}>Modelos de CSV salvos</h2>
         <PresetsPanel presets={presets.map((p) => ({ id: p.id, name: p.name }))} />
       </section>
+      {/* Como tirar o CSV ou o OFX do banco (recolhível), no fim da página. */}
+      <ExportGuide />
     </>
   );
 }

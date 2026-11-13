@@ -22,7 +22,7 @@ const SECTIONS: Section[] = [
     title: "Onde fica cada coisa",
     items: [
       { term: "Início", text: "O mês dos dois. Arraste os blocos em Organizar e use Página larga se quiser mais espaço." },
-      { term: "Gastos", text: "Tudo o que foi lançado no mês, com busca e filtros." },
+      { term: "Movimentação", text: "Tudo o que entrou e saiu no mês, com busca e filtros." },
       { term: "Acerto", text: "Quem deve a quem. Quando acertarem, registre o pagamento." },
       { term: "Metas", text: "O que querem juntar e até quando." },
       { term: "Cartões", text: "A fatura de cada cartão, a que falta pagar (com a borda tracejada girando) e a aberta." },
@@ -54,7 +54,7 @@ const SECTIONS: Section[] = [
     title: "Meu, seu, nosso",
     items: [
       { term: "Cartões e contas", text: "São de quem cadastrou: o outro não vê saldo nem fatura." },
-      { term: "Gastos", text: "Cada um vê o que lançou, o que pagou e o que tem parte." },
+      { term: "Movimentação", text: "Cada um vê o que lançou, o que pagou e o que tem parte." },
     ],
   },
 ];

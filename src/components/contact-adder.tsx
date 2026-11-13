@@ -100,11 +100,11 @@ export function PeopleMenu({ suggestions, canInvite, onAdd }: { suggestions: str
               </span>
             </Link>
           )}
-          <Link className="people-menu-link" href="/ajustes#contatos">
+          <Link className="people-menu-link" href="/ajustes#pessoas">
             <Users size={15} strokeWidth={1.8} aria-hidden />
             <span>
               <strong>Ver todas as pessoas</strong>
-              <span className="faint">Seu par e contatos, esconder ou convidar.</span>
+              <span className="faint">Pessoas: fixar ou guardar.</span>
             </span>
           </Link>
         </div>

@@ -17,7 +17,7 @@ import {
 } from "@/lib/queries";
 import { DebtsPanel } from "@/components/debts-panel";
 
-export const metadata: Metadata = { title: "Gastos" };
+export const metadata: Metadata = { title: "Movimentação" };
 
 /** A página abre com estes; o resto vem aos poucos ao rolar (TxList). */
 const PAGE = 40;
@@ -63,7 +63,7 @@ export default async function TransactionsPage({
     <>
       <div className="page-head">
         <div>
-          <h1>{debtsTab ? "Acerto" : "Gastos"}</h1>
+          <h1>{debtsTab ? "Acerto" : "Movimentação"}</h1>
           <p className="muted">
             {debtsTab ? (
               <>

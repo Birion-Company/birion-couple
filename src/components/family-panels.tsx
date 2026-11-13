@@ -169,19 +169,16 @@ export function HistoryPanel({
   isAdmin,
   family,
   feed,
-  requests,
 }: {
   isAdmin: boolean;
   family: { rows: LogRow[]; next: string | null };
   feed: { rows: FeedRow[]; next: string | null };
-  requests: InviteRequestRow[];
 }) {
-  type Tab = "familia" | "lancamentos" | "pedidos";
+  type Tab = "familia" | "lancamentos";
   const [tab, setTab] = useState<Tab>("familia");
   const tabs: { id: Tab; label: string }[] = [
     { id: "familia", label: "Nós" },
-    { id: "lancamentos", label: "Lançamentos" },
-    ...(isAdmin ? [{ id: "pedidos" as Tab, label: "Pedidos de convite" }] : []),
+    { id: "lancamentos", label: "Movimentação" },
   ];
   return (
     // Recolhido por padrão: o histórico é longo e quase nunca é o que se veio fazer em Ajustes.
@@ -245,22 +242,6 @@ export function HistoryPanel({
             </div>
           )}
         />
-      )}
-      {tab === "pedidos" && (
-        <div className="history-list">
-          {requests.length === 0 && <p className="faint">Nada por aqui ainda.</p>}
-          {requests.map((r) => (
-            <div key={r.id} className="history-item">
-              <time dateTime={r.createdAt}>{when(r.createdAt)}</time>
-              <span className="history-text">
-                <strong>{r.requester}</strong> pediu convite para <strong>{r.forName}</strong> ·{" "}
-                <span className={r.status === "declined" ? "neg" : r.status === "pending" ? "warn" : "pos"}>
-                  {r.status === "pending" ? "esperando" : r.status === "declined" ? "recusado" : r.used ? "aceito, já entrou" : "aceito"}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
       )}
     </details>
   );

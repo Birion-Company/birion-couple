@@ -21,7 +21,7 @@ export default async function CategoriesPage() {
   ]);
   const limitOf = new Map(budgets.map((b) => [b.categoryId, b.monthlyCents]));
   return (
-    <>
+    <div className="static-layout">
       <ListEditor kind="categories" items={categories} />
       <div className="section" />
       <BudgetEditor
@@ -32,6 +32,6 @@ export default async function CategoriesPage() {
       />
       <h2 className="section" style={{ marginBottom: 10 }}>Regras automáticas</h2>
       <RulesEditor rules={rules} categories={categories} />
-    </>
+    </div>
   );
 }

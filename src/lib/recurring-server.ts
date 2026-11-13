@@ -4,7 +4,7 @@ import { cache } from "react";
 import { getDb, schema } from "@/db";
 import { todayIn } from "./cards";
 import { classifyFromHistory, expandInstallments } from "./patterns-server";
-import { hideIdleContacts } from "./contacts";
+import { deleteStaleContacts, hideIdleContacts } from "./contacts";
 import { dueOccurrences, endOfMonth } from "./recurring";
 
 type Split = { participantId: string; amountCents: number };
@@ -114,5 +114,6 @@ export const ensureRecurring = cache(async (householdId: string) => {
   await expandInstallments(householdId);
   await classifyFromHistory(householdId);
   await hideIdleContacts(householdId);
+  await deleteStaleContacts(householdId);
   await db.update(schema.households).set({ maintainedAt: new Date(), maintainedActivityAt: activity }).where(eq(schema.households.id, householdId));
 });

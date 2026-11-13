@@ -3,7 +3,7 @@ import { and, eq, inArray, isNotNull, notInArray, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { computeBalances } from "./balances";
 import { addDaysIso, todayIn } from "./cards";
-import { CONTACT_IDLE_DAYS, CONTACTS_ACTIVE_MAX, CONTACTS_FULL_MESSAGE, CONTACTS_TOTAL_MAX, CONTACTS_TOTAL_MESSAGE, PALETTE } from "./defaults";
+import { CONTACT_DELETE_DAYS, CONTACT_IDLE_DAYS, CONTACTS_ACTIVE_MAX, CONTACTS_FULL_MESSAGE, CONTACTS_TOTAL_MAX, CONTACTS_TOTAL_MESSAGE, PALETTE } from "./defaults";
 import { contactsCount } from "./household";
 
 /**
@@ -59,6 +59,8 @@ async function hideableContacts(householdId: string, usedBefore: string, ownerUs
       and(
         eq(p.householdId, householdId),
         eq(p.archived, false),
+        // Fixadas nunca saem das listas.
+        eq(p.pinned, false),
         ownerUserId ? eq(p.ownerUserId, ownerUserId) : undefined,
         notInArray(p.id, membersOf(householdId)),
       ),
@@ -78,7 +80,7 @@ async function makeRoomForContact(householdId: string, ownerUserId: string) {
   // Só quem não aparece em nada de hoje em diante (nem foi usado hoje).
   for (const c of await hideableContacts(householdId, todayIn(), ownerUserId)) {
     if ((await netOf(householdId, c.id)) === 0) {
-      await getDb().update(p).set({ archived: true }).where(eq(p.id, c.id));
+      await getDb().update(p).set({ archived: true, archivedAt: new Date() }).where(eq(p.id, c.id));
       return true;
     }
   }
@@ -111,7 +113,7 @@ export async function findOrCreateContact(householdId: string, ownerUserId: stri
   if (pick) {
     if (pick.archived) {
       if (!(await makeRoomForContact(householdId, ownerUserId))) return { ok: false, error: CONTACTS_FULL_MESSAGE };
-      await db.update(p).set({ archived: false, temporary: false }).where(eq(p.id, pick.id));
+      await db.update(p).set({ archived: false, archivedAt: null, temporary: false }).where(eq(p.id, pick.id));
     }
     return { ok: true, person: { ...pick, archived: false }, reused: true };
   }
@@ -128,7 +130,7 @@ export async function reviveContacts(householdId: string, ids: string[]) {
   if (ids.length === 0) return;
   await getDb()
     .update(p)
-    .set({ archived: false })
+    .set({ archived: false, archivedAt: null })
     .where(and(eq(p.householdId, householdId), eq(p.archived, true), inArray(p.id, ids), notInArray(p.id, membersOf(householdId))));
 }
 
@@ -141,7 +143,7 @@ export async function hideIdleContacts(householdId: string) {
   let hidden = 0;
   for (const c of await hideableContacts(householdId, cutoff)) {
     if ((await netOf(householdId, c.id)) !== 0) continue;
-    await getDb().update(p).set({ archived: true }).where(eq(p.id, c.id));
+    await getDb().update(p).set({ archived: true, archivedAt: new Date() }).where(eq(p.id, c.id));
     hidden++;
   }
   return hidden;
@@ -153,4 +155,33 @@ export async function hasRoomForContact(householdId: string, ownerUserId: string
   if (creating && total >= CONTACTS_TOTAL_MAX) return CONTACTS_TOTAL_MESSAGE;
   if (active >= CONTACTS_ACTIVE_MAX) return CONTACTS_FULL_MESSAGE;
   return null;
+}
+
+
+/**
+ * Apaga as pessoas guardadas há CONTACT_DELETE_DAYS dias, só para quem ligou a limpeza (users.cleanPeople).
+ * Nunca apaga fixadas, quem tem login, nem quem ainda aparece em algum lançamento (o histórico não é mexido).
+ */
+export async function deleteStaleContacts(householdId: string) {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - CONTACT_DELETE_DAYS * 86_400_000);
+  const stale = await db
+    .select({ id: p.id })
+    .from(p)
+    .innerJoin(schema.users, eq(schema.users.id, p.ownerUserId))
+    .where(
+      and(
+        eq(p.householdId, householdId),
+        eq(p.archived, true),
+        eq(p.pinned, false),
+        eq(schema.users.cleanPeople, true),
+        sql`${p.archivedAt} is not null and ${p.archivedAt} < ${cutoff}`,
+        notInArray(p.id, membersOf(householdId)),
+        sql`not exists (select 1 from "transactions" t where t."payerId" = ${p.id})`,
+        sql`not exists (select 1 from "transaction_splits" s where s."participantId" = ${p.id})`,
+      ),
+    );
+  if (stale.length === 0) return 0;
+  await db.delete(p).where(inArray(p.id, stale.map((x) => x.id)));
+  return stale.length;
 }

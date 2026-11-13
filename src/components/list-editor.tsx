@@ -2,10 +2,10 @@
 
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { squareJpeg } from "./profile-forms";
-import { Archive, ArchiveRestore, Camera, EyeOff, Eye, GripVertical, ListOrdered, Pencil, Plus, Search, Send, Trash2 } from "lucide-react";
-import { deleteListItem, inviteContact, reorderCategories, saveListItem, setArchived, setPersonPhoto, sortCategoriesByUse } from "@/app/actions/settings";
+import { Archive, ArchiveRestore, Camera, EyeOff, Eye, GripVertical, ListOrdered, Pencil, Pin, Plus, Search, Trash2 } from "lucide-react";
+import { deleteListItem, reorderCategories, saveListItem, setArchived, setPersonPhoto, setPinned, sortCategoriesByUse } from "@/app/actions/settings";
 import { CATEGORY_ICONS, suggestIcon } from "@/lib/category-icons";
-import { CONTACTS_ACTIVE_MAX, PALETTE, STATUS_BEHAVIORS } from "@/lib/defaults";
+import { CONTACT_DELETE_DAYS, CONTACTS_ACTIVE_MAX, PALETTE, STATUS_BEHAVIORS } from "@/lib/defaults";
 import { toastResult } from "./toaster";
 import { Avatar, CategoryIcon, Dot } from "./ui";
 
@@ -24,6 +24,10 @@ export type ListItem = {
   /** Foto (de quem tem login vem do perfil; de quem não tem, pode ser trocada aqui). */
   avatarUrl?: string | null;
   hasLogin?: boolean;
+  /** Pessoa fixada: nunca sai das listas nem é apagada sozinha. */
+  pinned?: boolean;
+  /** Quando foi guardada (para contar os dias até a limpeza). */
+  archivedAt?: string | Date | null;
 };
 
 /** Círculo da pessoa: sem login, tocar troca a foto; com login, a foto é a do perfil dela. */
@@ -75,7 +79,7 @@ function PersonPhoto({ item }: { item: ListItem }) {
 }
 
 const WORDS: Record<Kind, { one: string; add: string; empty: string }> = {
-  participants: { one: "contato", add: "Adicionar contato", empty: "Nenhum contato ainda. Eles também são criados ao lançar, em Adicionar pessoa." },
+  participants: { one: "pessoa", add: "Adicionar pessoa", empty: "Nenhuma pessoa ainda. Elas também são criadas ao lançar." },
   categories: { one: "categoria", add: "Nova categoria", empty: "Nenhuma categoria." },
   projects: { one: "projeto", add: "Novo projeto", empty: "Nenhum projeto. Use projetos para separar viagens, reformas, eventos…" },
   statuses: { one: "status", add: "Novo status", empty: "Nenhum status." },
@@ -198,8 +202,7 @@ function ItemForm({ kind, item, onDone, defaultColor }: { kind: Kind; item: List
   );
 }
 
-/** `canInvite`: contatos podem ser convidados para o app (só quem administra). */
-export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; items: ListItem[]; canInvite?: boolean }) {
+export function ListEditor({ kind, items, cleanPeople = false }: { kind: Kind; items: ListItem[]; /** Limpeza automática ligada (mostra em quantos dias a pessoa guardada será apagada). */ cleanPeople?: boolean }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery] = useState("");
@@ -216,7 +219,9 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
   // Pesquisa (contatos): acha pelo nome, inclusive os escondidos.
   const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const q = fold(query.trim());
-  const visible = shown.filter((i) => (q ? fold(i.name).includes(q) : showArchived || !i.archived));
+  const visibleRaw = shown.filter((i) => (q ? fold(i.name).includes(q) : showArchived || !i.archived));
+  // Pessoas: as fixadas vêm primeiro.
+  const visible = kind === "participants" ? [...visibleRaw.filter((i) => i.pinned), ...visibleRaw.filter((i) => !i.pinned)] : visibleRaw;
   // Lista grande (ex.: centenas de contatos): mostra 50 por vez. A ordenação por arraste precisa de todos.
   const [limit, setLimit] = useState(50);
   const save = (list: ListItem[]) =>
@@ -260,19 +265,13 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
   const activeCount = items.length - archivedCount;
   const full = kind === "participants" && activeCount >= CONTACTS_ACTIVE_MAX;
   const people = kind === "participants";
-  // "Convidar para o app": cria o convite ligado ao contato e copia o link.
-  const invite = (id: string, name: string) =>
-    start(async () => {
-      const r = await inviteContact(id);
-      if (!r.ok || !r.code) return toastResult(r);
-      const link = `${window.location.origin}/convite/${r.code}`;
-      try {
-        await navigator.clipboard.writeText(link);
-        toastResult({ ok: true, message: `Link de convite de ${name} copiado. Vale por 1 dia.` });
-      } catch {
-        window.prompt(`Envie este link para ${name}:`, link);
-      }
-    });
+  const [now] = useState(() => Date.now());
+  // Pessoa guardada: com a limpeza ligada, em quantos dias ela é apagada.
+  const archivedNote = (item: ListItem) => {
+    if (!cleanPeople || item.pinned || !item.archivedAt) return "guardada";
+    const left = CONTACT_DELETE_DAYS - Math.floor((now - new Date(item.archivedAt).getTime()) / 86_400_000);
+    return left > 0 ? `guardada · será apagada em ${left} ${left === 1 ? "dia" : "dias"}` : "guardada · será apagada em breve";
+  };
   const behaviorLabel = (b?: string) => STATUS_BEHAVIORS.find((x) => x.value === b)?.label;
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) => start(async () => toastResult(await fn()));
@@ -289,13 +288,13 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
           </button>
           <label className="list-search">
             <Search size={15} strokeWidth={1.8} aria-hidden />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pesquisar contato" aria-label="Pesquisar contato" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pesquisar pessoa" aria-label="Pesquisar pessoa" />
           </label>
         </div>
       )}
       <p className={`faint list-count ${full ? "neg" : ""}`}>
-        {activeCount} de {CONTACTS_ACTIVE_MAX} contatos ativos{full ? " · esconda um para adicionar outro" : ""}
-        {archivedCount > 0 ? ` · ${archivedCount} escondido${archivedCount === 1 ? "" : "s"}` : ""}
+        {activeCount} de {CONTACTS_ACTIVE_MAX} pessoas{full ? " · guarde uma para adicionar outra" : ""}
+        {archivedCount > 0 ? ` · ${archivedCount} guardada${archivedCount === 1 ? "" : "s"}` : ""}
       </p>
     </div>
   );
@@ -364,16 +363,23 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
                       kind === "statuses" && item.behavior ? `significa: ${behaviorLabel(item.behavior)}` : null,
                       item.isDefault ? "padrão nos lançamentos" : null,
                       item.isImportDefault ? "padrão nas importações" : null,
-                      item.archived ? (kind === "participants" ? "escondido · volta ao digitar o nome num lançamento" : "arquivado") : null,
+                      item.archived ? (kind === "participants" ? archivedNote(item) : "arquivado") : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 )}
               </div>
-              {people && canInvite && !item.archived && (
-                <button className="icon-btn" disabled={pending} onClick={() => invite(item.id, item.name)} aria-label={`Convidar ${item.name} para o app`} title="Convidar para o app">
-                  <Send size={16} strokeWidth={1.6} />
+              {people && (
+                <button
+                  className={`icon-btn pin-btn${item.pinned ? " on" : ""}`}
+                  disabled={pending}
+                  onClick={() => act(() => setPinned(item.id, !item.pinned))}
+                  aria-pressed={!!item.pinned}
+                  aria-label={item.pinned ? `Desafixar ${item.name}` : `Fixar ${item.name}`}
+                  title={item.pinned ? "Fixada: não sai das listas. Toque para desafixar" : "Fixar: não sai das listas nem é apagada"}
+                >
+                  <Pin size={16} strokeWidth={1.7} fill={item.pinned ? "currentColor" : "none"} />
                 </button>
               )}
               <button className="icon-btn" onClick={() => setEditing(item.id)} aria-label={`Editar ${item.name}`} title="Editar">
@@ -383,8 +389,8 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
                 className="icon-btn"
                 disabled={pending || (item.archived && full)}
                 onClick={() => act(() => setArchived(kind, item.id, !item.archived))}
-                aria-label={people ? `${item.archived ? "Mostrar" : "Esconder"} ${item.name}` : item.archived ? `Reativar ${item.name}` : `Arquivar ${item.name}`}
-                title={people ? (item.archived ? "Mostrar nas listas" : "Esconder das listas") : item.archived ? "Reativar" : "Arquivar"}
+                aria-label={people ? `${item.archived ? "Tirar dos guardados:" : "Guardar:"} ${item.name}` : item.archived ? `Reativar ${item.name}` : `Arquivar ${item.name}`}
+                title={people ? (item.archived ? "Tirar dos guardados" : "Guardar") : item.archived ? "Reativar" : "Arquivar"}
               >
                 {people ? (
                   item.archived ? <Eye size={16} strokeWidth={1.6} /> : <EyeOff size={16} strokeWidth={1.6} />
@@ -418,7 +424,7 @@ export function ListEditor({ kind, items, canInvite = false }: { kind: Kind; ite
         archivedCount > 0 && !q && (
           <div className="actions" style={{ marginTop: 12, justifyContent: "flex-end" }}>
             <button className="btn ghost small" onClick={() => setShowArchived((x) => !x)}>
-              {showArchived ? "Ocultar escondidos" : `Ver escondidos (${archivedCount})`}
+              {showArchived ? "Ocultar guardadas" : `Ver guardadas (${archivedCount})`}
             </button>
           </div>
         )

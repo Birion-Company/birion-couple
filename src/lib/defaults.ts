@@ -21,6 +21,8 @@ export const CONTACTS_ACTIVE_MAX = 80;
 export const CONTACTS_TOTAL_MAX = 200;
 /** Contato sem dívida e sem lançamento há esse tempo sai das listas sozinho (volta ao digitar o nome). */
 export const CONTACT_IDLE_DAYS = 90;
+/** Depois de guardada, a pessoa é apagada (se a limpeza estiver ligada) quando passar este tempo. */
+export const CONTACT_DELETE_DAYS = 60;
 export const MEMBERS_FULL_MESSAGE = `O casal já está completo: são ${MEMBERS_MAX} pessoas com login, o máximo.`;
 export const CONTACTS_FULL_MESSAGE = `Já há ${CONTACTS_ACTIVE_MAX} contatos ativos. Esconda um que não usa mais, em Ajustes → Pessoas.`;
 export const CONTACTS_TOTAL_MESSAGE = `Você chegou a ${CONTACTS_TOTAL_MAX} contatos guardados. Exclua alguns que não usa mais.`;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Inbox, Plus, ScanSearch, Upload } from "lucide-react";
+import { GoalRing } from "@/components/goal-ring";
 import { MonthStatement } from "@/components/month-statement";
 import { DashBoard } from "@/components/dash-board";
 import { FilterBar } from "@/components/filter-bar";
@@ -365,7 +366,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                           label: "Orçamento",
                           size: "card" as const,
                           node: (
-            <section className="card" aria-labelledby="orc">
+            <section className="card static-layout" aria-labelledby="orc">
               <div className="card-head">
                 <h2 id="orc">Orçamento do mês</h2>
                 <Link href="/ajustes/categorias" className="faint">
@@ -440,20 +441,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                   ajustar
                 </Link>
               </div>
-              <div className="rows">
+              <div className="goal-rings">
                 {goalRows.map((g) => (
-                  <div key={g.id} className="row" style={{ display: "block" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span className="grow title">{g.name}</span>
-                      <span className="num">
-                        <Money cents={g.savedCents} currency={cur} /> de <Money cents={g.targetCents} currency={cur} />
-                      </span>
-                    </div>
-                    <div className="bud-bar">
-                      <span className={g.plan.done ? "ok" : g.plan.late ? "over" : "near"} style={{ width: `${g.plan.pct}%` }} />
-                    </div>
-                    <p className="sub">{g.plan.done ? "Meta batida!" : `Guardar ${formatMoney(g.plan.perMonthCents, cur)}/mês`}</p>
-                  </div>
+                  <Link key={g.id} href="/metas" className="goal-ring-item" title={g.plan.done ? "Meta batida!" : `Guardar ${formatMoney(g.plan.perMonthCents, cur)}/mês`}>
+                    <GoalRing pct={g.plan.pct} done={g.plan.done} late={g.plan.late} size={72} />
+                    <span className="grow-name">{g.name}</span>
+                    <span className="faint num">
+                      {formatMoney(g.savedCents, cur)} de {formatMoney(g.targetCents, cur)}
+                    </span>
+                  </Link>
                 ))}
               </div>
             </section>
@@ -466,7 +462,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                     label: "Gastos por categoria",
                     size: "card" as const,
                     node: (
-          <section className="card" aria-labelledby="cats">
+          <section className="card static-layout" aria-labelledby="cats">
             <div className="card-head">
               <h2 id="cats">Gastos por categoria</h2>
               {/* O total do mês fica aqui, junto da divisão por categoria (sem repetir no topo). */}

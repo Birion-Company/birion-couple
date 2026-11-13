@@ -55,6 +55,8 @@ export const users = pgTable("users", {
   username: text(),
   /** Quando o e-mail foi confirmado (código de 4 números, ou login pelo Google). Sem isso, não entra no app. */
   emailVerifiedAt: timestamp({ withTimezone: true }),
+  /** Apagar pessoas (sem login) guardadas há muito tempo, sozinho. Desligado até a pessoa ligar. */
+  cleanPeople: boolean().notNull().default(false),
   createdAt: createdAt(),
 });
 
@@ -129,6 +131,10 @@ export const participants = pgTable(
      * aparece "Contato de Fulano". Pessoa com login não tem dono (é da família toda).
      */
     ownerUserId: uuid().references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    /** Fixada: nunca sai das listas nem é apagada pela limpeza automática. */
+    pinned: boolean().notNull().default(false),
+    /** Quando foi guardada (escondida das listas): conta os dias até a limpeza automática. */
+    archivedAt: timestamp({ withTimezone: true }),
     /**
      * Antigo "pessoa avulsa". Não é mais usado: quem não tem login é um contato (lib/contacts.ts),
      * com limite de ativos e escondido sozinho quando fica parado. Fica no banco só por compatibilidade.

@@ -22,7 +22,13 @@ export function NavProgress() {
       const url = new URL(href, window.location.href);
       // Mesma tela (só muda filtro/mês): também carrega do servidor, então mostra a barrinha.
       if (url.pathname + url.search === window.location.pathname + window.location.search) return;
-      setState({ on: true, from: window.location.pathname + window.location.search });
+      const from = window.location.pathname + window.location.search;
+      // Só depois que os outros tratadores do clique rodaram: um link que abre uma janela (preventDefault)
+      // não troca de página e não pode deixar a tela esmaecida esperando.
+      window.setTimeout(() => {
+        if (e.defaultPrevented) return;
+        setState({ on: true, from });
+      }, 0);
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);

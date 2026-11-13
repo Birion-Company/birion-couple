@@ -342,7 +342,7 @@ export async function setArchived(
   }
   await getDb()
     .update(table)
-    .set({ archived })
+    .set((kind === "participants" ? { archived, archivedAt: archived ? new Date() : null } : { archived }) as { archived: boolean })
     .where(
       and(
         eq(table.id, id),
@@ -1243,4 +1243,33 @@ export async function mergeContactIntoMember(
       ? `${contact.name} saiu dos contatos: agora é ${member.name}.`
       : `Pronto: ${moved} ${moved === 1 ? "lançamento passou" : "lançamentos passaram"} de ${contact.name} para ${member.name}. Ela recebe em Para confirmar.`,
   );
+}
+
+
+/** Fixar uma pessoa: ela não sai das listas nem é apagada pela limpeza. Fixar quem estava guardado a traz de volta. */
+export async function setPinned(id: string, pinned: boolean): Promise<ActionResult> {
+  const auth = await requireAuth();
+  const P = schema.participants;
+  const db = getDb();
+  if (pinned) {
+    const [cur] = await db.select({ archived: P.archived }).from(P).where(and(eq(P.id, id), eq(P.householdId, auth.householdId), mineOnly("participants", auth.userId)));
+    if (cur?.archived) {
+      const full = await hasRoomForContact(auth.householdId, auth.userId);
+      if (full) return fail(full);
+    }
+  }
+  await db
+    .update(P)
+    .set(pinned ? { pinned: true, archived: false, archivedAt: null } : { pinned: false })
+    .where(and(eq(P.id, id), eq(P.householdId, auth.householdId), mineOnly("participants", auth.userId)));
+  revalidatePath("/", "layout");
+  return done(pinned ? "Fixada: fica sempre nas listas." : "Desafixada.");
+}
+
+/** Liga ou desliga apagar sozinho as pessoas guardadas há muito tempo. */
+export async function setCleanPeople(on: boolean): Promise<ActionResult> {
+  const auth = await requireAuth();
+  await getDb().update(schema.users).set({ cleanPeople: on }).where(eq(schema.users.id, auth.userId));
+  revalidatePath("/ajustes");
+  return done(on ? "Ligado: quem ficar guardado muito tempo será apagado." : "Desligado: ninguém será apagado sozinho.");
 }

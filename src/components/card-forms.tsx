@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteCard, saveCard, setCardArchived } from "@/app/actions/cards";
 import { CARD_BRANDS, brandOf } from "@/lib/card-brands";
@@ -189,18 +190,36 @@ export function NewCard({
       </div>
     );
   }
-  if (!open) {
-    return (
+  // Sem nenhum cartão ainda: o formulário já fica na própria página (não há com quem disputar espaço).
+  if (startOpen) {
+    return open ? (
+      <section className="card section" aria-label="Novo cartão">
+        <h2 style={{ marginBottom: 12 }}>Novo cartão</h2>
+        <CardForm card={null} onDone={() => setOpen(false)} owners={owners} defaultOwner={defaultOwner} />
+      </section>
+    ) : (
       <button type="button" className="btn primary" onClick={() => setOpen(true)}>
         <Plus size={16} /> Novo cartão
       </button>
     );
   }
+  // Com outros cartões, o formulário abre numa janela por cima de tudo (em primeiro plano), sem disputar espaço com eles.
   return (
-    <section className="card section" aria-label="Novo cartão">
-      <h2 style={{ marginBottom: 12 }}>Novo cartão</h2>
-      <CardForm card={null} onDone={() => setOpen(false)} owners={owners} defaultOwner={defaultOwner} />
-    </section>
+    <>
+      <button type="button" className="btn primary" onClick={() => setOpen(true)}>
+        <Plus size={16} /> Novo cartão
+      </button>
+      {open &&
+        createPortal(
+          <div className="alert-backdrop" onClick={(e) => e.target === e.currentTarget && setOpen(false)} onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>
+            <div className="alert-dialog new-card-dialog" role="dialog" aria-modal="true" aria-label="Novo cartão">
+              <h2 style={{ marginBottom: 12 }}>Novo cartão</h2>
+              <CardForm card={null} onDone={() => setOpen(false)} owners={owners} defaultOwner={defaultOwner} />
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

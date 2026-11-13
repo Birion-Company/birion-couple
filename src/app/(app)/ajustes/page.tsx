@@ -6,7 +6,7 @@ import { PeopleSections } from "@/components/people-sections";
 import { feedPage } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { APPROVALS_OFF } from "@/lib/defaults";
-import { getFamilyLog, getInviteRequests } from "@/lib/family-log";
+import { getFamilyLog } from "@/lib/family-log";
 import { getInvites, getLookupsFor, getMembers } from "@/lib/queries";
 import { getDb, schema } from "@/db";
 import { count, eq } from "drizzle-orm";
@@ -20,11 +20,10 @@ export const metadata: Metadata = { title: "Ajustes" };
 export default async function SettingsPage() {
   const auth = await requireAuth();
   const isAdmin = auth.role === "owner";
-  const [members, lookups, log, requests, [house]] = await Promise.all([
+  const [members, lookups, log, [house]] = await Promise.all([
     getMembers(auth.householdId),
     getLookupsFor(auth),
     getFamilyLog(auth, { size: 20 }),
-    getInviteRequests(auth),
     getDb().select({ createdAt: schema.households.createdAt, approvalsFrom: schema.households.approvalsFrom }).from(schema.households).where(eq(schema.households.id, auth.householdId)),
   ]);
   const feed = await feedPage(auth, lookups, auth.currency, { audit: true, size: 20 });
@@ -51,7 +50,6 @@ export default async function SettingsPage() {
         isAdmin={isAdmin}
         family={{ rows: log.rows.map((x) => ({ id: x.id, when: x.createdAt.toISOString(), text: x.text })), next: log.next }}
         feed={{ rows: feed.items.map((x) => ({ id: x.id, when: x.when, actor: x.actor, text: x.text, detail: x.detail, href: x.href })), next: feed.next }}
-        requests={requests}
       />
 
     </div>

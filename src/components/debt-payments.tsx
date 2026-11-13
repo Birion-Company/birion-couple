@@ -55,7 +55,7 @@ export function ProfitBadge({ paidCents, owedCents, restCents = 0, currency }: {
 }
 
 /** Uma parte em aberto: botão "Marcar como pago" que pergunta quanto foi pago de verdade. */
-export function PayButton({ txId, participantId, owedCents, currency, label = "Marcar como pago" }: { txId: string; participantId: string; owedCents: number; currency: string; label?: string }) {
+export function PayButton({ txId, participantId, owedCents, currency, label = "Marcar como pago", primary = false }: { txId: string; participantId: string; owedCents: number; currency: string; label?: string; primary?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
@@ -67,7 +67,7 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   const [asking, setAsking] = useState(false);
   if (!open) {
     return (
-      <button type="button" className="btn small ghost" data-tour="debts-settle" onClick={() => setOpen(true)}>
+      <button type="button" className={`btn small ${primary ? "primary" : "ghost"}`} data-tour="debts-settle" onClick={() => setOpen(true)}>
         <Check size={14} strokeWidth={2} /> {label}
       </button>
     );

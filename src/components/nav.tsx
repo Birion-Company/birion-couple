@@ -9,7 +9,7 @@ import { ArrowLeftRight, CreditCard, Handshake, Heart, House, Plus, ScanSearch, 
 const items = [
   { href: "/painel", label: "Início", icon: House },
   { href: "/nos", label: "Nós dois", icon: Heart, short: "Nós" },
-  { href: "/transacoes", label: "Gastos", icon: ArrowLeftRight },
+  { href: "/transacoes", label: "Movimentação", icon: ArrowLeftRight, short: "Movim." },
   { href: "/acerto", label: "Acerto", icon: Handshake },
   { href: "/transacoes/nova", label: "Novo", icon: Plus, add: true },
   { href: "/metas", label: "Metas", icon: Target },
@@ -25,7 +25,16 @@ function isActive(path: string, href: string, debts: boolean) {
 }
 
 /** Nome de cada item do menu para o tutorial destacar. */
-const TOUR: Record<string, string> = { "/identificar": "nav-identify", "/confirmar": "nav-confirm" };
+const TOUR: Record<string, string> = {
+  "/painel": "nav-home",
+  "/nos": "nav-nos",
+  "/transacoes": "nav-mov",
+  "/acerto": "nav-acerto",
+  "/cartoes": "nav-cartoes",
+  "/metas": "nav-metas",
+  "/identificar": "nav-identify",
+  "/confirmar": "nav-confirm",
+};
 
 /** Contador ao lado de "A identificar" e de "Para confirmar". */
 function Count({ n, what = "a identificar" }: { n: number; what?: string }) {

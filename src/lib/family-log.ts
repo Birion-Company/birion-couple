@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, ilike, lt, or } from "drizzle-orm";
+import { and, desc, eq, ilike, lt, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Tx } from "./leave";
 
@@ -28,6 +28,8 @@ export async function getFamilyLog(
     .where(
       and(
         eq(L.householdId, v.householdId),
+        // Pedidos de convite não fazem parte do histórico.
+        sql`${L.action} not like 'invite_request%'`,
         v.role === "owner" ? undefined : or(eq(L.actorUserId, v.userId), eq(L.subjectUserId, v.userId)),
         before ? lt(L.createdAt, new Date(before)) : undefined,
         q?.trim() ? ilike(L.text, `%${q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined,
