@@ -28,6 +28,7 @@ const TABS = [
   { href: "/ajustes/contas", label: "Contas", help: "Seus bancos e carteiras com o saldo de cada um. Só você vê." },
   { href: "/ajustes/orcamento", label: "Orçamento", help: "Quanto você quer gastar por mês em cada categoria. Só você vê." },
   { href: "/ajustes/metas", label: "Metas", help: "Quanto quer juntar e até quando. Só você vê." },
+  { href: "/ajustes/automacao", label: "Automação", help: "Aceitar sozinho o que você já sabe que vai aceitar." },
   { href: "/ajustes/membros", label: "Acesso", help: "Quem entra no app, quem administra e convites." },
   { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
   { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou em PDF, para guardar ou mandar para alguém." },

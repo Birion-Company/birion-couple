@@ -410,6 +410,30 @@ export const accounts = pgTable("accounts", {
   createdAt: createdAt(),
 });
 
+/**
+ * Aceite automático: "aceitar sempre o que [fromParticipantId] lançar para mim [participantId]", opcionalmente só até
+ * um valor (a minha parte) e/ou só quando a descrição tem certo texto (ex.: "aluguel"). Vale para lançamentos novos.
+ */
+export const autoAcceptRules = pgTable(
+  "auto_accept_rules",
+  {
+    id: id(),
+    householdId: uuid()
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    participantId: uuid()
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    fromParticipantId: uuid()
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    maxCents: integer(),
+    match: text(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("auto_accept_rules_household_idx").on(t.householdId)],
+);
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()

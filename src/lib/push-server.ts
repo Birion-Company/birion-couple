@@ -14,7 +14,8 @@ const PRIVATE = process.env.VAPID_PRIVATE_KEY;
 export const pushEnabled = Boolean(PUBLIC && PRIVATE);
 if (pushEnabled) webpush.setVapidDetails(process.env.VAPID_SUBJECT || "https://github.com/Birion-Company/birion-finance", PUBLIC!, PRIVATE!);
 
-export type PushMessage = { title: string; body: string; url?: string; tag?: string };
+/** approveTx: lançamento que a pessoa pode aceitar direto da notificação (botões Aceitar e Ver). */
+export type PushMessage = { title: string; body: string; url?: string; tag?: string; approveTx?: string };
 
 /** Manda para todos os aparelhos dessas pessoas (usuários). Aparelhos que saíram são esquecidos. */
 export async function sendPush(userIds: string[], msg: PushMessage) {
@@ -63,6 +64,8 @@ type Entry = {
   transactionId?: string | null;
   data: { tx?: Snap; items?: { d: string; a: string[] }[]; paidCents?: number; owedCents?: number; restCents?: number; decision?: string; reason?: string | null; changes?: { field: string }[]; settled?: boolean; fileName?: string; fields?: string[] };
   audience: string[];
+  /** Pessoas cujo aceite já veio de uma regra de aceite automático. */
+  autoAccepted?: string[];
 };
 
 /**
@@ -174,7 +177,12 @@ export async function pushActivity(householdId: string, actorUserId: string, ent
       msg = { title: "Lançamentos com você", body: `${who} ${entry.action === "batch" ? "lançou" : "mudou"} ${items.length} ${items.length === 1 ? "lançamento" : "lançamentos"} com você.` };
     }
     // Quem foi colocado num lançamento novo precisa aceitar ou recusar.
-    if (msg && entry.action === "created") msg = { ...msg, body: `${msg.body} Aceite ou recuse.` };
+    if (msg && entry.action === "created") {
+      const auto = entry.autoAccepted?.includes(me);
+      msg = auto
+        ? { ...msg, title: msg.title === "Nova dívida" ? "Nova dívida (aceita)" : msg.title, body: `${msg.body} Aceito pela sua regra.` }
+        : { ...msg, body: `${msg.body} Aceite ou recuse.`, approveTx: entry.transactionId ?? undefined };
+    }
     if (msg && wants(prefsOf.get(t.userId), kind)) await sendPush([t.userId], { ...msg, url });
   }
 }

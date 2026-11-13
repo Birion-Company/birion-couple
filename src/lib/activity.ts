@@ -5,6 +5,7 @@ import { isAdmin, type Viewer } from "./access";
 import { after } from "next/server";
 import { formatMoney } from "./money";
 import { pushActivity } from "./push-server";
+import { applyAutoAccept } from "./auto-accept-server";
 import { checkBudgetAlerts } from "./budgets";
 import type { Lookups } from "./queries";
 
@@ -54,6 +55,8 @@ export type ActivityData = {
   /** Confirmação: aceitou ou recusou, e por quê. */
   decision?: "accepted" | "refused";
   reason?: string | null;
+  /** O aceite veio de uma regra de aceite automático. */
+  auto?: boolean;
 };
 
 export type ActivityAction =
@@ -147,8 +150,11 @@ export async function logActivity(
     audience: [...new Set(entry.audience)],
   });
   // Notificação no celular de quem foi envolvido, depois da resposta (não atrasa quem fez a ação).
+  const since = new Date(Date.now() - 10_000);
   const job = async () => {
-    await pushActivity(viewer.householdId, viewer.userId, entry as Parameters<typeof pushActivity>[2]).catch((e) => console.error("push", e));
+    // Regras de aceite automático: o que já tem regra entra como aceito antes de pedir confirmação.
+    const auto = ["created", "batch", "imported"].includes(entry.action) ? await applyAutoAccept(viewer.householdId, viewer.userId, since).catch((e) => (console.error("aceite automático", e), new Set<string>())) : new Set<string>();
+    await pushActivity(viewer.householdId, viewer.userId, { ...entry, autoAccepted: [...auto] } as Parameters<typeof pushActivity>[2]).catch((e) => console.error("push", e));
     // Orçamento por categoria: quem chegou perto do limite ou passou recebe um aviso.
     await checkBudgetAlerts(viewer.householdId).catch((e) => console.error("orçamento", e));
   };
@@ -381,8 +387,8 @@ export async function getActivityFeed(
       case "approval": {
         const items = visibleItems(d.items);
         if (items.length === 0) continue;
-        text = `${actor} ${d.decision === "accepted" ? "aceitou" : "recusou"} "${items[0].d}"`;
-        detail = d.decision === "refused" ? (d.reason ? `motivo: ${d.reason}` : "não vale nas dívidas até você corrigir") : "já vale nas dívidas";
+        text = `${actor} ${d.decision === "accepted" ? (d.auto ? "aceitou pela regra" : "aceitou") : "recusou"} "${items[0].d}"`;
+        detail = d.decision === "refused" ? (d.reason ? `motivo: ${d.reason}` : "não vale nas dívidas até você corrigir") : d.auto ? "aceito pela regra de aceite automático · já vale nas dívidas" : "já vale nas dívidas";
         break;
       }
       case "batch": {
