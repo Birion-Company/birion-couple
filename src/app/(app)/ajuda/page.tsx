@@ -132,7 +132,10 @@ const SECTIONS: Section[] = [
     id: "ajustes",
     title: "Ajustes, aba por aba",
     items: [
-      { term: "Família", text: "Nome da família e moeda. Embaixo, Excluir meus dados: apaga tudo que você lançou (some para todos os envolvidos); a conta e a família continuam." },
+      { term: "Família", text: "Nome da família e moeda, como a família está agora e o histórico." },
+      { term: "Perigo", text: "Excluir meus dados (apaga tudo que você lançou, some para todos os envolvidos; a conta e a família continuam) e Apagar minha conta. Ficam separados de propósito." },
+      { term: "Orçamento, Metas e Contas", text: "Só seus. Orçamento: limite mensal por categoria, com aviso aos 80% e ao passar. Metas: quanto juntar e até quando. Contas: o saldo de cada banco ou carteira, que entra em Minha posição no painel junto com faturas e dívidas." },
+      { term: "Automação", text: "Aceite automático (o que bater com a regra entra como aceito, e fica no histórico) e a chave para lançar compras do cartão de fora do app." },
       { term: "Mudar de família", text: "Ao aceitar o convite de outra família, você sai da atual: lá você continua como pessoa sem login, com tudo que já foi lançado. Se você administrava, o cargo passa para quem entrou primeiro." },
       { term: "Pessoas", text: "Família (com login, até 10) e contatos (sem login). Pesquise, cadastre, esconda ou convide." },
       { term: "Categorias", text: "Mercado, Moradia, Saúde… Arraste para ordenar. Embaixo, a categorização automática: “uber” → Transporte." },

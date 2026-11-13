@@ -79,7 +79,7 @@ export default function PrivacyPage() {
 
         <h2>4. Por quanto tempo guardamos</h2>
         <p>
-          Enquanto a sua conta existir. Em Ajustes → Excluir meus dados, você apaga na hora tudo que lançou. Se pedir para apagar a sua conta, apagamos
+          Enquanto a sua conta existir. Em Ajustes → Perigo → Excluir meus dados, você apaga na hora tudo que lançou. Se pedir para apagar a sua conta, apagamos
           seus dados em até 30 dias, exceto o que a lei mandar guardar.
         </p>
 
