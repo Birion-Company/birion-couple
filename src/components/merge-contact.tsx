@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { UserCheck } from "lucide-react";
 import { mergeContactIntoMember } from "@/app/actions/settings";
+import { Select } from "./select";
 import { toastResult } from "./toaster";
 
 type Opt = { id: string; name: string };
 
 /**
- * Alguém que era seu contato entrou na família: passa tudo do contato para a pessoa com login.
+ * Alguém que era seu contato entrou no casal: passa tudo do contato para a pessoa com login.
+ * No casal só há uma pessoa possível (o par), então o cartão já fala o nome dela e só pergunta qual contato era ela.
  */
 export function MergeContact({ contacts, members }: { contacts: Opt[]; members: Opt[] }) {
   const router = useRouter();
@@ -17,40 +19,43 @@ export function MergeContact({ contacts, members }: { contacts: Opt[]; members: 
   const [member, setMember] = useState("");
   const [pending, start] = useTransition();
   if (contacts.length === 0 || members.length === 0) return null;
+  const only = members.length === 1 ? members[0] : null;
+  const first = (s: string) => s.split(" ")[0];
   const c = contacts.find((x) => x.id === contact);
-  const m = members.find((x) => x.id === member);
+  const m = only ?? members.find((x) => x.id === member);
   return (
     <section className="card section merge-contact" aria-labelledby="juntar">
       <h2 id="juntar">
-        <UserCheck size={17} strokeWidth={1.9} aria-hidden /> O seu par já estava nos seus contatos?
+        <UserCheck size={17} strokeWidth={1.9} aria-hidden /> {only ? `${first(only.name)} já estava nos seus contatos?` : "O seu par já estava nos seus contatos?"}
       </h2>
       <p className="faint">
-        Passe as contas dele para a pessoa com login: quem pagou, as partes e as contas que se repetem. O contato sai da sua lista, e a pessoa confirma
-        os lançamentos em Para confirmar.
+        {only ? `Escolha qual contato era ${first(only.name)}: as contas desse contato passam para ${first(only.name)}` : "Passe as contas do contato para a pessoa com login"}{" "}
+        (quem pagou, as partes e as contas que se repetem). O contato sai da sua lista, e {only ? first(only.name) : "a pessoa"} confirma os lançamentos em Para
+        confirmar.
       </p>
       <div className="merge-fields">
         <label>
-          Contato
-          <select className="select" value={contact} onChange={(e) => setContact(e.target.value)}>
-            <option value="">Escolha…</option>
-            {contacts.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name}
-              </option>
-            ))}
-          </select>
+          {only ? `Qual contato era ${first(only.name)}?` : "Contato"}
+          <Select
+            value={contact}
+            onChange={setContact}
+            placeholder="Escolha o contato"
+            ariaLabel={only ? `Qual contato era ${only.name}` : "Contato"}
+            options={contacts.map((x) => ({ value: x.id, label: x.name }))}
+          />
         </label>
-        <label>
-          Agora é
-          <select className="select" value={member} onChange={(e) => setMember(e.target.value)}>
-            <option value="">Escolha…</option>
-            {members.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!only && (
+          <label>
+            Passar para
+            <Select
+              value={member}
+              onChange={setMember}
+              placeholder="Escolha a pessoa"
+              ariaLabel="Passar para"
+              options={members.map((x) => ({ value: x.id, label: x.name }))}
+            />
+          </label>
+        )}
       </div>
       <button
         type="button"
@@ -70,7 +75,7 @@ export function MergeContact({ contacts, members }: { contacts: Opt[]; members: 
           });
         }}
       >
-        Passar as contas
+        {m ? `Passar as contas para ${first(m.name)}` : "Passar as contas"}
       </button>
     </section>
   );
