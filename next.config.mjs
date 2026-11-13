@@ -1,6 +1,9 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/**
+ * Arquivo em JavaScript puro (e não .ts): assim o Next não precisa compilar a configuração antes de começar,
+ * o que falha em servidores com a biblioteca do sistema (glibc) antiga.
+ * @type {import("next").NextConfig}
+ */
+const nextConfig = {
   // Montagem separada para o teste de carga (NEXT_DIST_DIR=.next-carga), sem mexer no app que está no ar.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // Todas as telas dependem de quem está logado, então são renderizadas a cada pedido.

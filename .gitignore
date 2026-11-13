@@ -15,7 +15,11 @@
 
 # next.js
 /.next/
+/.next-*/
 /out/
+# configuração temporária que o Next gera ao compilar (nunca deve ir para o repositório)
+*.next.config.*
+!next.config.mjs
 
 # production
 /build
