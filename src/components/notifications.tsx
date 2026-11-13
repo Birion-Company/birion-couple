@@ -173,7 +173,7 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
     });
     if (document.hidden && browserOptIn()) {
       try {
-        const n = new Notification("Birion Finance", { body: fresh.length === 1 ? first.text : `${fresh.length} novidades: ${first.text}`, tag: "bf-" + first.id, icon: "/brand/mark.png" });
+        const n = new Notification("Birion Couple", { body: fresh.length === 1 ? first.text : `${fresh.length} novidades: ${first.text}`, tag: "bf-" + first.id, icon: "/brand/mark.png" });
         n.onclick = () => {
           window.focus();
           window.dispatchEvent(new Event(OPEN_EVENT));

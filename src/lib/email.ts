@@ -3,12 +3,12 @@ import "server-only";
 /**
  * Envio de e-mail pelo Resend (https://resend.com), direto pela API (sem pacote extra).
  * - RESEND_API_KEY: chave criada no painel do Resend (variável secreta no Netlify).
- * - EMAIL_FROM (opcional): remetente; padrão "Birion Finance <noreply@birion.com.br>".
+ * - EMAIL_FROM (opcional): remetente; padrão "Birion Couple <noreply@birion.com.br>".
  * Sem a chave, no computador (desenvolvimento) o e-mail só aparece no terminal, para testar.
  */
 export type Email = { to: string; subject: string; html: string; text: string };
 
-const FROM = process.env.EMAIL_FROM || "Birion Finance <noreply@birion.com.br>";
+const FROM = process.env.EMAIL_FROM || "Birion Couple <noreply@birion.com.br>";
 
 export function emailConfigured() {
   return !!process.env.RESEND_API_KEY;
@@ -71,7 +71,7 @@ export function emailButton(label: string, href: string) {
  * `eyebrow` é a etiqueta de cima; `preheader` é o texto de prévia que aparece na caixa de entrada.
  */
 export function emailLayout(title: string, body: string, opts: { eyebrow?: string; preheader?: string } = {}) {
-  const eyebrow = opts.eyebrow ?? "Birion Finance";
+  const eyebrow = opts.eyebrow ?? "Birion Couple";
   const pre = opts.preheader ?? title;
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(title)}</title>
 <style>
@@ -91,6 +91,6 @@ export function emailLayout(title: string, body: string, opts: { eyebrow?: strin
 </td></tr>
 <tr><td class="dark-bg-footer" style="background:#e4e6e7;padding:24px 32px 28px;text-align:center">
 <p style="margin:0 0 6px;font:14px/20px Arial,sans-serif;color:#1d1d1b"><a class="dark-text" href="${SITE}" style="color:#1d1d1b;text-decoration:none">birion.com.br</a></p>
-<p style="margin:0;font:11px/15px Arial,sans-serif;color:#8e8e8e">Este e-mail foi enviado automaticamente pelo Birion Finance. Não precisa responder.</p>
+<p style="margin:0;font:11px/15px Arial,sans-serif;color:#8e8e8e">Este e-mail foi enviado automaticamente pelo Birion Couple. Não precisa responder.</p>
 </td></tr></table></div></center></body></html>`;
 }

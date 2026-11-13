@@ -1,4 +1,4 @@
-/* BIRION FINANCE: recebe as notificações push (mesmo com o app fechado) e abre a tela certa ao tocar. */
+/* BIRION COUPLE: recebe as notificações push (mesmo com o app fechado) e abre a tela certa ao tocar. */
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
@@ -10,7 +10,7 @@ self.addEventListener("push", (event) => {
     data = { body: event.data ? event.data.text() : "" };
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "Birion Finance", {
+    self.registration.showNotification(data.title || "Birion Couple", {
       body: data.body || "",
       icon: "/brand/icon-192.png",
       badge: "/brand/icon-192.png",

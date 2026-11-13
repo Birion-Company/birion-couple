@@ -1,4 +1,4 @@
-// Testes de ponta a ponta do Birion Finance: rodam contra o app local (banco local) com contas de teste
+// Testes de ponta a ponta do Birion Couple: rodam contra o app local (banco local) com contas de teste
 // @e2e.test, que são apagadas no fim. Uso: npm run test:e2e (app ligado; BASE e NETLIFY_DB_URL do .env.local).
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";

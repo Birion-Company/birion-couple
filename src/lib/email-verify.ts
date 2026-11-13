@@ -34,8 +34,8 @@ export async function sendVerifyCode(user: { id: string; name: string; email: st
   const first = user.name.split(" ")[0] || user.name;
   const fail = await sendEmail({
     to: user.email,
-    subject: `${code} é o seu código do Birion Finance`,
-    text: `Olá, ${first}!\n\nPara confirmar seu e-mail no Birion Finance, use o código: ${code}\n\nEle vale por ${VERIFY_VALID_MIN} minutos. Se não foi você que criou a conta, ignore este e-mail.`,
+    subject: `${code} é o seu código do Birion Couple`,
+    text: `Olá, ${first}!\n\nPara confirmar seu e-mail no Birion Couple, use o código: ${code}\n\nEle vale por ${VERIFY_VALID_MIN} minutos. Se não foi você que criou a conta, ignore este e-mail.`,
     html: emailLayout(
       "Seu código de acesso",
       `<p style="margin:0 0 28px">Olá, ${esc(first)}! Use este código para terminar de criar sua conta:</p>${codeBox(code)}

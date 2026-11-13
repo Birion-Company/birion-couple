@@ -1,4 +1,4 @@
-// Teste de carga do Birion Finance. NUNCA aponte para o site publicado (gasta crédito do Netlify e mexe no banco real):
+// Teste de carga do Birion Couple. NUNCA aponte para o site publicado (gasta crédito do Netlify e mexe no banco real):
 // ele só aceita endereço local. Roda contra um "next start" separado (porta 3002 por padrão).
 import { readFileSync } from "node:fs";
 import pg from "pg";

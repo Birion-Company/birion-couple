@@ -62,8 +62,8 @@ export async function requestPasswordReset(rawEmail: string): Promise<ResetResul
   const first = user.name.split(" ")[0] || user.name;
   const fail = await sendEmail({
     to: parsed.data,
-    subject: `${code} é o seu código do Birion Finance`,
-    text: `Olá, ${first}!\n\nSeu código para criar uma senha nova no Birion Finance é: ${code}\n\nEle vale por ${VALID_MIN} minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.`,
+    subject: `${code} é o seu código do Birion Couple`,
+    text: `Olá, ${first}!\n\nSeu código para criar uma senha nova no Birion Couple é: ${code}\n\nEle vale por ${VALID_MIN} minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.`,
     html: emailLayout(
       "Seu código de acesso",
       `<p style="margin:0 0 28px">Olá, ${esc(first)}! Use este código para criar uma senha nova:</p>${codeBox(code)}

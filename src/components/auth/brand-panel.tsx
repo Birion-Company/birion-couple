@@ -1,11 +1,11 @@
 /** Painel esquerdo: marca, título, descrição e benefícios. */
 export function BrandPanel() {
   return (
-    <section className="brand-panel" aria-label="Birion Finance">
+    <section className="brand-panel" aria-label="Birion Couple">
       <div className="brand-logo">
         <i className="blogo" aria-hidden />
         <span>
-          <em>Finance</em>
+          <em>Couple</em>
         </span>
       </div>
       <div className="brand-content">

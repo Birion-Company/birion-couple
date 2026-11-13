@@ -1,4 +1,4 @@
-# BIRION FINANCE
+# BIRION COUPLE
 
 Finanças da família em um só lugar: quem pagou, quem deve e o que ainda está pendente.
 

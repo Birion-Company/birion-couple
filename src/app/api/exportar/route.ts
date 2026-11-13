@@ -57,7 +57,7 @@ export async function GET(req: Request) {
   });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Birion Finance";
+  wb.creator = "Birion Couple";
   wb.created = r.generatedAt;
   // Foto de quem é o extrato (e de quem enviou), no canto da faixa de título de cada aba.
   const face = r.subject ?? r.owner;
@@ -76,7 +76,7 @@ export async function GET(req: Request) {
   const banner = (ws: ExcelJS.Worksheet, text: string, cols: number) => {
     ws.mergeCells(1, 1, 1, cols);
     const t = ws.getCell(1, 1);
-    t.value = `Birion Finance - ${text} - ${face.name}`;
+    t.value = `Birion Couple - ${text} - ${face.name}`;
     t.font = { bold: true, size: 16, color: { argb: WHITE } };
     t.fill = fill(NAVY);
     t.alignment = { vertical: "middle", indent: 1 };
@@ -174,7 +174,7 @@ export async function GET(req: Request) {
       },
     };
     ws.headerFooter = {
-      oddFooter: `&L&8Birion Finance - ${r.family}&R&8${title} - página &P de &N`,
+      oddFooter: `&L&8Birion Couple - ${r.family}&R&8${title} - página &P de &N`,
     };
   };
 

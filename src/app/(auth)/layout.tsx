@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
             {/* Celular: a marca e a frase ficam no mesmo bloco do login (no computador estão no painel ao lado). */}
             <div className="auth-mobile-brand">
               <p className="auth-mobile-name">
-                Birion <span>Finance</span>
+                Birion <span>Couple</span>
               </p>
               <p className="auth-mobile-tagline">
                 Suas finanças, <em>sem complicação.</em>

@@ -15,7 +15,7 @@ function Brand() {
   return (
     <div className="brand">
       <i className="blogo" aria-hidden />
-      <span className="brand-fin">Finance</span>
+      <span className="brand-fin">Couple</span>
     </div>
   );
 }

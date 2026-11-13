@@ -102,7 +102,7 @@ export default async function ReportPage({
       <article className="rep-page">
         <header className="rep-head">
           <div>
-            <p className="rep-brand">Birion Finance</p>
+            <p className="rep-brand">Birion Couple</p>
             <h1>{r.title.replace(/^./, (c) => c.toUpperCase())}</h1>
             {/* De quem é o extrato (foto e nome) e, se for de outra pessoa, quem mandou. */}
             <div className="rep-people">
@@ -279,7 +279,7 @@ export default async function ReportPage({
           d={d}
         />
         <footer className="rep-foot">
-          Birion Finance - {r.family} - {r.title}
+          Birion Couple - {r.family} - {r.title}
         </footer>
       </article>
     </div>

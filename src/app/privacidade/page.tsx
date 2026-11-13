@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Política de privacidade",
-  description: "Quais dados o Birion Finance guarda, para que servem e como pedir para apagar.",
+  description: "Quais dados o Birion Couple guarda, para que servem e como pedir para apagar.",
 };
 
 const CONTATO = "felipegabrielsr03@gmail.com";
@@ -16,13 +16,13 @@ export default function PrivacyPage() {
       <article className="legal-page">
         <Link href="/entrar" className="legal-brand">
           { }
-          <i className="blogo" aria-hidden /> <span>Finance</span>
+          <i className="blogo" aria-hidden /> <span>Couple</span>
         </Link>
         <h1>Política de privacidade</h1>
         <p className="legal-date">Atualizada em {ATUALIZADA}</p>
 
         <p>
-          O Birion Finance (<strong>birion.com.br</strong>) é um site para organizar finanças e dividir contas entre duas pessoas, o casal. Esta página
+          O Birion Couple (<strong>birion.com.br</strong>) é um site para organizar finanças e dividir contas entre duas pessoas, o casal. Esta página
           explica, de forma simples, quais dados guardamos, para que usamos e como você pode pedir para apagar. Seguimos a Lei Geral de Proteção de Dados
           (LGPD, Lei 13.709/2018).
         </p>
@@ -97,7 +97,7 @@ export default function PrivacyPage() {
         <p>Se esta política mudar, a data no topo é atualizada. Mudanças importantes também aparecem dentro do app.</p>
 
         <p className="legal-back">
-          <Link href="/entrar">← Voltar para o Birion Finance</Link>
+          <Link href="/entrar">← Voltar para o Birion Couple</Link>
         </p>
       </article>
     </main>
