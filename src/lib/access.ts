@@ -4,20 +4,25 @@ import { getDb, schema } from "@/db";
 import type { AuthContext } from "./auth";
 
 /**
- * Quem está olhando. Regras da família:
- * - Quem administra (owner) vê e altera tudo.
- * - Os outros membros veem só os lançamentos que os envolvem: criaram, pagaram ou têm uma parte.
+ * Quem está olhando. Regras do casal:
+ * - Cada pessoa vê só os lançamentos que a envolvem: criou, pagou ou tem uma parte. Ninguém vê o que é só do outro,
+ *   nem quem administra: o que as duas pessoas compartilham é o painel "Nós" (somas do casal) e as metas do casal.
  * - Só quem criou o lançamento (ou quem administra) pode alterar ou excluir.
+ * - `all` é só da conta de auditoria da plataforma (nunca de uma pessoa do casal): ela enxerga a família toda.
  */
-export type Viewer = Pick<AuthContext, "householdId" | "userId" | "participantId" | "role">;
+export type Viewer = Pick<AuthContext, "householdId" | "userId" | "participantId" | "role"> & { all?: boolean };
 
+/** Administra: poder de gerenciar (convites, nome da família), não de ver os dados do outro. */
 export const isAdmin = (v: Viewer) => v.role === "owner";
+
+/** Enxerga os dados de todo mundo? Só a conta de auditoria; nenhuma pessoa do casal. */
+export const seesAll = (v: Pick<Viewer, "all">) => v.all === true;
 
 const t = schema.transactions;
 
-/** Condição SQL de "este lançamento é visível para esta pessoa" (nada para quem administra). */
+/** Condição SQL de "este lançamento é visível para esta pessoa" (nada para a conta de auditoria). */
 export function visibleTx(v: Viewer): SQL | undefined {
-  if (isAdmin(v)) return undefined;
+  if (seesAll(v)) return undefined;
   const parts: SQL[] = [eq(t.createdBy, v.userId)];
   if (v.participantId) {
     parts.push(eq(t.payerId, v.participantId));
@@ -64,9 +69,9 @@ export async function checkEditable(v: Viewer, ids: string[]): Promise<string | 
 
 type CardLike = { ownerId: string | null };
 
-/** Cartões que esta pessoa vê: os próprios; quem administra vê todos. */
+/** Cartões que esta pessoa vê: só os próprios. */
 export function cardsFor<T extends CardLike>(v: Viewer, cards: T[]): T[] {
-  return isAdmin(v) ? cards : cards.filter((c) => c.ownerId !== null && c.ownerId === v.participantId);
+  return seesAll(v) ? cards : cards.filter((c) => c.ownerId !== null && c.ownerId === v.participantId);
 }
 
 /** Pode editar, arquivar ou excluir este cartão? Dono ou quem administra. */

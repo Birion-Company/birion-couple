@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { and, asc, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL, like as sqlLike } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { cardsFor, isAdmin, txScope, txScopeAny, type Viewer } from "./access";
+import { cardsFor, seesAll, txScope, txScopeAny, type Viewer } from "./access";
 import { approvalContext, approvalKey, approvalStates, type ApprovalInput, type ApprovalState } from "./approvals";
 import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type TransactionKind } from "./balances";
 import { stateFromParam } from "./tx-state";
@@ -870,7 +870,7 @@ export async function getDebts(viewer: Viewer) {
     (await db.select(txColumns).from(t).where(txScope(viewer, isNotNull(t.payerId), lte(t.date, todayIn()), debtRelevant()))) as BaseRow[],
   );
   const input = rows;
-  if (isAdmin(viewer) || !viewer.participantId) {
+  if (seesAll(viewer) || !viewer.participantId) {
     const balances = computeBalances(input);
     return { balances, settlements: suggestSettlements(balances), whole: true };
   }
@@ -1033,9 +1033,9 @@ export async function getDebtLedger(viewer: Viewer, lookups: Lookups) {
       p.paid.sort((a, b) => (a.tx.date < b.tx.date ? 1 : a.tx.date > b.tx.date ? -1 : 0));
     }
   }
-  // Dívidas entre as outras pessoas (só quem administra vê a família toda).
+  // Dívidas entre as outras pessoas (só a auditoria vê a família toda).
   const others: Settlement[] = [];
-  if (isAdmin(viewer)) {
+  if (seesAll(viewer)) {
     const inputs = withBehavior.filter((x) => x.tx.date <= today).map((x) => x.input);
     const ids = lookups.participants.map((p) => p.id).filter((id) => id !== me);
     for (const a of ids) {
@@ -1091,7 +1091,7 @@ export async function getRecurring(viewer: Viewer) {
   return db
     .select()
     .from(r)
-    .where(and(eq(r.householdId, viewer.householdId), eq(r.active, true), isAdmin(viewer) ? undefined : eq(r.createdBy, viewer.userId)))
+    .where(and(eq(r.householdId, viewer.householdId), eq(r.active, true), seesAll(viewer) ? undefined : eq(r.createdBy, viewer.userId)))
     .orderBy(asc(schema.recurringSeries.description));
 }
 
@@ -1185,7 +1185,7 @@ export async function getImportBatches(viewer: Viewer) {
   const batches = await db
     .select()
     .from(ib)
-    .where(and(eq(ib.householdId, householdId), isAdmin(viewer) ? undefined : eq(ib.createdBy, viewer.userId)))
+    .where(and(eq(ib.householdId, householdId), seesAll(viewer) ? undefined : eq(ib.createdBy, viewer.userId)))
     .orderBy(desc(schema.importBatches.createdAt))
     .limit(10);
   if (batches.length === 0) return [];
@@ -1233,7 +1233,8 @@ export async function getCoupleMonth(viewer: Viewer, month: string) {
   await ensureRecurring(viewer.householdId);
   const f = { ...parseFilters({}, "mes"), period: "mes" as const, month: null, competence: month, ...monthRange(month), everyone: true };
   const rows = await attachSplits(
-    (await db.select(txColumns).from(t).where(whereFor(viewer, f)).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
+    // O painel do casal soma as duas pessoas: lê os lançamentos dos dois, mas só entram as partes do par e a lista de gastos juntos.
+    (await db.select(txColumns).from(t).where(whereFor({ ...viewer, all: true }, f)).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
   );
   const pair = [me, partnerId].filter(Boolean) as string[];
   const expenses = rows.filter((r) => r.kind === "expense" && !r.blocked);

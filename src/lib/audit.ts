@@ -141,7 +141,7 @@ export async function auditHousehold(householdId: string, auditorId: string) {
     db.select({ n: count() }).from(t).where(and(eq(t.householdId, householdId), isNull(t.settlesId))),
   ]);
   // Lida como "administrador sem pessoa": vê tudo da família, sem "você" nas frases.
-  const feed = await feedPage({ householdId, userId: auditorId, participantId: null, role: "owner" }, lookups, house.currency, { audit: true, size: 20 });
+  const feed = await feedPage({ householdId, userId: auditorId, participantId: null, role: "owner", all: true }, lookups, house.currency, { audit: true, size: 20 });
   return {
     house,
     members,

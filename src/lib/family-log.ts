@@ -18,7 +18,7 @@ export async function logFamily(
  * Em páginas: `before` (data do último item da página anterior) e `q` (busca no texto, feita no banco).
  */
 export async function getFamilyLog(
-  v: { householdId: string; userId: string; role: string },
+  v: { householdId: string; userId: string; role: string; all?: boolean },
   { size = 20, before, q }: { size?: number; before?: string | null; q?: string } = {},
 ) {
   const L = schema.familyLog;
@@ -30,7 +30,7 @@ export async function getFamilyLog(
         eq(L.householdId, v.householdId),
         // Pedidos de convite não fazem parte do histórico.
         sql`${L.action} not like 'invite_request%'`,
-        v.role === "owner" ? undefined : or(eq(L.actorUserId, v.userId), eq(L.subjectUserId, v.userId)),
+        v.all ? undefined : or(eq(L.actorUserId, v.userId), eq(L.subjectUserId, v.userId)),
         before ? lt(L.createdAt, new Date(before)) : undefined,
         q?.trim() ? sqlLike(L.text, `%${q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined,
       ),
@@ -56,7 +56,7 @@ export type InviteRequestRow = {
 };
 
 /** Pedidos de convite: quem administra vê todos; membro vê só os dele. */
-export async function getInviteRequests(v: { householdId: string; userId: string; role: string }): Promise<InviteRequestRow[]> {
+export async function getInviteRequests(v: { householdId: string; userId: string; role: string; all?: boolean }): Promise<InviteRequestRow[]> {
   const R = schema.inviteRequests;
   const I = schema.invites;
   const rows = await getDb()
@@ -77,7 +77,7 @@ export async function getInviteRequests(v: { householdId: string; userId: string
     .from(R)
     .innerJoin(schema.users, eq(schema.users.id, R.requestedBy))
     .leftJoin(I, eq(I.id, R.inviteId))
-    .where(and(eq(R.householdId, v.householdId), v.role === "owner" ? undefined : eq(R.requestedBy, v.userId)))
+    .where(and(eq(R.householdId, v.householdId), v.all ? undefined : eq(R.requestedBy, v.userId)))
     .orderBy(desc(R.createdAt))
     .limit(100);
   const now = Date.now();

@@ -38,7 +38,7 @@ export async function loadAuditFeed(input: { householdId: string; before?: strin
   const [house] = await getDb().select({ currency: schema.households.currency }).from(schema.households).where(eq(schema.households.id, input.householdId)).limit(1);
   if (!house) return { rows: [], next: null };
   const lookups = await getLookups(input.householdId);
-  const viewer = { householdId: input.householdId, userId: auditor.userId, participantId: null, role: "owner" as const };
+  const viewer = { householdId: input.householdId, userId: auditor.userId, participantId: null, role: "owner" as const, all: true };
   const r = await feedPage(viewer, lookups, house.currency, { audit: true, before: cursor(input.before), q: clean(input.q) });
   return { rows: r.items.map((x) => ({ id: x.id, when: x.when, actor: x.actor, text: x.text, detail: x.detail, href: null })), next: r.next };
 }

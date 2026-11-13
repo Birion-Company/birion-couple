@@ -47,7 +47,7 @@ export default async function SettingsPage() {
       <PeopleSections auth={auth} />
 
       <HistoryPanel
-        isAdmin={isAdmin}
+        isAdmin={false}
         family={{ rows: log.rows.map((x) => ({ id: x.id, when: x.createdAt.toISOString(), text: x.text })), next: log.next }}
         feed={{ rows: feed.items.map((x) => ({ id: x.id, when: x.when, actor: x.actor, text: x.text, detail: x.detail, href: x.href })), next: feed.next }}
       />

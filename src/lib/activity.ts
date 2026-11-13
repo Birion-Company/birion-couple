@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { isAdmin, type Viewer } from "./access";
+import { seesAll, type Viewer } from "./access";
 import { after } from "next/server";
 import { formatMoney } from "./money";
 import { pushActivity } from "./push-server";
@@ -210,7 +210,7 @@ export async function getActivityFeed(
   } = {},
 ): Promise<FeedItem[]> {
   const db = getDb();
-  if (!isAdmin(viewer) && !viewer.participantId) return [];
+  if (!seesAll(viewer) && !viewer.participantId) return [];
   const [m] = opts.audit
     ? [{ seen: new Date(0) }]
     : await db
@@ -230,7 +230,7 @@ export async function getActivityFeed(
         opts.audit ? undefined : or(isNull(a.actorUserId), ne(a.actorUserId, viewer.userId)),
         gt(a.createdAt, opts.audit ? new Date(0) : opts.all ? new Date(Date.now() - 60 * 86400000) : m.seen),
         opts.before ? lt(a.createdAt, opts.before) : undefined,
-        isAdmin(viewer) ? undefined : sql`json_contains(${a.audience}, ${JSON.stringify([viewer.participantId])})`,
+        seesAll(viewer) ? undefined : sql`json_contains(${a.audience}, ${JSON.stringify([viewer.participantId])})`,
       ),
     )
     .orderBy(desc(a.createdAt))
@@ -311,7 +311,7 @@ export async function getActivityFeed(
     if (share <= 0) return null;
     return [`${actor} atribuiu uma dívida a você: "${tx.description}"`, `você deve ${money(share)} para ${person(tx.payerId)}${tx.splits.length > 1 ? ` · total ${money(tx.amountCents)}` : ""}`];
   };
-  const visibleItems = (items: ActivityItem[] = []) => (isAdmin(viewer) ? items : items.filter((i) => me && i.a.includes(me)));
+  const visibleItems = (items: ActivityItem[] = []) => (seesAll(viewer) ? items : items.filter((i) => me && i.a.includes(me)));
 
   const out: FeedItem[] = [];
   for (const r of rows) {
@@ -407,7 +407,7 @@ export async function getActivityFeed(
       case "imported": {
         const n = visibleItems(d.items).length;
         if (n === 0) continue;
-        text = `${actor} importou ${n} ${n === 1 ? "lançamento" : "lançamentos"} de "${d.fileName ?? "arquivo"}" que envolvem ${isAdmin(viewer) ? "vocês" : "você"}`;
+        text = `${actor} importou ${n} ${n === 1 ? "lançamento" : "lançamentos"} de "${d.fileName ?? "arquivo"}" que envolvem você`;
         href = null;
         break;
       }
