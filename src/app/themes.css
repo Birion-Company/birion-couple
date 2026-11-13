@@ -82,7 +82,8 @@
 }
 @media (min-width: 900px) {
   :root[data-palette="jardim"] .sidebar {
-    border-right: 2px solid color-mix(in srgb, var(--brand) 38%, var(--line));
+    border-right-width: 1px;
+    box-shadow: inset -2px 0 0 color-mix(in srgb, var(--brand) 38%, var(--line));
     background: var(--brand-tint);
   }
   :root[data-palette="jardim"] .sidebar nav a {
@@ -1017,3 +1018,41 @@ html[data-navigating] .main {
 :root[data-palette="sobrio"] .static-layout .bar > span,
 :root[data-palette="sobrio"] .static-layout .bud-bar > span { border-radius: 999px !important; }
 :root[data-palette="sobrio"] .static-layout h2 { text-transform: none; font-size: 1.05rem; }
+
+/* =========================================================
+   Menu lateral: as categorias ficam sempre no mesmo lugar e do mesmo tamanho, em qualquer tema
+   (o tema muda cores e formas, não a posição nem o espaçamento dos itens)
+   ========================================================= */
+@media (min-width: 900px) {
+  :root:root:root .sidebar nav {
+    gap: 2px;
+  }
+  :root:root:root .sidebar nav a,
+  :root:root:root .sidebar nav a[aria-current="page"] {
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 9px 10px;
+    gap: 10px;
+    font-size: 15px;
+    line-height: 1.4;
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    border-bottom-width: 0;
+  }
+  :root:root:root .sidebar nav a[aria-current="page"] {
+    font-family: inherit;
+  }
+  :root:root:root .sidebar .brand {
+    padding: 4px 8px 20px;
+  }
+}
+
+/* Lavanda e Jardim: a borda do menu não pode empurrar os itens (desenhada por dentro, sem ocupar espaço) */
+@media (min-width: 900px) {
+  :root[data-palette="lavanda"] .sidebar {
+    border-width: 0 1px 0 0;
+    border-style: solid;
+  }
+}
