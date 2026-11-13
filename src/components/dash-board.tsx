@@ -8,7 +8,7 @@ import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 /** "wide" ocupa a linha toda; "card" divide a linha com os outros e se ajusta sozinho à largura. */
 export type DashKind = "wide" | "card";
-export type DashBlock = { id: string; label: string; size: DashKind; node: ReactNode };
+export type DashBlock = { id: string; label: string; size: DashKind; node: ReactNode; /** Ajusta-se ao próprio conteúdo: não estica até a altura do vizinho da linha. */ fit?: boolean };
 
 const KEY = "bf-dash-v1";
 /** Largura mínima de um cartão: quantas colunas cabem depende da área disponível. */
@@ -43,7 +43,7 @@ function Block({ block, span, editing }: { block: DashBlock; span: number; editi
     opacity: isDragging ? 0.85 : undefined,
   };
   return (
-    <div ref={setNodeRef} style={style} className={`dash-block${editing ? " editing" : ""}`}>
+    <div ref={setNodeRef} style={style} className={`dash-block${editing ? " editing" : ""}${block.fit ? " fit" : ""}`}>
       {editing && (
         <div className="dash-tools">
           <button type="button" className="dash-grip" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Mover ${block.label}`} title="Arraste para mover">
@@ -75,8 +75,25 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
 
   const ids = blocks.map((b) => b.id);
   // Ordem guardada primeiro; blocos novos (ou que mudaram de lugar no código) entram no fim, na ordem de sempre.
-  const order = [...saved.order.filter((id) => ids.includes(id)), ...ids.filter((id) => !saved.order.includes(id))];
   const byId = new Map(blocks.map((b) => [b.id, b]));
+  // Ordem de fábrica: nas sequências de cartões, os que se ajustam ao conteúdo (A pagar e a receber, Metas) vêm
+  // primeiro e ficam lado a lado, em vez de ao lado de um bloco alto (que deixaria um vazio embaixo deles).
+  const factory = (() => {
+    const out: string[] = [];
+    for (let i = 0; i < ids.length; ) {
+      if (byId.get(ids[i])!.size === "wide") {
+        out.push(ids[i++]);
+        continue;
+      }
+      let j = i;
+      while (j < ids.length && byId.get(ids[j])!.size === "card") j++;
+      const run = ids.slice(i, j);
+      out.push(...run.filter((id) => byId.get(id)!.fit), ...run.filter((id) => !byId.get(id)!.fit));
+      i = j;
+    }
+    return out;
+  })();
+  const order = [...saved.order.filter((id) => ids.includes(id)), ...factory.filter((id) => !saved.order.includes(id))];
   // Quantas colunas cabem na área agora (muda com a página larga e com a tela).
   useEffect(() => {
     const el = gridRef.current;

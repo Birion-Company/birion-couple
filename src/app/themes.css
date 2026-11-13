@@ -1065,3 +1065,14 @@ html[data-navigating] .main {
 .couple-ghost svg {
   color: var(--brand-strong);
 }
+
+/* Blocos que se ajustam ao conteúdo (A pagar e a receber, Metas): não esticam até a altura do vizinho */
+.dash-block.fit {
+  align-self: start;
+}
+.dash-block.fit .dash-body > .card {
+  height: auto;
+}
+.dash-block.fit .card-head {
+  margin-bottom: 8px;
+}

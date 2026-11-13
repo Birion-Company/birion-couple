@@ -401,6 +401,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                           id: "posicao",
                           label: "A pagar e a receber",
                           size: "card" as const,
+                          fit: true,
                           node: (
             <section className="card" aria-labelledby="posicao">
               <div className="card-head">
@@ -433,6 +434,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                           id: "metas",
                           label: "Metas",
                           size: "card" as const,
+                          fit: true,
                           node: (
             <section className="card" aria-labelledby="metas-painel">
               <div className="card-head">
