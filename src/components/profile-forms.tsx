@@ -19,6 +19,10 @@ export async function squareJpeg(file: File, size = 320): Promise<string> {
   canvas.height = size;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas");
+  // JPEG não tem transparência: sem um fundo, PNG/WebP com cantos transparentes (comum em fotos
+  // recortadas em círculo, vindas do computador) ficariam com borda preta.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, size, size);
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, size, size);
   bitmap.close();
