@@ -1240,9 +1240,11 @@ export async function getCoupleMonth(viewer: Viewer, month: string) {
   // Acerto entre as duas pessoas: só o que um pagou e coube ao outro (mesmo cálculo das Dívidas). Pagar por um
   // terceiro (mãe, amigo) não cria dívida da outra pessoa do casal. Positivo = o par te deve.
   const net = partnerId ? (pairwiseFor(me, rows.filter((r) => !r.blocked)).get(partnerId) ?? 0) : 0;
-  const expenses = rows.filter((r) => r.kind === "expense" && !r.blocked);
-  const refunds = rows.filter((r) => r.kind === "income" && r.cardId);
   const share = (r: TxRow, id: string) => r.splits.find((s) => s.participantId === id)?.amountCents ?? 0;
+  // "Nós dois" é só o que as duas pessoas dividem: lançamentos em que as duas têm parte. O resto é pessoal de cada uma.
+  const bothShare = (r: TxRow) => pair.length === 2 && pair.every((id) => share(r, id) > 0);
+  const expenses = rows.filter((r) => r.kind === "expense" && !r.blocked && bothShare(r));
+  const refunds = rows.filter((r) => r.kind === "income" && r.cardId && bothShare(r));
   const per = new Map<string, { consumed: number; paid: number }>(pair.map((id) => [id, { consumed: 0, paid: 0 }]));
   const byCategory = new Map<string, number>();
   let together = 0;

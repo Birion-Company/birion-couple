@@ -77,13 +77,14 @@ export default async function CouplePage({ searchParams }: { searchParams: Promi
 
       <section className="couple-stats">
         <div className="st-cell rise" style={{ "--i": 3 } as React.CSSProperties}>
-          <span className="st-label">Gastamos em {monthName}</span>
-          <strong className="st-value neg"><CountMoney cents={data.totalConsumed} currency={cur} /></strong>
+          <span className="st-label">Gastamos juntos em {monthName}</span>
+          <strong className="st-value neg"><CountMoney cents={data.together} currency={cur} /></strong>
+          <span className="faint">{data.sharedCount} {data.sharedCount === 1 ? "gasto" : "gastos"} dos dois</span>
         </div>
         <div className="st-cell rise" style={{ "--i": 4 } as React.CSSProperties}>
-          <span className="st-label">Dividido entre nós</span>
-          <strong className="st-value"><CountMoney cents={data.together} currency={cur} /></strong>
-          <span className="faint">{data.sharedCount} {data.sharedCount === 1 ? "gasto" : "gastos"} juntos</span>
+          <span className="st-label">Sua parte</span>
+          <strong className="st-value"><CountMoney cents={mine.consumed} currency={cur} /></strong>
+          <span className="faint">{partnerName}: <Money cents={theirs.consumed} currency={cur} /></span>
         </div>
         <div className="st-cell st-final rise" style={{ "--i": 5 } as React.CSSProperties}>
           <span className="st-label">Acerto do mês</span>
