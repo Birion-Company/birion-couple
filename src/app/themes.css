@@ -598,7 +598,7 @@ html.vt-reveal::view-transition-new(root) {
   y: 1px;
   width: calc(100% - 2px);
   height: calc(100% - 2px);
-  rx: 13px;
+  rx: max(0px, calc(var(--radius-sm, 14px) - 1px));
   fill: none;
   stroke: var(--ants, var(--brand));
   stroke-width: 2px;
@@ -1055,4 +1055,13 @@ html[data-navigating] .main {
     border-width: 0 1px 0 0;
     border-style: solid;
   }
+}
+
+/* Os blocos de fatura e o tracejado seguem os cantos do tema (o tracejado acompanha o contorno do bloco) */
+.card-stat {
+  border-radius: var(--radius-sm, 14px);
+}
+/* "Falta o seu par": o ícone não pode herdar a cor apagada dos estados vazios */
+.couple-ghost svg {
+  color: var(--brand-strong);
 }
