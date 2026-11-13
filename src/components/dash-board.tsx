@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 /** "wide" ocupa a linha toda; "card" divide a linha com os outros e se ajusta sozinho à largura. */
 export type DashKind = "wide" | "card";
@@ -134,6 +134,23 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
     setSaved(next);
     save(next);
   };
+  // Celular (uma coluna): em vez de arrastar blocos grandes, uma lista curta com subir e descer.
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 899px)");
+    const on = () => setCompact(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const [moved, setMoved] = useState<string | null>(null);
+  const move = (id: string, dir: -1 | 1) => {
+    const from = order.indexOf(id);
+    const to = from + dir;
+    if (from < 0 || to < 0 || to >= order.length) return;
+    commit({ ...saved, order: arrayMove(order, from, to) });
+    setMoved(id);
+  };
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
     const from = order.indexOf(String(e.active.id));
@@ -153,9 +170,25 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
           </button>
         )}
       </div>
+      {editing && compact ? (
+        <ol className="dash-order" aria-label="Ordem dos blocos">
+          {order.map((id, i) => (
+            <li key={id} className={moved === id ? "moved" : undefined} onAnimationEnd={() => setMoved(null)}>
+              <span className="dash-order-n">{i + 1}</span>
+              <span className="dash-order-label">{byId.get(id)!.label}</span>
+              <button type="button" className="icon-btn" onClick={() => move(id, -1)} disabled={i === 0} aria-label={`Subir ${byId.get(id)!.label}`}>
+                <ArrowUp size={18} />
+              </button>
+              <button type="button" className="icon-btn" onClick={() => move(id, 1)} disabled={i === order.length - 1} aria-label={`Descer ${byId.get(id)!.label}`}>
+                <ArrowDown size={18} />
+              </button>
+            </li>
+          ))}
+        </ol>
+      ) : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={rectSortingStrategy}>
-          <div className="dash-grid" ref={gridRef}>
+          <div className="dash-grid" ref={gridRef} style={editing && compact ? { display: "none" } : undefined}>
             {order.map((id) => {
               const b = byId.get(id)!;
               return <Block key={id} block={b} span={spans.get(id) ?? 12} editing={editing} />;

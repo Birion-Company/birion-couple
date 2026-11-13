@@ -21,7 +21,7 @@ const SECTIONS: Section[] = [
     id: "menu",
     title: "Onde fica cada coisa",
     items: [
-      { term: "Início", text: "O seu mês: o que entrou, saiu e o que você deve ou tem a receber. Arraste os blocos em Organizar." },
+      { term: "Início", text: "O seu mês: o que entrou, saiu e o que você deve ou tem a receber. Em Organizar você muda a ordem dos blocos: arrastando no computador, com as setas no celular." },
       { term: "Nós dois (modo casal)", text: "Aparece quando o seu par entra pelo convite: só o que vocês dividem, a parte de cada um e quem deve a quem. Sem par, o menu mostra Modo casal para habilitar." },
       { term: "Movimentação", text: "Tudo o que entrou e saiu no mês, com busca e filtros." },
       { term: "Acerto", text: "Quem deve a quem. Quando acertarem, registre o pagamento." },
