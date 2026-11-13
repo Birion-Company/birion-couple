@@ -26,3 +26,20 @@ describe("matchCategory", () => {
     expect(matchCategory("Loja 1999 Ltda", rules)).toBeNull();
   });
 });
+
+import { missingDefaultRules } from "@/lib/default-rules";
+describe("missingDefaultRules", () => {
+  const pats = (name: string) => missingDefaultRules([{ id: "c", name }], []).map((r) => r.pattern);
+  it("Comida recebe as regras de restaurantes", () => {
+    expect(pats("Comida")).toEqual(expect.arrayContaining(["ifood", "mcdonald", "99food".slice(0, 0) + "pizza"]));
+  });
+  it("Alimentação recebe restaurantes e mercado", () => {
+    expect(pats("Alimentação")).toEqual(expect.arrayContaining(["ifood", "carrefour"]));
+  });
+  it("Compras é própria: amazon sim, ifood e lazer não", () => {
+    const p = pats("Compras");
+    expect(p).toContain("amazon");
+    expect(p).not.toContain("ifood");
+    expect(p).not.toContain("cinema");
+  });
+});

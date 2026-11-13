@@ -46,6 +46,7 @@ export const DEFAULT_CATEGORIES = [
   { name: "Moradia", icon: "home", color: "#5B7FDB" },
   { name: "Transporte", icon: "car", color: "#E0A526" },
   { name: "Saúde", icon: "health", color: "#E26D5C" },
+  { name: "Compras", icon: "bag", color: "#E8788F" },
   { name: "Lazer", icon: "party", color: "#A77BDB" },
   { name: "Educação", icon: "education", color: "#1AC4DB" },
   { name: "Assinaturas", icon: "tv", color: "#D46BA3" },

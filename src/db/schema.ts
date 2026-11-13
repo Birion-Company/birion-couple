@@ -434,6 +434,21 @@ export const autoAcceptRules = pgTable(
   (t) => [index("auto_accept_rules_household_idx").on(t.householdId)],
 );
 
+/**
+ * Chave pessoal para "compra recebida" (rota /api/compra): quem tem a chave lança compras no cartão da pessoa.
+ * Só o hash fica guardado; a chave aparece uma vez, quando é criada.
+ */
+export const purchaseKeys = pgTable("purchase_keys", {
+  userId: uuid()
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  keyHash: text().notNull().unique(),
+  /** Começo da chave, só para a pessoa reconhecer qual é. */
+  prefix: text().notNull(),
+  lastUsedAt: timestamp({ withTimezone: true }),
+  createdAt: createdAt(),
+});
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()

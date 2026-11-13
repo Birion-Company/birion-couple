@@ -13,7 +13,9 @@ export const DEFAULT_RULES: Record<string, string[]> = {
   Restaurantes: [
     "uber eats", "ubereats", "ifood", "rappi", "99food", "mcdonald", "burger king", "bk brasil", "subway", "outback", "habibs", "giraffas", "spoleto",
     "china in box", "pizza", "pizzaria", "restaurante", "lanchonete", "hamburgueria", "churrascaria", "sushi", "starbucks", "cafeteria", "padaria",
-    "doceria", "sorveteria", "bar do", "boteco",
+    "doceria", "sorveteria", "bar do", "boteco", "kfc", "pizza hut", "dominos", "domino s", "bobs", "bob s", "madero", "coco bambu", "ze delivery",
+    "lanche", "lanches", "marmita", "marmitex", "acai", "pastelaria", "esfiha", "japones", "temakeria", "cafe ", "bistro", "rodizio", "cantina",
+    "ifood *", "rest ", "grill", "bakery", "confeitaria", "casa do pao", "kopenhagen", "cacau show", "brasil cacau", "ben jerry", "gelato",
   ],
   Mercado: [
     "supermercado", "carrefour", "pao de acucar", "assai", "atacadao", "extra hiper", "dia supermercado", "hortifruti", "sacolao",
@@ -39,10 +41,44 @@ export const DEFAULT_RULES: Record<string, string[]> = {
     "escola", "colegio", "faculdade", "universidade", "curso", "udemy", "alura", "coursera", "duolingo", "wizard", "ccaa",
     "fisk", "cultura inglesa", "livraria", "saraiva", "estante virtual", "kindle",
   ],
+  Compras: [
+    "amazon", "mercado livre", "mercadolivre", "shopee", "aliexpress", "shein", "magazine luiza", "magalu", "americanas", "submarino", "casas bahia",
+    "ponto frio", "kabum", "fast shop", "carrefour.com", "renner", "c&a", "riachuelo", "marisa", "zara", "hering", "farm rio", "netshoes", "centauro",
+    "decathlon", "dafiti", "zattini", "natura", "boticario", "o boticario", "sephora", "miniso", "daiso", "etna", "camicado", "havaianas",
+    "arezzo", "schutz",
+  ],
   Lazer: [
     "cinema", "cinemark", "kinoplex", "uci cinemas", "ingresso", "sympla", "eventim", "ticketmaster", "steam", "epic games", "psn", "xbox", "nuuvem", "teatro",
     "show ", "parque", "hopi hari", "beto carrero", "hotel", "airbnb", "booking", "decolar", "cvc",
   ],
+};
+
+/** Outros nomes que as famílias dão às categorias ("Comida" recebe as regras de Restaurantes). */
+const ALIASES: Record<string, string[]> = {
+  comida: ["Restaurantes"],
+  alimentacao: ["Restaurantes", "Mercado"],
+  refeicoes: ["Restaurantes"],
+  delivery: ["Restaurantes"],
+  lanches: ["Restaurantes"],
+  restaurante: ["Restaurantes"],
+  "comer fora": ["Restaurantes"],
+  supermercado: ["Mercado"],
+  feira: ["Mercado"],
+  shopping: ["Compras"],
+  roupas: ["Compras"],
+  "compras gerais": ["Compras"],
+  carro: ["Transporte"],
+  veiculo: ["Transporte"],
+  combustivel: ["Transporte"],
+  farmacia: ["Saude"],
+  academia: ["Saude"],
+  streaming: ["Assinaturas"],
+  casa: ["Moradia"],
+  contas: ["Moradia"],
+  escola: ["Educacao"],
+  estudos: ["Educacao"],
+  diversao: ["Lazer"],
+  viagem: ["Lazer"],
 };
 
 const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -57,10 +93,27 @@ export const categoryKey = fold;
 export function missingDefaultRules(categories: { id: string; name: string }[], existingPatterns: string[]) {
   const have = new Set(existingPatterns.map(fold));
   const out: { categoryId: string; pattern: string }[] = [];
+  const keyOf = (name: string) => Object.keys(DEFAULT_RULES).find((k) => fold(k) === fold(name));
   for (const c of categories) {
-    for (const pattern of DEFAULT_RULES[Object.keys(DEFAULT_RULES).find((k) => fold(k) === fold(c.name)) ?? ""] ?? []) {
-      if (!have.has(fold(pattern))) out.push({ categoryId: c.id, pattern });
+    const keys = [...new Set([keyOf(c.name), ...(ALIASES[fold(c.name)] ?? []).map(keyOf)].filter((k): k is string => !!k))];
+    for (const key of keys) {
+      for (const pattern of DEFAULT_RULES[key]) {
+        if (have.has(fold(pattern))) continue;
+        have.add(fold(pattern));
+        out.push({ categoryId: c.id, pattern });
+      }
     }
   }
   return out;
+}
+
+/** Para a migração: pares (nome da categoria sem acento, texto) de tudo o que as regras prontas cobrem. */
+export function defaultRulePairs(): [string, string][] {
+  const names = [...Object.keys(DEFAULT_RULES).map(fold), ...Object.keys(ALIASES)];
+  const pairs: [string, string][] = [];
+  for (const n of names) {
+    const keys = [...(Object.keys(DEFAULT_RULES).find((k) => fold(k) === n) ? [Object.keys(DEFAULT_RULES).find((k) => fold(k) === n)!] : []), ...(ALIASES[n] ?? [])];
+    for (const k of new Set(keys)) for (const p of DEFAULT_RULES[Object.keys(DEFAULT_RULES).find((x) => fold(x) === fold(k))!]) pairs.push([n, fold(p)]);
+  }
+  return pairs;
 }
