@@ -9136,7 +9136,19 @@ body.modal-open .new-fab {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+}
+/* Cartões da mesma linha ficam com a mesma altura */
+.dash-block {
+  display: flex;
+  flex-direction: column;
+}
+.dash-body {
+  flex: 1;
+  min-width: 0;
+}
+.dash-body > .card {
+  height: 100%;
 }
 .dash-block {
   min-width: 0;
@@ -9179,11 +9191,6 @@ body.modal-open .new-fab {
 .dash-body.no-click {
   pointer-events: none;
   user-select: none;
-}
-@media (max-width: 899px) {
-  .dash-block {
-    grid-column: 1 / -1 !important;
-  }
 }
 
 /* Página larga: a área de conteúdo estica para os dois lados */

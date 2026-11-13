@@ -1,28 +1,31 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Maximize2, Minimize2, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { GripVertical, Maximize2, RotateCcw, SlidersHorizontal } from "lucide-react";
 
-export type DashSize = "small" | "medium" | "full";
-export type DashBlock = { id: string; label: string; size: DashSize; node: ReactNode };
+/** "wide" ocupa a linha toda; "card" divide a linha com os outros e se ajusta sozinho à largura. */
+export type DashKind = "wide" | "card";
+export type DashBlock = { id: string; label: string; size: DashKind; node: ReactNode };
 
 const KEY = "bf-dash-v1";
 const WIDE_KEY = "bf-wide";
-const SPAN: Record<DashSize, number> = { small: 4, medium: 6, full: 12 };
-const NEXT: Record<DashSize, DashSize> = { small: "medium", medium: "full", full: "small" };
-const SIZE_NAME: Record<DashSize, string> = { small: "pequeno", medium: "médio", full: "inteiro" };
+/** Largura mínima de um cartão: quantas colunas cabem depende da área disponível. */
+const CARD_MIN = 340;
+const GAP = 16;
+/** Colunas que cabem, arredondadas para baixo até um número que divide a grade de 12 (1, 2, 3, 4 ou 6). */
+const fit = (n: number) => [6, 4, 3, 2, 1].find((c) => c <= n) ?? 1;
 
-type Saved = { order: string[]; sizes: Record<string, DashSize> };
+type Saved = { order: string[] };
 
 function load(): Saved {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    if (raw && Array.isArray(raw.order) && raw.sizes && typeof raw.sizes === "object") return raw;
+    if (raw && Array.isArray(raw.order)) return { order: raw.order.filter((x: unknown) => typeof x === "string") };
   } catch {}
-  return { order: [], sizes: {} };
+  return { order: [] };
 }
 
 function save(s: Saved) {
@@ -38,25 +41,22 @@ export function applyWide(on: boolean) {
   else root.removeAttribute("data-wide");
 }
 
-function Block({ block, size, editing, onSize }: { block: DashBlock; size: DashSize; editing: boolean; onSize: () => void }) {
+function Block({ block, span, editing }: { block: DashBlock; span: number; editing: boolean }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: block.id, disabled: !editing });
   const style: CSSProperties = {
-    gridColumn: `span ${SPAN[size]}`,
+    gridColumn: `span ${span}`,
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 5 : undefined,
     opacity: isDragging ? 0.85 : undefined,
   };
   return (
-    <div ref={setNodeRef} style={style} className={`dash-block s-${size}${editing ? " editing" : ""}`}>
+    <div ref={setNodeRef} style={style} className={`dash-block${editing ? " editing" : ""}`}>
       {editing && (
         <div className="dash-tools">
           <button type="button" className="dash-grip" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Mover ${block.label}`} title="Arraste para mover">
             <GripVertical size={16} />
             <span>{block.label}</span>
-          </button>
-          <button type="button" className="dash-size" onClick={onSize} aria-label={`Tamanho de ${block.label}: ${SIZE_NAME[size]}. Trocar`} title={`Tamanho: ${SIZE_NAME[size]}`}>
-            {size === "full" ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
         </div>
       )}
@@ -66,11 +66,12 @@ function Block({ block, size, editing, onSize }: { block: DashBlock; size: DashS
 }
 
 /**
- * Blocos do painel que cada pessoa organiza do seu jeito: arrastar para mudar a ordem, trocar o tamanho
- * (pequeno, médio, inteiro) e deixar a página mais larga. Fica guardado neste aparelho.
+ * Blocos do painel que cada pessoa organiza do seu jeito: arrastar para mudar a ordem, e deixar a página mais larga. Os cartões se encaixam sozinhos na área (colunas iguais, sem sobra no fim). Fica guardado neste aparelho.
  */
 export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
-  const [saved, setSaved] = useState<Saved>({ order: [], sizes: {} });
+  const [saved, setSaved] = useState<Saved>({ order: [] });
+  const [cols, setCols] = useState(1);
+  const gridRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [wide, setWide] = useState(false);
 
@@ -86,7 +87,35 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
   // Ordem guardada primeiro; blocos novos (ou que mudaram de lugar no código) entram no fim, na ordem de sempre.
   const order = [...saved.order.filter((id) => ids.includes(id)), ...ids.filter((id) => !saved.order.includes(id))];
   const byId = new Map(blocks.map((b) => [b.id, b]));
-  const sizeOf = (b: DashBlock) => saved.sizes[b.id] ?? b.size;
+  // Quantas colunas cabem na área agora (muda com a página larga e com a tela).
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const measure = () => setCols(fit(Math.floor((el.clientWidth + GAP) / (CARD_MIN + GAP))));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Largura de cada bloco numa grade de 12 partes: "wide" pega a linha toda; os cartões se dividem por igual
+  // em cada linha (a última linha incompleta também fecha certinho, sem buraco).
+  const spans = new Map<string, number>();
+  for (let i = 0; i < order.length; ) {
+    if (byId.get(order[i])!.size === "wide") {
+      spans.set(order[i], 12);
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < order.length && byId.get(order[j])!.size === "card") j++;
+    for (let r = i; r < j; r += cols) {
+      const row = order.slice(r, Math.min(j, r + cols));
+      const base = Math.floor(12 / row.length);
+      const extra = 12 - base * row.length;
+      row.forEach((id, k) => spans.set(id, base + (k >= row.length - extra ? 1 : 0)));
+    }
+    i = j;
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -124,17 +153,17 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
           <SlidersHorizontal size={15} /> {editing ? "Pronto" : "Organizar"}
         </button>
         {editing && (
-          <button type="button" className="btn" onClick={() => commit({ order: [], sizes: {} })}>
+          <button type="button" className="btn" onClick={() => commit({ order: [] })}>
             <RotateCcw size={15} /> Voltar ao padrão
           </button>
         )}
       </div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={order} strategy={rectSortingStrategy}>
-          <div className="dash-grid">
+          <div className="dash-grid" ref={gridRef}>
             {order.map((id) => {
               const b = byId.get(id)!;
-              return <Block key={id} block={b} size={sizeOf(b)} editing={editing} onSize={() => commit({ ...saved, order, sizes: { ...saved.sizes, [id]: NEXT[sizeOf(b)] } })} />;
+              return <Block key={id} block={b} span={spans.get(id) ?? 12} editing={editing} />;
             })}
           </div>
         </SortableContext>

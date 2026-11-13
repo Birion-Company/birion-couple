@@ -162,7 +162,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           {
             id: "resumo",
             label: "Resumo",
-            size: "full",
+            size: "wide",
             node: (
               <>
       {mode === "me" ? (
@@ -254,13 +254,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
               </>
             ),
           },
-          { id: "meses", label: "Próximos meses", size: "full", node: <MonthOutlook months={outlook} selected={month} current={current} filters={filters} currency={cur} /> },
+          { id: "meses", label: "Próximos meses", size: "wide", node: <MonthOutlook months={outlook} selected={month} current={current} filters={filters} currency={cur} /> },
           ...(diff > 0
             ? [
                 {
                   id: "plan",
                   label: "Já lançado",
-                  size: "full" as const,
+                  size: "wide" as const,
                   node: (
         <section className="card section" aria-labelledby="plan">
           <div className="card-head">
@@ -297,7 +297,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                   {
                     id: "vazio",
                     label: "Começar",
-                    size: "full" as const,
+                    size: "wide" as const,
                     node: (
         <div className="card section">
           <div className="empty">
@@ -316,7 +316,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                   {
                     id: "recent",
                     label: "Últimos lançamentos",
-                    size: "medium" as const,
+                    size: "card" as const,
                     node: (
           <section className="card" aria-labelledby="recent" data-tour="dash-recent">
             <div className="card-head">
@@ -338,7 +338,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                         {
                           id: "orc",
                           label: "Orçamento",
-                          size: "medium" as const,
+                          size: "card" as const,
                           node: (
             <section className="card" aria-labelledby="orc">
               <div className="card-head">
@@ -374,7 +374,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                         {
                           id: "posicao",
                           label: "Minha posição",
-                          size: "medium" as const,
+                          size: "card" as const,
                           node: (
             <section className="card" aria-labelledby="posicao">
               <div className="card-head">
@@ -417,7 +417,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                         {
                           id: "metas",
                           label: "Metas",
-                          size: "medium" as const,
+                          size: "card" as const,
                           node: (
             <section className="card" aria-labelledby="metas-painel">
               <div className="card-head">
@@ -450,7 +450,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                   {
                     id: "cats",
                     label: "Gastos por categoria",
-                    size: "medium" as const,
+                    size: "card" as const,
                     node: (
           <section className="card" aria-labelledby="cats">
             <div className="card-head">
