@@ -49,8 +49,8 @@ export default async function CouplePage({ searchParams }: { searchParams: Promi
   const mine = data.per[data.me];
   const theirs = data.per[data.partnerId!];
   const maxPaid = Math.max(1, mine.paid, theirs.paid);
-  // Quem pagou mais do que consumiu "adiantou" para o outro: a diferença é o acerto entre vocês.
-  const meNet = mine.paid - mine.consumed;
+  // O acerto é só o que um pagou e coube ao outro: pagar por um terceiro não entra.
+  const meNet = data.net;
   const partnerName = partner.name.split(" ")[0];
   const prev = addMonthsKey(month, -1);
   const next = addMonthsKey(month, 1);

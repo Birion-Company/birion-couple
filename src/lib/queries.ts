@@ -1237,6 +1237,9 @@ export async function getCoupleMonth(viewer: Viewer, month: string) {
     (await db.select(txColumns).from(t).where(whereFor({ ...viewer, all: true }, f)).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
   );
   const pair = [me, partnerId].filter(Boolean) as string[];
+  // Acerto entre as duas pessoas: só o que um pagou e coube ao outro (mesmo cálculo das Dívidas). Pagar por um
+  // terceiro (mãe, amigo) não cria dívida da outra pessoa do casal. Positivo = o par te deve.
+  const net = partnerId ? (pairwiseFor(me, rows.filter((r) => !r.blocked)).get(partnerId) ?? 0) : 0;
   const expenses = rows.filter((r) => r.kind === "expense" && !r.blocked);
   const refunds = rows.filter((r) => r.kind === "income" && r.cardId);
   const share = (r: TxRow, id: string) => r.splits.find((s) => s.participantId === id)?.amountCents ?? 0;
@@ -1264,6 +1267,7 @@ export async function getCoupleMonth(viewer: Viewer, month: string) {
     me,
     partnerId,
     per: Object.fromEntries(per),
+    net,
     totalConsumed,
     together,
     sharedCount: shared.length,
