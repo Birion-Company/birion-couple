@@ -4605,12 +4605,13 @@ details.ledger > .rows + .ledger-upcoming {
     --ol-track: 100px;
   }
   .outlook-bars {
-    grid-template-columns: 40px repeat(13, 40px);
+    /* O valor do eixo ("R$ 6,2 mil") não cabe em 40px e ficava cortado na borda. */
+    grid-template-columns: 54px repeat(13, 40px);
     overflow-x: auto;
     padding: 18px 2px 4px;
   }
   .outlook-gridline {
-    left: 40px;
+    left: 54px;
   }
   .month-arrow {
     width: 40px;
@@ -9885,4 +9886,17 @@ body.modal-open .new-fab {
   align-items: center;
   gap: 6px;
   cursor: pointer;
+}
+
+/* Selos de quem deve/pagou em tela estreita: o texto quebra dentro do selo (o valor fica inteiro,
+   com espaço não separável), e a bolinha e o ícone não pulam para outra linha. */
+.who-badge {
+  flex-wrap: nowrap;
+  white-space: normal;
+  max-width: 100%;
+  border-radius: 14px;
+}
+.who-badge > .avatar,
+.who-badge > svg {
+  flex: none;
 }

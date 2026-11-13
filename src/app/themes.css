@@ -717,6 +717,8 @@ html[data-navigating] .main {
 /* ---------- Painel do casal ---------- */
 .couple-page {
   display: grid;
+  /* Sem isto a coluna cresce até o conteúdo mais largo e, no celular, a página fica mais larga que a tela. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
 }
 .couple-hero {
@@ -1082,3 +1084,9 @@ html[data-navigating] .main {
 :root[data-palette="sobrio"] .couple-ghost,
 :root[data-palette="sobrio"] .couple-hero-faces .avatar { border-radius: 50% !important; }
 :root[data-palette="sobrio"] .auth-scene .brand-title { font-weight: 700; }
+
+/* Valores do resumo do mês: o sinal e o número não se separam em linhas diferentes. */
+.st-gap-rows strong,
+.st-gap-result strong {
+  white-space: nowrap;
+}
