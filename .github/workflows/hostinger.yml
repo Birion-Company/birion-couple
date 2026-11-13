@@ -1,0 +1,45 @@
+name: Pacote para a Hostinger
+
+# A cada push na main, compila o app num Linux novo (o servidor da Hostinger tem uma biblioteca do sistema
+# antiga e não consegue compilar o Next 16) e publica só o resultado pronto na branch "hostinger".
+# Na Hostinger, o aplicativo Node.js é ligado a essa branch, sem etapa de build.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pacote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          BUILD_STANDALONE: "1"
+      - name: Monta o pacote
+        run: |
+          rm -rf dist && mkdir dist
+          cp -r .next/standalone/. dist/
+          mkdir -p dist/.next && cp -r .next/static dist/.next/static
+          cp -r public dist/public
+          mkdir -p dist/netlify/database && cp -r netlify/database/migrations dist/netlify/database/migrations
+          cat > dist/package.json <<'JSON'
+          { "name": "birion-couple", "private": true, "scripts": { "start": "node server.js" }, "engines": { "node": ">=20.9.0" } }
+          JSON
+      - name: Publica na branch hostinger
+        run: |
+          cd dist
+          git init -q -b hostinger
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Pacote pronto de ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" hostinger
