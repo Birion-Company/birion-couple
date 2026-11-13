@@ -5372,12 +5372,15 @@ html.modal-open {
   padding: 24px 0;
 }
 @media (max-width: 640px) {
+  /* Em bloco (e não em grade esticada): a janela cresce junto com o formulário. Na grade ela ficava com a altura
+     da tela e, ao rolar, o resto do formulário aparecia sem fundo, com a lista de trás aparecendo. */
   .tx-modal-backdrop {
+    display: block;
     padding: 0;
-    place-items: stretch;
   }
   .tx-modal {
     min-height: 100dvh;
+    height: auto;
     border-radius: 0;
     border: 0;
     padding: max(14px, env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom));
