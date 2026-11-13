@@ -10,7 +10,7 @@ import type { ActionResult } from "./settings";
 
 /**
  * "Confirmar" uma compra recebida de fora (A identificar): ela passa a valer nas listas, na fatura e nas dívidas.
- * Se a pessoa atribuiu a divisão a alguém, esse alguém é avisado agora (e pode aceitar, ou a regra de aceite automático aceita).
+ * Se a pessoa atribuiu a divisão a alguém, esse alguém é avisado agora (e pode aceitar).
  */
 export async function confirmPurchase(id: string): Promise<ActionResult> {
   const auth = await requireAuth();

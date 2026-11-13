@@ -442,7 +442,7 @@ export function ImportWizard({
             </div>
             <div className="rows">
               {rows.map((r) => (
-                <div key={r.key} className={`row ${r.duplicate ? "dup" : ""}`}>
+                <div key={r.key} className={`row imp-row ${r.duplicate ? "dup" : ""}`}>
                   <input
                     type="checkbox"
                     aria-label={`Importar ${r.description}`}
@@ -473,7 +473,7 @@ export function ImportWizard({
                           disabled={!!noCats[r.key]}
                           onChange={(v) => setCats((c) => ({ ...c, [r.key]: v }))}
                           options={catOptions}
-                          style={{ minHeight: 32, padding: "4px 10px", fontSize: "0.8rem", marginTop: 6, maxWidth: 220 }}
+                          style={{ minHeight: 36, padding: "4px 10px", fontSize: "0.85rem", marginTop: 6 }}
                         />
                         <span className="check no-category small">
                           <input id={`imp-nocat-${r.key}`} type="checkbox" checked={!!noCats[r.key]} onChange={(e) => setNoCats((c) => ({ ...c, [r.key]: e.target.checked }))} />
@@ -491,8 +491,8 @@ export function ImportWizard({
             </div>
           </section>
 
-          <div className="card section" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div className="grow" style={{ flex: 1 }}>
+          <div className="card section imp-bar">
+            <div className="grow" style={{ flex: 1, minWidth: 0 }}>
               <p>{chosen.length} selecionadas</p>
               <p className="faint">
                 {formatMoney(totalOut, currency)} em saídas · {formatMoney(totalIn, currency)} em entradas

@@ -114,9 +114,10 @@ export function AppearancePanel() {
         </div>
       </section>
 
-      <section className="card form">
+      {/* Só no computador: no celular a página já ocupa a tela toda e a opção não muda nada. */}
+      <section className="card form wide-panel">
         <h2>Largura das páginas</h2>
-        <p className="faint">Vale para todas as abas do menu.</p>
+        <p className="faint">Vale para todas as abas do menu, no computador.</p>
         <div className="opt-row" role="group" aria-label="Largura das páginas">
           {WIDTHS.map((w) => (
             <button key={w.id} type="button" className={`opt wide-opt${wide === w.id ? " on" : ""}`} aria-pressed={wide === w.id} onClick={() => pickWide(w.id)}>

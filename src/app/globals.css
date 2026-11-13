@@ -9900,3 +9900,48 @@ body.modal-open .new-fab {
 .who-badge > svg {
   flex: none;
 }
+
+/* Importação: cada linha com a caixa e o valor alinhados ao nome (e não ao meio da linha) e a categoria embaixo. */
+.imp-row {
+  align-items: flex-start;
+}
+.imp-row > input[type="checkbox"] {
+  margin-top: 2px;
+}
+.imp-row > .amount {
+  padding-top: 1px;
+}
+.imp-row .cat-cell .bf-select {
+  width: 100%;
+  max-width: 260px;
+}
+.imp-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+@media (max-width: 899px) {
+  /* "Importar N" sempre à mão, preso acima da barra de baixo; o + e o "voltar para cima" saem para não cobrir. */
+  .imp-bar {
+    position: sticky;
+    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);
+    z-index: 30;
+    flex-wrap: nowrap;
+    box-shadow: 0 -6px 24px rgb(0 0 0 / 0.28);
+  }
+  .imp-bar .faint {
+    font-size: 0.78rem;
+  }
+  .imp-bar .btn {
+    flex: none;
+  }
+  body:has(.imp-bar) .new-fab,
+  body:has(.imp-bar) .to-top {
+    display: none;
+  }
+  /* Largura das páginas só muda algo no computador. */
+  .wide-panel {
+    display: none;
+  }
+}

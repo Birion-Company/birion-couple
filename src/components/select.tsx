@@ -135,9 +135,10 @@ export function Select({
     };
   }, [open, place]);
 
-  // Com pesquisa: o cursor vai direto para o campo ao abrir.
+  // Com pesquisa: o cursor vai direto para o campo ao abrir, só com mouse. No celular isso abria o teclado
+  // sozinho, a tela encolhia e a lista pulava de lugar; lá a pessoa toca no campo se quiser pesquisar.
   useEffect(() => {
-    if (open && withSearch) searchRef.current?.focus({ preventScroll: true });
+    if (open && withSearch && window.matchMedia("(pointer: fine)").matches) searchRef.current?.focus({ preventScroll: true });
   }, [open, withSearch]);
 
   // Mantém a opção ativa visível ao navegar pelo teclado.

@@ -29,7 +29,7 @@ const TABS: { href: string; label: string; help: string; danger?: boolean; needs
 
 export function SettingsTabs({ approvals = false }: { approvals?: boolean }) {
   const path = usePathname();
-  // "Automação" (aceitar sozinho) só faz sentido quando um confirma os gastos do outro.
+  // Abas marcadas com needsApprovals só aparecem quando um confirma os gastos do outro.
   const tabs = TABS.filter((t) => !t.needsApprovals || approvals || path === t.href);
   const active = tabs.find((t) => t.href === path);
   return (
