@@ -9,6 +9,7 @@ import { exchangeCode, GOOGLE_COOKIE, publicOrigin } from "@/lib/google";
 import { defaultHouseholdName } from "@/lib/defaults";
 import { createHouseholdForUser } from "@/lib/household";
 import { createSession } from "@/lib/session";
+import { insertReturning } from "@/db/ops";
 
 /** Volta do Google: entra na conta com o mesmo e-mail ou cria uma família nova. */
 export async function GET(request: NextRequest) {
@@ -50,10 +51,7 @@ export async function GET(request: NextRequest) {
     // Conta nova: senha aleatória (só entra pelo Google até definir outra) e família própria.
     const passwordHash = await bcrypt.hash(randomBytes(32).toString("base64url"), 10);
     const ids = await db.transaction(async (tx) => {
-      const [u] = await tx
-        .insert(schema.users)
-        .values({ email: profile.email, name: profile.name, username: await freeUsernameFor(tx, profile.name), passwordHash, emailVerifiedAt: new Date() })
-        .returning({ id: schema.users.id });
+      const [u] = await insertReturning(tx, schema.users, { email: profile.email, name: profile.name, username: await freeUsernameFor(tx, profile.name), passwordHash, emailVerifiedAt: new Date() }, { id: schema.users.id });
       const h = await createHouseholdForUser(tx, { userId: u.id, userName: profile.name, householdName: defaultHouseholdName(profile.name) });
       return { uid: u.id, hid: h };
     });

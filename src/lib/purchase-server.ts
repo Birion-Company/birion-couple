@@ -8,6 +8,7 @@ import { formatMoney, splitEqually } from "./money";
 import { sendPush } from "./push-server";
 import { ruleCategory } from "./rules-server";
 import type { PurchaseInput } from "./purchase";
+import { insertReturning } from "@/db/ops";
 
 export const SOURCE = "cartao-api";
 const hash = (k: string) => createHash("sha256").update(k).digest("hex");
@@ -18,7 +19,7 @@ export async function createPurchaseKey(userId: string) {
   await getDb()
     .insert(schema.purchaseKeys)
     .values({ userId, keyHash: hash(key), prefix: key.slice(0, 7) })
-    .onConflictDoUpdate({ target: schema.purchaseKeys.userId, set: { keyHash: hash(key), prefix: key.slice(0, 7), lastUsedAt: null, createdAt: new Date() } });
+    .onDuplicateKeyUpdate({ set: { keyHash: hash(key), prefix: key.slice(0, 7), lastUsedAt: null, createdAt: new Date() } });
   return key;
 }
 
@@ -50,7 +51,7 @@ export async function recordPurchase(key: string, input: PurchaseInput): Promise
 
   // Freio: no máximo 60 compras por minuto por chave.
   const T = schema.transactions;
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(T).where(and(eq(T.householdId, householdId), eq(T.createdBy, userId), eq(T.source, SOURCE), gte(T.createdAt, new Date(Date.now() - 60_000))));
+  const [{ n }] = await db.select({ n: sql<number>`count(*)` }).from(T).where(and(eq(T.householdId, householdId), eq(T.createdBy, userId), eq(T.source, SOURCE), gte(T.createdAt, new Date(Date.now() - 60_000))));
   if (n >= 60) return { ok: false, status: 429, error: "Muitas compras em pouco tempo." };
 
   // O cartão: pelo nome (sem diferenciar maiúsculas/acentos) ou o único cartão da pessoa.
@@ -71,10 +72,7 @@ export async function recordPurchase(key: string, input: PurchaseInput): Promise
   const parts = splitEqually(input.amountCents, people.length);
 
   const id = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(T)
-      .values({ householdId, date: input.date ?? todayIn(), description: input.description, amountCents: input.amountCents, kind: "expense", payerId: me, categoryId, cardId: card.id, source: SOURCE, externalId, needsReview: true, createdBy: userId })
-      .returning({ id: T.id });
+    const [row] = await insertReturning(tx, T, { householdId, date: input.date ?? todayIn(), description: input.description, amountCents: input.amountCents, kind: "expense", payerId: me, categoryId, cardId: card.id, source: SOURCE, externalId, needsReview: true, createdBy: userId }, { id: T.id });
     await tx.insert(schema.transactionSplits).values(people.map((pid, i) => ({ transactionId: row.id, participantId: pid, amountCents: parts[i] })));
     const snap = (await snapshots(tx, householdId, [row.id])).get(row.id)!;
     await logActivity(tx, { userId, householdId, role: m.role === "owner" ? "owner" : "member", participantId: me } as never, { action: "created", transactionId: row.id, data: { tx: snap }, audience: [me] });

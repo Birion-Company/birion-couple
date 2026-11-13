@@ -16,7 +16,7 @@ export async function findInvite(code: string) {
     })
     .from(schema.invites)
     .innerJoin(schema.households, eq(schema.households.id, schema.invites.householdId))
-    .where(and(eq(schema.invites.code, code), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date()), sql`${schema.invites.createdAt} > now() - interval '1 day'`))
+    .where(and(eq(schema.invites.code, code), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date()), sql`${schema.invites.createdAt} > now() - interval 1 day`))
     .limit(1);
   return invite ?? null;
 }

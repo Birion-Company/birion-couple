@@ -6,6 +6,7 @@ import { todayIn } from "./cards";
 import { classifyFromHistory, expandInstallments } from "./patterns-server";
 import { deleteStaleContacts, hideIdleContacts } from "./contacts";
 import { dueOccurrences, endOfMonth } from "./recurring";
+import { insertReturning } from "@/db/ops";
 
 type Split = { participantId: string; amountCents: number };
 
@@ -43,10 +44,7 @@ export async function materializeRecurring(householdId: string) {
         return;
       }
       const amount = splits.reduce((a, x) => a + x.amountCents, 0);
-      const rows = await tx
-        .insert(schema.transactions)
-        .values(
-          due.map((d) => ({
+      const rows = await insertReturning(tx, schema.transactions, due.map((d) => ({
             householdId,
             date: d.date,
             description: s.description,
@@ -67,9 +65,7 @@ export async function materializeRecurring(householdId: string) {
             seriesKind: "monthly",
             seriesIndex: d.index,
             seriesTotal: null,
-          })),
-        )
-        .returning({ id: schema.transactions.id });
+          })), { id: schema.transactions.id });
       await tx.insert(schema.transactionSplits).values(rows.flatMap((r) => splits.map((x) => ({ ...x, transactionId: r.id }))));
       await tx
         .update(schema.recurringSeries)

@@ -9,7 +9,7 @@ const nextConfig = {
   // Pacote pronto para hospedagens que só executam (BUILD_STANDALONE=1): gera server.js com o que precisa para rodar.
   output: process.env.BUILD_STANDALONE === "1" ? "standalone" : undefined,
   // Garante que as migrações vão junto no pacote.
-  outputFileTracingIncludes: { "/**": ["./netlify/database/migrations/**/*"] },
+  outputFileTracingIncludes: { "/**": ["./db/migrations/**/*"] },
   // Todas as telas dependem de quem está logado, então são renderizadas a cada pedido.
   experimental: {
     serverActions: { bodySizeLimit: "4mb" }, // importação envia o texto do arquivo

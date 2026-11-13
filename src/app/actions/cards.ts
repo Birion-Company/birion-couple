@@ -9,6 +9,7 @@ import { requireAuth } from "@/lib/auth";
 import { brandOf } from "@/lib/card-brands";
 import { CARDS_PER_PERSON_MAX } from "@/lib/defaults";
 import type { ActionResult } from "./settings";
+import { insertReturning } from "@/db/ops";
 
 const day = (what: string) =>
   z.number({ error: `Escolha o dia de ${what}.` }).int().min(1, { error: `O dia de ${what} vai de 1 a 31.` }).max(31, { error: `O dia de ${what} vai de 1 a 31.` });
@@ -89,10 +90,7 @@ export async function saveCard(id: string | null, input: CardInput): Promise<Act
     if (!brand) return { ok: false, error: "Escolha o cartão na lista." };
     data.name = brand.name;
     data.color = brand.color;
-    const [row] = await db
-      .insert(schema.creditCards)
-      .values({ ...data, ownerId, householdId: auth.householdId })
-      .returning({ id: schema.creditCards.id });
+    const [row] = await insertReturning(db, schema.creditCards, { ...data, ownerId, householdId: auth.householdId }, { id: schema.creditCards.id });
     savedId = row.id;
   }
   revalidatePath("/", "layout");

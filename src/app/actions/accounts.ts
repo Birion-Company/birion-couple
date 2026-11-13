@@ -24,7 +24,7 @@ export async function createAccount(name: string, balance: string): Promise<Acti
   if (!n) return { ok: false, error: "Dê um nome para a conta." };
   const cents = balance.trim() ? parse(balance) : 0;
   if (cents === null) return { ok: false, error: "Saldo inválido." };
-  const [{ c }] = await getDb().select({ c: sql<number>`count(*)::int` }).from(A).where(eq(A.userId, auth.userId));
+  const [{ c }] = await getDb().select({ c: sql<number>`count(*)` }).from(A).where(eq(A.userId, auth.userId));
   if (c >= LIMITS.accounts) return { ok: false, error: limitMessage("contas", LIMITS.accounts) };
   await getDb().insert(A).values({ userId: auth.userId, name: n, balanceCents: cents });
   revalidatePath("/", "layout");

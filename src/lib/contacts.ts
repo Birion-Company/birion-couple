@@ -5,6 +5,7 @@ import { computeBalances } from "./balances";
 import { addDaysIso, todayIn } from "./cards";
 import { CONTACT_DELETE_DAYS, CONTACT_IDLE_DAYS, CONTACTS_ACTIVE_MAX, CONTACTS_FULL_MESSAGE, CONTACTS_TOTAL_MAX, CONTACTS_TOTAL_MESSAGE, PALETTE } from "./defaults";
 import { contactsCount } from "./household";
+import { insertReturning } from "@/db/ops";
 
 /**
  * Contatos: pessoas sem login (quem só divide conta, como Fulano). Aparecem nas listas enquanto estão
@@ -28,13 +29,13 @@ const membersOf = (householdId: string) =>
 export async function lastUsedByPerson(householdId: string) {
   // Só os últimos ~200 dias (e o futuro): basta para ordenar os contatos recentes e achar os parados há 90 dias.
   const since = addDaysIso(todayIn(), -200);
-  const rows = await getDb().execute<{ pid: string; last: string }>(sql`
-    select pid, max(d)::text as last from (
+  const [rows] = (await getDb().execute(sql`
+    select pid, cast(max(d) as char) as last from (
       select ${t.payerId} as pid, ${t.date} as d from ${t} where ${t.householdId} = ${householdId} and ${t.payerId} is not null and ${t.date} >= ${since}
       union all
       select s."participantId" as pid, ${t.date} as d from "transaction_splits" s join ${t} on ${t.id} = s."transactionId" where ${t.householdId} = ${householdId} and ${t.date} >= ${since}
-    ) x group by pid`);
-  return new Map(rows.rows.map((r) => [r.pid, r.last]));
+    ) x group by pid`)) as unknown as [{ pid: string; last: string }[], unknown];
+  return new Map(rows.map((r) => [r.pid, r.last]));
 }
 
 /** Saldo de uma pessoa (positivo: tem a receber; negativo: deve). Zero: está quite com todo mundo. */
@@ -105,7 +106,7 @@ export async function findOrCreateContact(householdId: string, ownerUserId: stri
       and(
         eq(p.householdId, householdId),
         or(eq(p.ownerUserId, ownerUserId), inArray(p.id, membersOf(householdId))),
-        sql`lower(regexp_replace(trim(${p.name}), '\\s+', ' ', 'g')) = ${norm(name)}`,
+        sql`lower(regexp_replace(trim(${p.name}), '[[:space:]]+', ' ')) = ${norm(name)}`,
       ),
     );
   // Preferência: alguém ativo; depois um escondido (volta para as listas).
@@ -120,8 +121,8 @@ export async function findOrCreateContact(householdId: string, ownerUserId: stri
   const { total } = await contactsCount(db, householdId, ownerUserId);
   if (total >= CONTACTS_TOTAL_MAX) return { ok: false, error: CONTACTS_TOTAL_MESSAGE };
   if (!(await makeRoomForContact(householdId, ownerUserId))) return { ok: false, error: CONTACTS_FULL_MESSAGE };
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(p).where(eq(p.householdId, householdId));
-  const [created] = await db.insert(p).values({ householdId, ownerUserId, name, color: PALETTE[n % PALETTE.length], sortOrder: 1000 + n }).returning();
+  const [{ n }] = await db.select({ n: sql<number>`count(*)` }).from(p).where(eq(p.householdId, householdId));
+  const [created] = await insertReturning(db, p, { householdId, ownerUserId, name, color: PALETTE[n % PALETTE.length], sortOrder: 1000 + n });
   return { ok: true, person: created, reused: false };
 }
 

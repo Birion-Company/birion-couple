@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { and, asc, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL, like as sqlLike } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { cardsFor, isAdmin, txScope, txScopeAny, type Viewer } from "./access";
 import { approvalContext, approvalKey, approvalStates, type ApprovalInput, type ApprovalState } from "./approvals";
@@ -138,13 +138,12 @@ function stateWhere(state: NonNullable<ReturnType<typeof stateFromParam>>): SQL 
  * a fatura em que ele cai (mesma regra de competenceMonth, em lib/cards.ts).
  */
 const competenceSql = sql`coalesce(
-  (select (
-    (case when extract(day from "transactions"."date") >= least(c."closingDay", extract(day from date_trunc('month', "transactions"."date") + interval '1 month - 1 day'))
-      then date_trunc('month', "transactions"."date") + interval '1 month'
-      else date_trunc('month', "transactions"."date") end)
-    + (case when c."dueDay" > c."closingDay" then interval '0 month' else interval '1 month' end)
-  )::date from "credit_cards" c where c."id" = "transactions"."cardId"),
-  date_trunc('month', "transactions"."date")::date
+  (select date_add(
+    date_add(date_sub("transactions"."date", interval (day("transactions"."date") - 1) day),
+      interval (case when day("transactions"."date") >= least(c."closingDay", day(last_day("transactions"."date"))) then 1 else 0 end) month),
+    interval (case when c."dueDay" > c."closingDay" then 0 else 1 end) month
+  ) from "credit_cards" c where c."id" = "transactions"."cardId"),
+  date_sub("transactions"."date", interval (day("transactions"."date") - 1) day)
 )`;
 
 function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean; withPayments?: boolean } = {}): SQL {
@@ -154,7 +153,7 @@ function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean; w
   if (f.competence) {
     // No cartão, a compra pode ser de até 2 meses antes do mês em que a fatura vence.
     parts.push(gte(t.date, `${addMonthsKey(f.competence, -2)}-01`), lte(t.date, endOfMonth(`${f.competence}-01`)));
-    parts.push(sql`${competenceSql} = ${`${f.competence}-01`}::date`);
+    parts.push(sql`${competenceSql} = cast(${`${f.competence}-01`} as date)`);
   } else {
     if (f.from) parts.push(gte(t.date, f.from));
     if (f.to) parts.push(lte(t.date, f.to));
@@ -176,7 +175,7 @@ function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean; w
     );
   }
   if (f.card) parts.push(eq(t.cardId, f.card));
-  if (f.q) parts.push(or(ilike(t.description, `%${f.q}%`), ilike(t.notes, `%${f.q}%`)));
+  if (f.q) parts.push(or(sqlLike(t.description, `%${f.q}%`), sqlLike(t.notes, `%${f.q}%`)));
   if (f.person) {
     const hasPart = sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person} and s."amountCents" > 0)`;
     if (f.role === "dele") {
@@ -402,8 +401,8 @@ export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, 
     db.select(txColumns).from(t).where(where).orderBy(desc(t.date), desc(t.createdAt), desc(t.id)).limit(limit).offset(offset),
     opts.rowsOnly
       ? Promise.resolve([{ count: 0, total: 0 }])
-      : db.select({ count: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${expenseValue} else 0 end), 0)::int` }).from(t).where(where),
-    futureWhere && !opts.rowsOnly ? db.select({ n: sql<number>`count(*)::int` }).from(t).where(futureWhere) : Promise.resolve([{ n: 0 }]),
+      : db.select({ count: sql<number>`count(*)`, total: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then ${expenseValue} else 0 end), 0)` }).from(t).where(where),
+    futureWhere && !opts.rowsOnly ? db.select({ n: sql<number>`count(*)` }).from(t).where(futureWhere) : Promise.resolve([{ n: 0 }]),
   ]);
   // Estabelecimentos que se repetem em meses diferentes (últimos 18 meses).
   const history = await db
@@ -455,7 +454,7 @@ export async function listUnidentified(viewer: Viewer, limit = 300) {
 }
 
 export async function countUnidentified(viewer: Viewer): Promise<number> {
-  const [{ n }] = await getDb().select({ n: sql<number>`count(*)::int` }).from(t).where(unidentifiedWhere(viewer));
+  const [{ n }] = await getDb().select({ n: sql<number>`count(*)` }).from(t).where(unidentifiedWhere(viewer));
   return n;
 }
 
@@ -535,9 +534,9 @@ export const householdStartMonth = cache(async (householdId: string) => {
 export const navigableMonths = cache(async (householdId: string, current: string) => {
   const db = getDb();
   const [[row], [rec], started] = await Promise.all([
-    db.select({ last: sql<string | null>`to_char(max(${competenceSql}), 'YYYY-MM')` }).from(t).where(and(eq(t.householdId, householdId), isNull(t.settlesId))),
+    db.select({ last: sql<string | null>`date_format(max(${competenceSql}), '%Y-%m')` }).from(t).where(and(eq(t.householdId, householdId), isNull(t.settlesId))),
     db
-      .select({ n: sql<number>`count(*)::int` })
+      .select({ n: sql<number>`count(*)` })
       .from(schema.recurringSeries)
       .where(and(eq(schema.recurringSeries.householdId, householdId), eq(schema.recurringSeries.active, true))),
     householdStartMonth(householdId),
@@ -570,7 +569,7 @@ function debtRelevant(historySince?: string): SQL {
     and(eq(t.kind, "transfer"), isNull(t.settlesId)),
     and(eq(t.settled, false), open),
     // Quitado há pouco: o pagamento pode ainda estar esperando a outra pessoa confirmar (aí não conta).
-    sql`exists (select 1 from "transaction_splits" s join "transactions" p on p."id" = s."paidById" where s."transactionId" = "transactions"."id" and p."createdAt" > now() - interval '90 days')`,
+    sql`exists (select 1 from "transaction_splits" s join "transactions" p on p."id" = s."paidById" where s."transactionId" = "transactions"."id" and p."createdAt" > now() - interval 90 day)`,
     historySince ? and(gte(t.date, historySince), or(isNotNull(t.settlesId), sql`${others})`)) : undefined,
   )!;
 }
@@ -1118,7 +1117,7 @@ export async function getInvites(householdId: string) {
   return db
     .select()
     .from(schema.invites)
-    .where(and(eq(schema.invites.householdId, householdId), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date()), sql`${schema.invites.createdAt} > now() - interval '1 day'`))
+    .where(and(eq(schema.invites.householdId, householdId), isNull(schema.invites.usedAt), gte(schema.invites.expiresAt, new Date()), sql`${schema.invites.createdAt} > now() - interval 1 day`))
     .orderBy(desc(schema.invites.createdAt));
 }
 
@@ -1191,7 +1190,7 @@ export async function getImportBatches(viewer: Viewer) {
     .limit(10);
   if (batches.length === 0) return [];
   const counts = await db
-    .select({ batchId: t.importBatchId, n: sql<number>`count(*)::int` })
+    .select({ batchId: t.importBatchId, n: sql<number>`count(*)` })
     .from(t)
     .where(and(eq(t.householdId, householdId), inArray(t.importBatchId, batches.map((b) => b.id))))
     .groupBy(t.importBatchId);
@@ -1209,12 +1208,12 @@ export async function monthCarry(viewer: Viewer, month: string): Promise<number>
   if (!me) return 0;
   const [row] = await getDb()
     .select({
-      spent: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then s."amountCents" when ${t.kind} = 'income' and ${t.cardId} is not null then -s."amountCents" else 0 end), 0)::bigint`,
-      income: sql<number>`coalesce(sum(case when ${t.kind} = 'income' and ${t.cardId} is null and ${t.awaitingReceipt} = false then s."amountCents" else 0 end), 0)::bigint`,
+      spent: sql<number>`coalesce(sum(case when ${t.kind} = 'expense' then s."amountCents" when ${t.kind} = 'income' and ${t.cardId} is not null then -s."amountCents" else 0 end), 0)`,
+      income: sql<number>`coalesce(sum(case when ${t.kind} = 'income' and ${t.cardId} is null and ${t.awaitingReceipt} = false then s."amountCents" else 0 end), 0)`,
     })
     .from(t)
     .innerJoin(sql`"transaction_splits" s`, sql`s."transactionId" = ${t.id} and s."participantId" = ${me}`)
-    .where(txScope(viewer, isNull(t.settlesId), sql`${competenceSql} < ${`${month}-01`}::date`, sql`${t.kind} in ('expense', 'income')`));
+    .where(txScope(viewer, isNull(t.settlesId), sql`${competenceSql} < cast(${`${month}-01`} as date)`, sql`${t.kind} in ('expense', 'income')`));
   return Number(row?.income ?? 0) - Number(row?.spent ?? 0);
 }
 

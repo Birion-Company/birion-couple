@@ -24,7 +24,7 @@ export async function savePushSubscription(input: z.input<typeof SubSchema>) {
   await getDb()
     .insert(ps)
     .values({ userId: auth.userId, endpoint: d.endpoint, p256dh: d.keys.p256dh, auth: d.keys.auth, device: d.device ?? null })
-    .onConflictDoUpdate({ target: ps.endpoint, set: { userId: auth.userId, p256dh: d.keys.p256dh, auth: d.keys.auth, device: d.device ?? null } });
+    .onDuplicateKeyUpdate({ set: { userId: auth.userId, p256dh: d.keys.p256dh, auth: d.keys.auth, device: d.device ?? null } });
   return { ok: true, message: "Notificações ligadas neste aparelho." };
 }
 

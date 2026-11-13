@@ -149,7 +149,7 @@ export async function setNickname(participantId: string, raw: string): Promise<A
   await db
     .insert(schema.nicknames)
     .values({ userId: auth.userId, participantId, nickname })
-    .onConflictDoUpdate({ target: [schema.nicknames.userId, schema.nicknames.participantId], set: { nickname } });
+    .onDuplicateKeyUpdate({ set: { nickname } });
   revalidatePath("/", "layout");
   return { ok: true, message: `Pronto: para você, agora é “${nickname}”.` };
 }

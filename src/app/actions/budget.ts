@@ -28,7 +28,7 @@ export async function saveBudget(categoryId: string, amount: string): Promise<Ac
   await db
     .insert(B)
     .values({ userId: auth.userId, categoryId, monthlyCents: cents })
-    .onConflictDoUpdate({ target: [B.userId, B.categoryId], set: { monthlyCents: cents, alertedMonth: null, alertedLevel: 0 } });
+    .onDuplicateKeyUpdate({ set: { monthlyCents: cents, alertedMonth: null, alertedLevel: 0 } });
   // Já passou do novo limite? Avisa na hora (e deixa o painel certo).
   await checkBudgetAlerts(auth.householdId).catch(() => {});
   revalidatePath("/", "layout");

@@ -10,6 +10,7 @@ import { createHouseholdForUser } from "@/lib/household";
 import { AUDIT_HID, NO_HOUSEHOLD, getHomeless, requireAuth } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
 import { sendVerifyCode } from "@/lib/email-verify";
+import { insertReturning } from "@/db/ops";
 
 const LOGIN_MAX_FAILS = 5;
 const LOGIN_WINDOW_MIN = 15;
@@ -48,7 +49,7 @@ export async function signup(_: FormState, form: FormData): Promise<FormState> {
 
   const passwordHash = await bcrypt.hash(pass, 10);
   const ids = await db.transaction(async (tx) => {
-    const [user] = await tx.insert(schema.users).values({ email: mail, name: userName, passwordHash }).returning({ id: schema.users.id });
+    const [user] = await insertReturning(tx, schema.users, { email: mail, name: userName, passwordHash }, { id: schema.users.id });
     const hid = await createHouseholdForUser(tx, { userId: user.id, userName, householdName: household });
     return { uid: user.id, hid };
   });

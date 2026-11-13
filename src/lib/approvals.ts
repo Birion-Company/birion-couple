@@ -141,8 +141,6 @@ export async function saveDecision(householdId: string, row: ApprovalInput, part
   await getDb()
     .insert(schema.txApprovals)
     .values({ householdId, key: approvalKey(row), participantId, status, fingerprint: fingerprint(row), reason })
-    .onConflictDoUpdate({
-      target: [schema.txApprovals.key, schema.txApprovals.participantId],
-      set: { status, fingerprint: fingerprint(row), reason, decidedAt: sql`now()` },
+    .onDuplicateKeyUpdate({ set: { status, fingerprint: fingerprint(row), reason, decidedAt: sql`now()` },
     });
 }

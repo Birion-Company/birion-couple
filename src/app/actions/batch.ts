@@ -13,6 +13,7 @@ import { checkPeople } from "@/lib/people-access";
 import { splitEqually } from "@/lib/money";
 import { loadRules } from "@/lib/rules-server";
 import type { ActionResult } from "./settings";
+import { insertReturning } from "@/db/ops";
 
 const uuid = z.uuid();
 const nullableId = z.union([z.uuid(), z.null()]);
@@ -246,10 +247,7 @@ export async function createMany(input: ManyInput): Promise<ActionResult & { cou
 
   const db = getDb();
   const count = await db.transaction(async (tx) => {
-    const rows = await tx
-      .insert(schema.transactions)
-      .values(
-        d.rows.map((r) => ({
+    const rows = await insertReturning(tx, schema.transactions, d.rows.map((r) => ({
           householdId: hid,
           date: r.date,
           description: r.description,
@@ -262,9 +260,7 @@ export async function createMany(input: ManyInput): Promise<ActionResult & { cou
           cardId: d.kind === "income" ? null : d.cardId,
           source: "manual",
           createdBy: auth.userId,
-        })),
-      )
-      .returning({ id: schema.transactions.id, amountCents: schema.transactions.amountCents, description: schema.transactions.description });
+        })), { id: schema.transactions.id, amountCents: schema.transactions.amountCents, description: schema.transactions.description });
     await tx.insert(schema.transactionSplits).values(
       rows.flatMap((r) => {
         const parts = splitEqually(r.amountCents, d.splitIds.length);

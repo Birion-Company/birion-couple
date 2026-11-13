@@ -14,8 +14,8 @@ Durable, non-secret context for **BIRION FINANCE**.
 - Stable commit scope: `finance`.
 - Site: https://birion-finance.netlify.app (Netlify site id 6da5c71e-679c-4a5d-a737-c85433e789ed), deploy automático a cada push na `main`. Repo: https://github.com/Gabbr1el/birion-finance (público).
 - O `@netlify/plugin-nextjs` precisa estar declarado em `netlify.toml`; sem ele o site (criado pela API) sobe como estático e dá 404.
-- Banco: Netlify Database + Drizzle (`drizzle-orm/netlify-db`, versões `@beta`). Migrações em `netlify/database/migrations`, aplicadas pelo deploy; nunca editar uma já aplicada.
-- Local: `npm run db:dev` + `.env.local` com `NETLIFY_DB_DRIVER=server` (sem isso o adaptador tenta o driver serverless e falha com "fetch failed").
+- Banco (desde 2026-11-13): MySQL/MariaDB + Drizzle (`drizzle-orm/mysql2`). Migrações em `db/migrations` (aplicadas ao ligar o app por `src/lib/migrate.ts`); nunca editar uma já aplicada. As antigas do Postgres ficam em `netlify/database/migrations-postgres-antigas` (só histórico). Sem RETURNING: use `insertReturning/updateReturning/deleteReturning` de `src/db/ops.ts`. ids são UUID gerado no app. A conexão liga ANSI_QUOTES e UTC (`src/db/connection.ts`), então o SQL cru usa "coluna".
+- Local: `financas` sobe o MariaDB em Docker (contêiner `birion-couple-db`, porta 33306, `DATABASE_URL` no `.env.local`). Cópia/troca de banco por JSON: `npm run db:export` / `db:import`.
 - `AUTH_SECRET` fica só nas variáveis do Netlify (segredo); nunca no repositório.
 
 ## Conventions

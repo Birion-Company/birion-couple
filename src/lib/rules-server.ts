@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, ilike, isNull, ne, or } from "drizzle-orm";
+import { and, eq, isNull, ne, or, like as sqlLike } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { matchCategory } from "./import/dedupe";
 import { historyCategory } from "./patterns-server";
@@ -34,7 +34,7 @@ export function ruleMatches(householdId: string, pattern: string, categoryId: st
       and(
         eq(t.householdId, householdId),
         eq(t.kind, "expense"),
-        ilike(t.description, like),
+        sqlLike(t.description, like),
         or(isNull(t.categoryId), ne(t.categoryId, categoryId)),
       ),
     );

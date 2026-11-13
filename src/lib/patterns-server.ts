@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { getDb, schema } from "@/db";
 import { addMonthsIso, daysBetween } from "./cards";
 import { merchantKey, parseInstallment } from "./import/patterns";
+import { insertReturning, updateReturning } from "@/db/ops";
 
 const t = schema.transactions;
 type Conn = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -26,19 +27,21 @@ export async function expandInstallments(householdId: string): Promise<number> {
     eq(t.householdId, householdId),
     isNull(t.seriesId),
     eq(t.kind, "expense"),
-    or(and(eq(t.seriesKind, "installment"), isNotNull(t.seriesTotal)), sql`${t.description} ~* '(parcela|parc)'`),
+    or(and(eq(t.seriesKind, "installment"), isNotNull(t.seriesTotal)), sql`${t.description} regexp '(parcela|parc)'`),
   );
   const candidates = await db.select({ id: t.id }).from(t).where(pending).limit(500);
   if (candidates.length === 0) return 0;
   return db.transaction(async (tx) => {
     // Uma família por vez (duas abas abertas não criam parcelas em dobro).
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"installments:" + householdId}))`);
+    // (GET_LOCK vale para a conexão; é solto no fim da transação, abaixo.)
+    await tx.execute(sql`select get_lock(${"installments:" + householdId}, 30)`);
     const rows = await tx
       .select()
       .from(t)
       .where(and(pending, inArray(t.id, candidates.map((c) => c.id))))
       .orderBy(t.date);
     let created = 0;
+    try {
     for (const r of rows) {
       // Já veio da importação com o número da parcela, ou ainda está na descrição (lançamento antigo).
       const fromText = parseInstallment(r.description);
@@ -75,9 +78,7 @@ export async function expandInstallments(householdId: string): Promise<number> {
           await tx.update(t).set({ ...series, seriesIndex: k, description: inst.base }).where(eq(t.id, same.id));
           continue;
         }
-        const [row] = await tx
-          .insert(t)
-          .values({
+        const [row] = await insertReturning(tx, t, {
             householdId,
             date,
             description: inst.base,
@@ -92,11 +93,13 @@ export async function expandInstallments(householdId: string): Promise<number> {
             createdBy: r.createdBy,
             ...series,
             seriesIndex: k,
-          })
-          .returning({ id: t.id });
+          }, { id: t.id });
         if (splits.length) await tx.insert(schema.transactionSplits).values(splits.map((x) => ({ ...x, transactionId: row.id })));
         created++;
       }
+    }
+    } finally {
+      await tx.execute(sql`select release_lock(${"installments:" + householdId})`);
     }
     return created;
   });
@@ -111,7 +114,7 @@ async function cleanInstallmentDescriptions(householdId: string) {
   const rows = await db
     .select({ id: t.id, description: t.description })
     .from(t)
-    .where(and(eq(t.householdId, householdId), eq(t.seriesKind, "installment"), isNotNull(t.seriesId), sql`${t.description} ~* '(parcela|parc)'`))
+    .where(and(eq(t.householdId, householdId), eq(t.seriesKind, "installment"), isNotNull(t.seriesId), sql`${t.description} regexp '(parcela|parc)'`))
     .limit(1000);
   for (const r of rows) {
     const base = parseInstallment(r.description)?.base;
@@ -143,7 +146,7 @@ export async function learnedByMerchant(householdId: string, conn: Conn | Return
     .select({
       description: t.description,
       categoryId: t.categoryId,
-      participantIds: sql<string[]>`coalesce(array_agg(${schema.transactionSplits.participantId}) filter (where ${schema.transactionSplits.amountCents} > 0), '{}')`,
+      participantIdsCsv: sql<string | null>`group_concat(case when ${schema.transactionSplits.amountCents} > 0 then ${schema.transactionSplits.participantId} end separator ',')`,
     })
     .from(t)
     .leftJoin(schema.transactionSplits, eq(schema.transactionSplits.transactionId, t.id))
@@ -158,14 +161,14 @@ export async function learnedByMerchant(householdId: string, conn: Conn | Return
     if (!key) continue;
     const cur = out.get(key);
     // A mais recente com categoria manda na categoria; a mais recente com divisão, na divisão.
-    if (!cur) out.set(key, { categoryId: r.categoryId, participantIds: r.participantIds ?? [], consistent: true, seen: 1 });
+    if (!cur) out.set(key, { categoryId: r.categoryId, participantIds: r.participantIdsCsv ? r.participantIdsCsv.split(",") : [], consistent: true, seen: 1 });
     else {
       cur.seen++;
       if (!cur.categoryId && r.categoryId) cur.categoryId = r.categoryId;
-      if (cur.participantIds.length === 0 && r.participantIds?.length) cur.participantIds = r.participantIds;
+      if (cur.participantIds.length === 0 && r.participantIdsCsv) cur.participantIds = r.participantIdsCsv.split(",");
     }
     const list = recent.get(key) ?? [];
-    if (list.length < REUSE_WINDOW) list.push(`${r.categoryId ?? ""}|${[...(r.participantIds ?? [])].sort().join(",")}`);
+    if (list.length < REUSE_WINDOW) list.push(`${r.categoryId ?? ""}|${(r.participantIdsCsv ? r.participantIdsCsv.split(",") : []).sort().join(",")}`);
     recent.set(key, list);
   }
   for (const [key, list] of recent) out.get(key)!.consistent = new Set(list).size === 1;
@@ -199,11 +202,7 @@ export async function classifyFromHistory(householdId: string): Promise<number> 
   }
   let n = 0;
   for (const [categoryId, ids] of byCategory) {
-    const done = await db
-      .update(t)
-      .set({ categoryId })
-      .where(and(eq(t.householdId, householdId), isNull(t.categoryId), inArray(t.id, ids)))
-      .returning({ id: t.id });
+    const done = await updateReturning(db, t, { categoryId }, and(eq(t.householdId, householdId), isNull(t.categoryId), inArray(t.id, ids)), { id: t.id });
     n += done.length;
   }
   return n;

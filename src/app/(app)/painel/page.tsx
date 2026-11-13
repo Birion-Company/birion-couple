@@ -93,11 +93,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
   const editIds = new Map<string, string>();
   if (fixedSeries.length > 0) {
     const found = await getDb()
-      .selectDistinctOn([schema.transactions.seriesId], { seriesId: schema.transactions.seriesId, id: schema.transactions.id })
+      .select({ seriesId: schema.transactions.seriesId, id: schema.transactions.id })
       .from(schema.transactions)
       .where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.seriesId, fixedSeries)))
-      .orderBy(schema.transactions.seriesId, desc(schema.transactions.date));
-    for (const f of found) if (f.seriesId) editIds.set(f.seriesId, f.id);
+      .orderBy(desc(schema.transactions.date));
+    // Do mais recente para o mais antigo: o primeiro de cada série é o último lançamento dela.
+    for (const f of found) if (f.seriesId && !editIds.has(f.seriesId)) editIds.set(f.seriesId, f.id);
   }
   // Dívidas que envolvem você primeiro.
   const welcome = sp.bemvindo === "1";

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, gte, ilike, inArray, isNull, max, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, max, or, sql, like as sqlLike } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { feedPage } from "./activity";
 import { getLookups } from "./queries";
@@ -47,7 +47,7 @@ export async function auditUsers({ q = "", page = 1, sort = "recent" }: { q?: st
     .as("last");
   const where = and(
     eq(u.isAuditor, false),
-    q.trim() ? or(ilike(u.name, like(q)), ilike(u.email, like(q)), ilike(u.username, like(q)), ilike(h.name, like(q))) : undefined,
+    q.trim() ? or(sqlLike(u.name, like(q)), sqlLike(u.email, like(q)), sqlLike(u.username, like(q)), sqlLike(h.name, like(q))) : undefined,
   );
   const base = db.select({ n: count() }).from(u).leftJoin(m, eq(m.userId, u.id)).leftJoin(h, eq(h.id, m.householdId)).where(where);
   const [[{ n: total }], rows] = await Promise.all([
@@ -70,7 +70,7 @@ export async function auditUsers({ q = "", page = 1, sort = "recent" }: { q?: st
       .leftJoin(h, eq(h.id, m.householdId))
       .leftJoin(last, eq(last.uid, u.id))
       .where(where)
-      .orderBy(sort === "activity" ? sql`${last.last} desc nulls last` : desc(u.createdAt))
+      .orderBy(sort === "activity" ? sql`${last.last} is null, ${last.last} desc` : desc(u.createdAt))
       .limit(AUDIT_PAGE)
       .offset((Math.max(1, page) - 1) * AUDIT_PAGE),
   ]);
@@ -86,8 +86,8 @@ export async function auditHouseholds({ q = "", page = 1, sort = "recent" }: { q
   const lastAct = sql<Date | null>`(select max(${a.createdAt}) from ${a} where ${a.householdId} = ${h.id})`;
   const where = q.trim()
     ? or(
-        ilike(h.name, like(q)),
-        sql`exists (select 1 from ${m} join ${u} on ${u.id} = ${m.userId} where ${m.householdId} = ${h.id} and (${u.name} ilike ${like(q)} or ${u.email} ilike ${like(q)} or ${u.username} ilike ${like(q)}))`,
+        sqlLike(h.name, like(q)),
+        sql`exists (select 1 from ${m} join ${u} on ${u.id} = ${m.userId} where ${m.householdId} = ${h.id} and (${u.name} like ${like(q)} or ${u.email} like ${like(q)} or ${u.username} like ${like(q)}))`,
       )
     : undefined;
   const [[{ n: total }], rows] = await Promise.all([
@@ -97,14 +97,14 @@ export async function auditHouseholds({ q = "", page = 1, sort = "recent" }: { q
         id: h.id,
         name: h.name,
         createdAt: h.createdAt,
-        members: sql<number>`(select count(*)::int from ${m} where ${m.householdId} = ${h.id})`,
-        contacts: sql<number>`(select count(*)::int from ${p} where ${p.householdId} = ${h.id} and ${p.id} not in (select ${m.participantId} from ${m} where ${m.householdId} = ${h.id} and ${m.participantId} is not null))`,
-        transactions: sql<number>`(select count(*)::int from ${t} where ${t.householdId} = ${h.id} and ${t.settlesId} is null)`,
+        members: sql<number>`(select count(*) from ${m} where ${m.householdId} = ${h.id})`,
+        contacts: sql<number>`(select count(*) from ${p} where ${p.householdId} = ${h.id} and ${p.id} not in (select ${m.participantId} from ${m} where ${m.householdId} = ${h.id} and ${m.participantId} is not null))`,
+        transactions: sql<number>`(select count(*) from ${t} where ${t.householdId} = ${h.id} and ${t.settlesId} is null)`,
         lastActivity: lastAct,
       })
       .from(h)
       .where(where)
-      .orderBy(sort === "activity" ? sql`${lastAct} desc nulls last` : desc(h.createdAt))
+      .orderBy(sort === "activity" ? sql`${lastAct} is null, ${lastAct} desc` : desc(h.createdAt))
       .limit(AUDIT_PAGE)
       .offset((Math.max(1, page) - 1) * AUDIT_PAGE),
   ]);

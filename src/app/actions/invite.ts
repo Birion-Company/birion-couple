@@ -10,6 +10,7 @@ import { findInvite } from "@/lib/invites";
 import { leaveHousehold } from "@/lib/leave";
 import { logFamily } from "@/lib/family-log";
 import { MEMBERS_MAX } from "@/lib/defaults";
+import { insertReturning, updateReturning } from "@/db/ops";
 
 export type InviteResult = { ok: false; error: string } | undefined;
 
@@ -36,11 +37,7 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
   const [user] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   const claimed = await db.transaction(async (tx) => {
     // Convite vale para uma pessoa só: quem usar primeiro "pega" (outra pessoa ao mesmo tempo não entra).
-    const got = await tx
-      .update(schema.invites)
-      .set({ usedAt: new Date() })
-      .where(and(eq(schema.invites.id, invite.id), isNull(schema.invites.usedAt)))
-      .returning({ id: schema.invites.id });
+    const got = await updateReturning(tx, schema.invites, { usedAt: new Date() }, and(eq(schema.invites.id, invite.id), isNull(schema.invites.usedAt)), { id: schema.invites.id });
     if (got.length === 0) return false;
     if (!already) {
       // Sai das outras famílias (a pessoa dele lá vira "sem login").
@@ -63,10 +60,7 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
       if (participantId) {
         await tx.update(schema.participants).set({ archived: false, temporary: false }).where(eq(schema.participants.id, participantId));
       } else {
-        const [p] = await tx
-          .insert(schema.participants)
-          .values({ householdId: invite.householdId, name: user?.name ?? "Pessoa", color: "#6F9C7C", sortOrder: 99 })
-          .returning({ id: schema.participants.id });
+        const [p] = await insertReturning(tx, schema.participants, { householdId: invite.householdId, name: user?.name ?? "Pessoa", color: "#6F9C7C", sortOrder: 99 }, { id: schema.participants.id });
         participantId = p.id;
       }
       // No casal as duas pessoas têm o mesmo poder.

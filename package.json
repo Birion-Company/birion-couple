@@ -9,23 +9,24 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "db:dev": "node scripts/dev-db.mjs",
     "db:generate": "drizzle-kit generate",
     "test:e2e": "node tests/e2e/run.mjs",
     "test:carga": "node tests/carga/rodar.mjs",
     "carga:semear": "node tests/carga/semear.mjs",
-    "carga:limpar": "node tests/carga/limpar.mjs"
+    "carga:limpar": "node tests/carga/limpar.mjs",
+    "db:export": "node scripts/db-export.mjs",
+    "db:import": "node scripts/db-import.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@netlify/database": "^2.0.3",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^1.0.0-beta.22",
     "exceljs": "^4.4.0",
     "jose": "^6.2.15",
     "lucide-react": "^1.70.0",
+    "mysql2": "^3.24.6",
     "next": "16.4.5",
     "ofx-data-extractor": "^1.5.0",
     "papaparse": "^5.7.0",
@@ -37,7 +38,6 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@netlify/database-dev": "^1.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.20.5",
     "@types/papaparse": "^5.5.2",

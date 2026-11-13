@@ -7,6 +7,7 @@ import { requireAuth } from "@/lib/auth";
 import { LIMITS, limitMessage } from "@/lib/defaults";
 import { parseAmountToCents } from "@/lib/money";
 import type { ActionResult } from "./settings";
+import { updateReturning } from "@/db/ops";
 
 const G = schema.goals;
 /** A meta é sua, ou é uma meta do casal criada por quem está no mesmo casal. */
@@ -21,7 +22,7 @@ export async function createGoal(name: string, amount: string, targetMonth: stri
   const cents = parseAmountToCents(amount, ",");
   if (cents === null || cents <= 0 || cents > MAX) return { ok: false, error: "Digite o valor da meta." };
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(targetMonth)) return { ok: false, error: "Escolha o mês final." };
-  const [{ c }] = await getDb().select({ c: sql<number>`count(*)::int` }).from(G).where(eq(G.userId, auth.userId));
+  const [{ c }] = await getDb().select({ c: sql<number>`count(*)` }).from(G).where(eq(G.userId, auth.userId));
   if (c >= LIMITS.goals) return { ok: false, error: limitMessage("metas", LIMITS.goals) };
   await getDb().insert(G).values({ userId: auth.userId, name: n, targetCents: cents, targetMonth, shared });
   revalidatePath("/", "layout");
@@ -33,11 +34,7 @@ export async function saveToGoal(id: string, amount: string, sign: 1 | -1 = 1): 
   const auth = await requireAuth();
   const cents = parseAmountToCents(amount, ",");
   if (cents === null || cents <= 0 || cents > MAX) return { ok: false, error: "Digite um valor maior que zero." };
-  const res = await getDb()
-    .update(G)
-    .set({ savedCents: sql`greatest(0, ${G.savedCents} + ${sign * cents})` })
-    .where(and(eq(G.id, id), mine(auth)))
-    .returning({ id: G.id });
+  const res = await updateReturning(getDb(), G, { savedCents: sql`greatest(0, ${G.savedCents} + ${sign * cents})` }, and(eq(G.id, id), mine(auth)), { id: G.id });
   if (!res.length) return { ok: false, error: "Meta não encontrada." };
   revalidatePath("/", "layout");
   return { ok: true, message: sign === 1 ? "Valor guardado." : "Valor retirado." };

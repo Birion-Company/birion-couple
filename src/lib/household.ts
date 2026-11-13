@@ -3,6 +3,7 @@ import { and, count, eq, isNotNull, notInArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { missingDefaultRules } from "./default-rules";
 import { APPROVALS_OFF, DEFAULT_CATEGORIES, DEFAULT_STATUSES, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "./defaults";
+import { insertReturning } from "@/db/ops";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Db = ReturnType<typeof getDb> | Tx;
@@ -26,7 +27,7 @@ export async function contactsCount(db: Db, householdId: string, ownerUserId: st
     .from(schema.memberships)
     .where(and(eq(schema.memberships.householdId, householdId), isNotNull(schema.memberships.participantId)));
   const [row] = await db
-    .select({ total: count(), active: sql<number>`count(*) filter (where not ${schema.participants.archived})::int` })
+    .select({ total: count(), active: sql<number>`sum(case when not ${schema.participants.archived} then 1 else 0 end)` })
     .from(schema.participants)
     .where(
       and(
@@ -46,19 +47,13 @@ export async function createHouseholdForUser(
   tx: Tx,
   input: { userId: string; userName: string; householdName: string },
 ): Promise<string> {
-  const [home] = await tx.insert(schema.households).values({ name: input.householdName.trim().slice(0, HOUSEHOLD_NAME_MAX), approvalsFrom: APPROVALS_OFF }).returning({ id: schema.households.id });
+  const [home] = await insertReturning(tx, schema.households, { name: input.householdName.trim().slice(0, HOUSEHOLD_NAME_MAX), approvalsFrom: APPROVALS_OFF }, { id: schema.households.id });
   await tx.insert(schema.statuses).values(DEFAULT_STATUSES.map((s, i) => ({ ...s, householdId: home.id, sortOrder: i })));
-  const cats = await tx
-    .insert(schema.categories)
-    .values(DEFAULT_CATEGORIES.map((c, i) => ({ ...c, householdId: home.id, sortOrder: i })))
-    .returning({ id: schema.categories.id, name: schema.categories.name });
+  const cats = await insertReturning(tx, schema.categories, DEFAULT_CATEGORIES.map((c, i) => ({ ...c, householdId: home.id, sortOrder: i })), { id: schema.categories.id, name: schema.categories.name });
   // Regras prontas de categorização (uber → Transporte, ifood → Restaurantes…).
   const rules = missingDefaultRules(cats, []);
   if (rules.length) await tx.insert(schema.categoryRules).values(rules.map((r) => ({ ...r, householdId: home.id })));
-  const [me] = await tx
-    .insert(schema.participants)
-    .values({ householdId: home.id, name: input.userName, color: "#E07A5F", sortOrder: 0 })
-    .returning({ id: schema.participants.id });
+  const [me] = await insertReturning(tx, schema.participants, { householdId: home.id, name: input.userName, color: "#E07A5F", sortOrder: 0 }, { id: schema.participants.id });
   await tx.insert(schema.memberships).values({ householdId: home.id, userId: input.userId, role: "owner", participantId: me.id });
   return home.id;
 }

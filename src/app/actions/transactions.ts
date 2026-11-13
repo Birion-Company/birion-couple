@@ -21,6 +21,7 @@ import { formatMoney, splitEqually } from "@/lib/money";
 import { reopenUnderpaid } from "@/lib/settle";
 import { checkPeople } from "@/lib/people-access";
 import type { ActionResult } from "./settings";
+import { deleteReturning, insertReturning, updateReturning } from "@/db/ops";
 
 const uuid = z.uuid();
 const optionalId = z.union([z.uuid(), z.literal(""), z.null()]).transform((v) => v || null);
@@ -245,9 +246,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     // De hoje para frente: começou num mês passado → começa neste mês (mesmo dia), sem criar os anteriores.
     const thisMonth = todayIn().slice(0, 7);
     if (data.date < `${thisMonth}-01`) data.date = dayInMonth(thisMonth, Number(data.date.slice(8, 10)));
-    const [rec] = await db
-      .insert(schema.recurringSeries)
-      .values({
+    const [rec] = await insertReturning(db, schema.recurringSeries, {
         householdId: auth.householdId,
         description: values.description,
         amountCents: values.amountCents,
@@ -261,8 +260,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
         splits,
         startDate: data.date,
         createdBy: auth.userId,
-      })
-      .returning({ id: schema.recurringSeries.id });
+      }, { id: schema.recurringSeries.id });
     await logActivity(db, auth, { action: "created", data: { tx: snapshot, seriesKind: "monthly", seriesCount: null }, audience: involved(snapshot) });
     await materializeRecurring(auth.householdId);
     const [first] = await db
@@ -291,10 +289,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
     if (parts.length === 0) return { ok: false, error: "Todas as parcelas já venceram: não há nada daqui para frente para lançar." };
     const skipped = all.length - parts.length;
     const firstId = await db.transaction(async (tx) => {
-      const rows = await tx
-        .insert(schema.transactions)
-        .values(
-          parts.map((p) => ({
+      const rows = await insertReturning(tx, schema.transactions, parts.map((p) => ({
             ...values,
             date: p.date,
             amountCents: p.amountCents,
@@ -307,9 +302,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
             seriesKind: series.kind,
             seriesIndex: p.index,
             seriesTotal: series.count,
-          })),
-        )
-        .returning({ id: schema.transactions.id, seriesIndex: schema.transactions.seriesIndex });
+          })), { id: schema.transactions.id, seriesIndex: schema.transactions.seriesIndex });
       const idOf = new Map(rows.map((r) => [r.seriesIndex, r.id]));
       await tx
         .insert(schema.transactionSplits)
@@ -338,11 +331,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
   const savedId = await db.transaction(async (tx) => {
     let txId = id;
     if (id) {
-      const updated = await tx
-        .update(schema.transactions)
-        .set(values)
-        .where(and(eq(schema.transactions.id, id), eq(schema.transactions.householdId, auth.householdId)))
-        .returning({ id: schema.transactions.id, seriesId: schema.transactions.seriesId });
+      const updated = await updateReturning(tx, schema.transactions, values, and(eq(schema.transactions.id, id), eq(schema.transactions.householdId, auth.householdId)), { id: schema.transactions.id, seriesId: schema.transactions.seriesId });
       if (updated.length === 0) throw new Error("not-found");
       await tx.delete(schema.transactionSplits).where(eq(schema.transactionSplits.transactionId, id));
       const seriesId = updated[0].seriesId;
@@ -404,10 +393,7 @@ export async function saveTransaction(id: string | null, input: TxInput): Promis
           .where(and(eq(schema.recurringSeries.id, seriesId), eq(schema.recurringSeries.householdId, auth.householdId)));
       }
     } else {
-      const [row] = await tx
-        .insert(schema.transactions)
-        .values({ ...values, householdId: auth.householdId, createdBy: auth.userId, source: "manual" })
-        .returning({ id: schema.transactions.id });
+      const [row] = await insertReturning(tx, schema.transactions, { ...values, householdId: auth.householdId, createdBy: auth.userId, source: "manual" }, { id: schema.transactions.id });
       txId = row.id;
     }
     // Quem já pagou a própria parte (com um acerto) continua quitado.
@@ -471,10 +457,7 @@ async function convertToSeries(auth: AuthContext, id: string, series: { kind: "i
   };
   const msg = await db.transaction(async (q) => {
     if (series.kind === "monthly" && series.count === null) {
-      const [rec] = await q
-        .insert(schema.recurringSeries)
-        .values({ ...base, amountCents: tx.amountCents, splits, startDate: tx.date, nextIndex: 2, createdBy: base.createdBy })
-        .returning({ id: schema.recurringSeries.id });
+      const [rec] = await insertReturning(q, schema.recurringSeries, { ...base, amountCents: tx.amountCents, splits, startDate: tx.date, nextIndex: 2, createdBy: base.createdBy }, { id: schema.recurringSeries.id });
       await q.update(t).set({ seriesId: rec.id, seriesKind: "monthly", seriesIndex: 1, seriesTotal: null }).where(eq(t.id, id));
       return "Agora se repete todo mês, a partir deste. Os próximos meses aparecem quando chegarem.";
     }
@@ -488,10 +471,7 @@ async function convertToSeries(auth: AuthContext, id: string, series: { kind: "i
     const today = todayIn();
     const next = parts.slice(1).filter((p) => !isPastInstallment(p.date, rules, today));
     if (next.length) {
-      const rows = await q
-        .insert(t)
-        .values(next.map((p) => ({ ...base, date: p.date, amountCents: p.amountCents, invoicePaid: false, awaitingReceipt: tx.kind === "income", seriesId, seriesKind: series.kind, seriesIndex: p.index, seriesTotal: count })))
-        .returning({ id: t.id, seriesIndex: t.seriesIndex });
+      const rows = await insertReturning(q, t, next.map((p) => ({ ...base, date: p.date, amountCents: p.amountCents, invoicePaid: false, awaitingReceipt: tx.kind === "income", seriesId, seriesKind: series.kind, seriesIndex: p.index, seriesTotal: count })), { id: t.id, seriesIndex: t.seriesIndex });
       const idOf = new Map(rows.map((r) => [r.seriesIndex, r.id]));
       await q.insert(schema.transactionSplits).values(next.flatMap((p) => p.splits.map((x) => ({ ...x, transactionId: idOf.get(p.index)! }))));
     }
@@ -550,7 +530,7 @@ export async function deleteSeries(transactionId: string, scope: "next" | "all")
     }
     const where = [eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.seriesId, seriesId)];
     if (scope === "next" && row.seriesIndex) where.push(gte(schema.transactions.seriesIndex, row.seriesIndex));
-    const gone = await tx.delete(schema.transactions).where(and(...where)).returning({ id: schema.transactions.id });
+    const gone = await deleteReturning(tx, schema.transactions, and(...where), { id: schema.transactions.id });
     if (snap && gone.length) {
       const audience = involved(snap);
       await logActivity(tx, auth, {
@@ -582,11 +562,7 @@ export async function stopRecurring(seriesId: string): Promise<ActionResult> {
   if (!rec) return { ok: false, error: "Recorrência não encontrada." };
   if (!canEditTx(auth, rec.createdBy)) return { ok: false, error: NOT_YOURS };
   const result = await db.transaction(async (tx) => {
-    const stopped = await tx
-      .update(schema.recurringSeries)
-      .set({ active: false })
-      .where(and(eq(schema.recurringSeries.id, id.data), eq(schema.recurringSeries.householdId, auth.householdId)))
-      .returning({ id: schema.recurringSeries.id });
+    const stopped = await updateReturning(tx, schema.recurringSeries, { active: false }, and(eq(schema.recurringSeries.id, id.data), eq(schema.recurringSeries.householdId, auth.householdId)), { id: schema.recurringSeries.id });
     if (stopped.length === 0) return null;
     const snap: TxSnapshot = {
       description: rec.description,
@@ -601,10 +577,7 @@ export async function stopRecurring(seriesId: string): Promise<ActionResult> {
       splits: rec.splits as TxSnapshot["splits"],
     };
     await logActivity(tx, auth, { action: "stopped", data: { tx: snap }, audience: involved(snap) });
-    return tx
-      .delete(schema.transactions)
-      .where(and(eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.seriesId, id.data), gt(schema.transactions.date, today)))
-      .returning({ id: schema.transactions.id });
+    return deleteReturning(tx, schema.transactions, and(eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.seriesId, id.data), gt(schema.transactions.date, today)), { id: schema.transactions.id });
   });
   if (!result) return { ok: false, error: "Recorrência não encontrada." };
   revalidatePath("/", "layout");
@@ -668,9 +641,7 @@ async function createPayment(tx: Conn, auth: AuthContext, orig: DebtTx, particip
   const income = orig.kind === "income";
   const from = income ? orig.payerId! : participantId;
   const to = income ? participantId : orig.payerId!;
-  const [row] = await tx
-    .insert(schema.transactions)
-    .values({
+  const [row] = await insertReturning(tx, schema.transactions, {
       householdId: auth.householdId,
       date,
       description: `Pagamento: ${orig.description}`.slice(0, 200),
@@ -680,8 +651,7 @@ async function createPayment(tx: Conn, auth: AuthContext, orig: DebtTx, particip
       settlesId: orig.id,
       source: "manual",
       createdBy: auth.userId,
-    })
-    .returning({ id: schema.transactions.id });
+    }, { id: schema.transactions.id });
   await tx.insert(schema.transactionSplits).values({ transactionId: row.id, participantId: to, amountCents });
   // Parcial: a parte continua aberta, só com menos para pagar. Quitou: a parte sai das dívidas.
   if (closes) {
@@ -793,9 +763,7 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
       const income = orig.kind === "income";
       const from = income ? orig.payerId! : d.participantId;
       const to = income ? d.participantId : orig.payerId!;
-      const [cr] = await tx
-        .insert(schema.transactions)
-        .values({
+      const [cr] = await insertReturning(tx, schema.transactions, {
           householdId: auth.householdId,
           date,
           description: `Adiantamento (sobra de ${orig.description})`.slice(0, 200),
@@ -806,8 +774,7 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
           source: "manual",
           externalId: creditKey(payId),
           createdBy: auth.userId,
-        })
-        .returning({ id: schema.transactions.id });
+        }, { id: schema.transactions.id });
       await tx.insert(schema.transactionSplits).values({ transactionId: cr.id, participantId: to, amountCents: extraCents });
     }
     const audience = [orig.payerId!, d.participantId];
@@ -910,11 +877,7 @@ export async function setInvoicePaid(cardId: string, invoice: string, paid: bool
   const dueLabel = `que vence ${shortDate(invoiceDates(invoice, card).due)}`;
   const range = invoiceRange(invoice, card.closingDay);
   const t = schema.transactions;
-  const changed = await db
-    .update(t)
-    .set({ invoicePaid: paid })
-    .where(and(eq(t.householdId, auth.householdId), eq(t.cardId, cardId), gte(t.date, range.from), lte(t.date, range.to)))
-    .returning({ id: t.id });
+  const changed = await updateReturning(db, t, { invoicePaid: paid }, and(eq(t.householdId, auth.householdId), eq(t.cardId, cardId), gte(t.date, range.from), lte(t.date, range.to)), { id: t.id });
   if (changed.length === 0) return { ok: false, error: "Essa fatura não tem compras." };
   revalidatePath("/", "layout");
   return { ok: true, message: paid ? `Fatura ${dueLabel} paga: as compras dela agora estão como pagas.` : `Fatura ${dueLabel} voltou a ficar em aberto.` };
@@ -992,9 +955,7 @@ export async function reshapeSeries(transactionId: string, input: z.input<typeof
       } else if (s.action === "keep") {
         await tx.update(t).set({ seriesTotal: parsed.data.total }).where(eq(t.id, s.id));
       } else {
-        const [row] = await tx
-          .insert(t)
-          .values({
+        const [row] = await insertReturning(tx, t, {
             householdId: auth.householdId,
             date: s.date,
             description: ref.description,
@@ -1011,8 +972,7 @@ export async function reshapeSeries(transactionId: string, input: z.input<typeof
             seriesKind: ref.seriesKind,
             seriesIndex: s.index,
             seriesTotal: parsed.data.total,
-          })
-          .returning({ id: t.id });
+          }, { id: t.id });
         const splits = scaleSplits(refSplits, s.amountCents).filter((x) => x.amountCents > 0);
         if (splits.length) await tx.insert(schema.transactionSplits).values(splits.map((x) => ({ ...x, transactionId: row.id })));
         created++;
@@ -1149,11 +1109,7 @@ export async function skipCategory(ids: string[]): Promise<ActionResult> {
   const notAllowed = await checkEditable(auth, valid);
   if (notAllowed) return { ok: false, error: notAllowed };
   const t = schema.transactions;
-  const changed = await getDb()
-    .update(t)
-    .set({ noCategory: true, updatedAt: new Date() })
-    .where(and(eq(t.householdId, auth.householdId), inArray(t.id, valid), eq(t.kind, "expense")))
-    .returning({ id: t.id });
+  const changed = await updateReturning(getDb(), t, { noCategory: true, updatedAt: new Date() }, and(eq(t.householdId, auth.householdId), inArray(t.id, valid), eq(t.kind, "expense")), { id: t.id });
   revalidatePath("/", "layout");
   return { ok: true, message: changed.length === 1 ? "Pronto: fica sem categoria e saiu de A identificar." : `${changed.length} lançamentos ficam sem categoria e saíram de A identificar.` };
 }
@@ -1186,9 +1142,7 @@ export async function refundExpense(transactionId: string, amountCents: number):
   if (card && invoiceOf(tx.date, card.closingDay) < invoiceOf(today, card.closingDay)) {
     const parts = scaleSplits(splits, amountCents).filter((x) => x.amountCents > 0);
     const creditId = await db.transaction(async (q) => {
-      const [row] = await q
-        .insert(t)
-        .values({
+      const [row] = await insertReturning(q, t, {
           householdId: auth.householdId,
           date: today,
           description: `Estorno: ${tx.description}`.slice(0, 200),
@@ -1201,8 +1155,7 @@ export async function refundExpense(transactionId: string, amountCents: number):
           notes: `Estorno da compra de ${shortDate(tx.date)} (${formatMoney(tx.amountCents, auth.currency)}), creditado na fatura aberta.`,
           source: "manual",
           createdBy: auth.userId,
-        })
-        .returning({ id: t.id });
+        }, { id: t.id });
       await q.insert(schema.transactionSplits).values(parts.map((x) => ({ participantId: x.participantId, amountCents: x.amountCents, transactionId: row.id })));
       const snap: TxSnapshot = { description: `Estorno: ${tx.description}`, amountCents, kind: "income", date: today, payerId: tx.payerId, categoryId: tx.categoryId, projectId: tx.projectId, cardId: tx.cardId, splits: parts };
       await logActivity(q, auth, { action: "created", transactionId: row.id, data: { tx: snap }, audience: involved(snap) });

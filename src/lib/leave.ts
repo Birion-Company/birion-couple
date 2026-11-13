@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, count, eq, inArray, isNotNull, ne, notInArray, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { deleteReturning } from "@/db/ops";
 
 type Db = ReturnType<typeof getDb>;
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -87,10 +88,7 @@ export async function deletePersonalData(tx: Tx, userId: string, householdId: st
           inArray(t.payerId, otherIds),
           sql`exists (select 1 from "transaction_splits" s where s."transactionId" = ${t.id} and s."participantId" in ${otherIds})`,
         )!;
-  const removed = await tx
-    .delete(t)
-    .where(and(eq(t.householdId, householdId), eq(t.createdBy, userId), sql`not (${involvesOthers})`))
-    .returning({ id: t.id });
+  const removed = await deleteReturning(tx, t, and(eq(t.householdId, householdId), eq(t.createdBy, userId), sql`not (${involvesOthers})`), { id: t.id });
   // Contas que repetem: só as que não têm mais ninguém com login.
   const R = schema.recurringSeries;
   const series = await tx

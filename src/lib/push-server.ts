@@ -4,6 +4,7 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { formatMoney } from "./money";
 import { wants, type PushKind } from "./push-prefs";
+import { affected } from "@/db/ops";
 
 /**
  * Notificações push (chegam no celular com o app fechado, inclusive no iPhone pela Tela de Início).
@@ -42,8 +43,8 @@ export async function sendPush(userIds: string[], msg: PushMessage) {
 /** Manda só uma vez por chave e pessoa (avisos agendados, como "fatura vence amanhã"). */
 export async function sendPushOnce(userId: string, key: string, msg: PushMessage) {
   if (!pushEnabled) return false;
-  const [first] = await getDb().insert(schema.pushSent).values({ userId, key }).onConflictDoNothing().returning({ key: schema.pushSent.key });
-  if (!first) return false;
+  const res = await getDb().insert(schema.pushSent).ignore().values({ userId, key });
+  if (affected(res) === 0) return false;
   await sendPush([userId], { ...msg, tag: msg.tag ?? key });
   return true;
 }

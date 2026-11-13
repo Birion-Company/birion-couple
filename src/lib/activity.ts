@@ -230,7 +230,7 @@ export async function getActivityFeed(
         opts.audit ? undefined : or(isNull(a.actorUserId), ne(a.actorUserId, viewer.userId)),
         gt(a.createdAt, opts.audit ? new Date(0) : opts.all ? new Date(Date.now() - 60 * 86400000) : m.seen),
         opts.before ? lt(a.createdAt, opts.before) : undefined,
-        isAdmin(viewer) ? undefined : sql`${a.audience} @> ${JSON.stringify([viewer.participantId])}::jsonb`,
+        isAdmin(viewer) ? undefined : sql`json_contains(${a.audience}, ${JSON.stringify([viewer.participantId])})`,
       ),
     )
     .orderBy(desc(a.createdAt))

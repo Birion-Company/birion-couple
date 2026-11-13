@@ -1,23 +1,44 @@
+import { sql } from "drizzle-orm";
 import {
-  type AnyPgColumn,
+  type AnyMySqlColumn,
   boolean,
+  customType,
   date,
+  datetime,
   index,
-  integer,
-  jsonb,
-  pgTable,
+  int,
+  longtext,
+  mysqlTable,
   primaryKey,
   text,
-  timestamp,
   uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+  varchar,
+} from "drizzle-orm/mysql-core";
 
-const id = () => uuid().primaryKey().defaultRandom();
-const createdAt = () => timestamp({ withTimezone: true }).notNull().defaultNow();
+/**
+ * Banco: MySQL/MariaDB (o que a hospedagem oferece). Pontos de atenção:
+ * - ids são UUID em texto de 36 caracteres, gerados aqui no app (o MySQL não devolve o id inserido como o Postgres);
+ * - datas/horas ficam em UTC (a conexão fixa time_zone = +00:00), com milissegundos;
+ * - JSON é guardado como texto JSON e convertido na leitura (o MariaDB devolve texto);
+ * - colunas com índice precisam de varchar (text não pode ser indexado inteiro).
+ */
+const uuid = () => varchar({ length: 36 });
+const id = () => uuid().primaryKey().$defaultFn(() => crypto.randomUUID());
+const ts = () => datetime({ mode: "date", fsp: 3 });
+const nowDefault = sql`CURRENT_TIMESTAMP(3)`;
+const createdAt = () => ts().notNull().default(nowDefault);
+const jsonb = <T = unknown>() =>
+  customType<{ data: T; driverData: string }>({
+    dataType: () => "json",
+    toDriver: (v) => JSON.stringify(v),
+    fromDriver: (v) => (typeof v === "string" ? (JSON.parse(v) as T) : (v as T)),
+  })();
+const str = (n = 255) => varchar({ length: n });
+/** Texto que diferencia maiúsculas de minúsculas (códigos de convite): o padrão do MySQL ignora a diferença. */
+const exactStr = (n: number) => customType<{ data: string }>({ dataType: () => `varchar(${n}) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin` })();
 
 /** Uma família (ou grupo) que compartilha as finanças. Todos os dados pertencem a uma. */
-export const households = pgTable("households", {
+export const households = mysqlTable("households", {
   id: id(),
   name: text().notNull(),
   currency: text().notNull().default("BRL"),
@@ -26,41 +47,41 @@ export const households = pgTable("households", {
    * Desde quando lançamentos que envolvem outro membro precisam ser aceitos por ele.
    * Os anteriores (de antes de existir a confirmação) valem como já aceitos.
    */
-  approvalsFrom: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  approvalsFrom: createdAt(),
   /**
    * Última manutenção automática (meses das contas fixas, parcelas, categorias, contatos parados) e a
    * última atividade que ela já tinha visto: guardado aqui para valer em todos os servidores.
    */
-  maintainedAt: timestamp({ withTimezone: true }),
-  maintainedActivityAt: timestamp({ withTimezone: true }),
+  maintainedAt: ts(),
+  maintainedActivityAt: ts(),
   createdAt: createdAt(),
 });
 
 /** Pessoa que entra no sistema (tem e-mail e senha). */
-export const users = pgTable("users", {
+export const users = mysqlTable("users", {
   id: id(),
-  email: text().notNull().unique(),
+  email: str().notNull().unique(),
   name: text().notNull(),
   passwordHash: text().notNull(),
   /** Foto de perfil já reduzida (JPEG ~320px) em base64; nula quando não há foto. */
-  avatarData: text(),
+  avatarData: longtext(),
   /** Quais notificações push a pessoa quer receber ({ divida: false, … }); sem a chave = ligada. */
-  pushPrefs: jsonb().notNull().default({}),
-  avatarUpdatedAt: timestamp({ withTimezone: true }),
+  pushPrefs: jsonb<Record<string, boolean>>().notNull().default(sql`('{}')`),
+  avatarUpdatedAt: ts(),
   /** Conta de auditoria do BIRION: só lê, vê todas as famílias e não pertence a nenhuma. */
   isAuditor: boolean().notNull().default(false),
   /** Quando a pessoa viu (ou pulou) o tutorial: ele só abre sozinho no primeiro acesso, em qualquer aparelho. */
-  tourSeenAt: timestamp({ withTimezone: true }),
+  tourSeenAt: ts(),
   /** Nome de usuário (@fulano): único no Birion (sem diferença de maiúsculas). */
   username: text(),
   /** Quando o e-mail foi confirmado (código de 4 números, ou login pelo Google). Sem isso, não entra no app. */
-  emailVerifiedAt: timestamp({ withTimezone: true }),
+  emailVerifiedAt: ts(),
   /** Apagar pessoas (sem login) guardadas há muito tempo, sozinho. Desligado até a pessoa ligar. */
   cleanPeople: boolean().notNull().default(false),
   createdAt: createdAt(),
 });
 
-export const memberships = pgTable(
+export const memberships = mysqlTable(
   "memberships",
   {
     householdId: uuid()
@@ -72,7 +93,7 @@ export const memberships = pgTable(
     role: text().notNull().default("member"), // owner | member
     participantId: uuid(),
     /** Até quando a pessoa já viu o popup de alterações; quem entra agora não recebe o histórico antigo. */
-    activitySeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    activitySeenAt: createdAt(),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.householdId, t.userId] })],
@@ -82,7 +103,7 @@ export const memberships = pgTable(
  * Apelidos: cada conta pode dar um apelido às pessoas com login da família, só para ela mesma.
  * Ex.: dois "Felipe" — para você um vira "Felipe (irmão)". Os outros continuam vendo o nome cadastrado.
  */
-export const nicknames = pgTable(
+export const nicknames = mysqlTable(
   "nicknames",
   {
     userId: uuid()
@@ -97,25 +118,25 @@ export const nicknames = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.participantId] })],
 );
 
-export const invites = pgTable("invites", {
+export const invites = mysqlTable("invites", {
   id: id(),
   householdId: uuid()
     .notNull()
     .references(() => households.id, { onDelete: "cascade" }),
-  code: text().notNull().unique(),
+  code: exactStr(64).notNull().unique(),
   /** Nome do convite para reconhecer na lista (ex.: "Convite mãe"). */
   label: text(),
   role: text().notNull().default("member"),
   /** Convite feito a partir de um contato: ao aceitar, a conta fica ligada a essa pessoa (com o histórico dela). */
   participantId: uuid().references(() => participants.id, { onDelete: "set null" }),
   createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
-  expiresAt: timestamp({ withTimezone: true }).notNull(),
-  usedAt: timestamp({ withTimezone: true }),
+  expiresAt: ts().notNull(),
+  usedAt: ts(),
   createdAt: createdAt(),
 });
 
 /** Pessoas que participam das despesas (não precisam ter login). */
-export const participants = pgTable(
+export const participants = mysqlTable(
   "participants",
   {
     id: id(),
@@ -124,31 +145,31 @@ export const participants = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     name: text().notNull(),
     color: text().notNull().default("#1AC4DB"),
-    sortOrder: integer().notNull().default(0),
+    sortOrder: int().notNull().default(0),
     archived: boolean().notNull().default(false),
     /**
      * Contato (sem login) é de uma conta só: só ela vê o nome, usa nas listas e edita. Para os outros
      * aparece "Contato de Fulano". Pessoa com login não tem dono (é da família toda).
      */
-    ownerUserId: uuid().references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    ownerUserId: uuid().references((): AnyMySqlColumn => users.id, { onDelete: "set null" }),
     /** Fixada: nunca sai das listas nem é apagada pela limpeza automática. */
     pinned: boolean().notNull().default(false),
     /** Quando foi guardada (escondida das listas): conta os dias até a limpeza automática. */
-    archivedAt: timestamp({ withTimezone: true }),
+    archivedAt: ts(),
     /**
      * Antigo "pessoa avulsa". Não é mais usado: quem não tem login é um contato (lib/contacts.ts),
      * com limite de ativos e escondido sozinho quando fica parado. Fica no banco só por compatibilidade.
      */
     temporary: boolean().notNull().default(false),
     /** Foto de quem não tem login (JPEG ~320px em base64). Quem tem login usa a foto do próprio perfil. */
-    photoData: text(),
-    photoUpdatedAt: timestamp({ withTimezone: true }),
+    photoData: longtext(),
+    photoUpdatedAt: ts(),
     createdAt: createdAt(),
   },
   (t) => [index("participants_household_idx").on(t.householdId)],
 );
 
-export const categories = pgTable(
+export const categories = mysqlTable(
   "categories",
   {
     id: id(),
@@ -159,7 +180,7 @@ export const categories = pgTable(
     color: text().notNull().default("#94A3B8"),
     /** Ícone da categoria (chave de lib/category-icons, ex.: "cart", "home"). */
     icon: text().notNull().default("tag"),
-    sortOrder: integer().notNull().default(0),
+    sortOrder: int().notNull().default(0),
     archived: boolean().notNull().default(false),
     createdAt: createdAt(),
   },
@@ -167,7 +188,7 @@ export const categories = pgTable(
 );
 
 /** Regras de categorização automática na importação: se a descrição contém o texto, usa a categoria. */
-export const categoryRules = pgTable(
+export const categoryRules = mysqlTable(
   "category_rules",
   {
     id: id(),
@@ -183,7 +204,7 @@ export const categoryRules = pgTable(
   (t) => [index("category_rules_household_idx").on(t.householdId)],
 );
 
-export const projects = pgTable(
+export const projects = mysqlTable(
   "projects",
   {
     id: id(),
@@ -205,7 +226,7 @@ export const projects = pgTable(
  * - open: alguém pagou e os outros ainda devem; entra no saldo.
  * - settled: já foi acertado (reembolsado); não entra no saldo.
  */
-export const statuses = pgTable(
+export const statuses = mysqlTable(
   "statuses",
   {
     id: id(),
@@ -217,7 +238,7 @@ export const statuses = pgTable(
     behavior: text().notNull().default("pending"),
     isDefault: boolean().notNull().default(false),
     isImportDefault: boolean().notNull().default(false),
-    sortOrder: integer().notNull().default(0),
+    sortOrder: int().notNull().default(0),
     archived: boolean().notNull().default(false),
     createdAt: createdAt(),
   },
@@ -225,7 +246,7 @@ export const statuses = pgTable(
 );
 
 /** Cartões de crédito da família, com o dia em que a fatura fecha e o dia em que vence. */
-export const creditCards = pgTable(
+export const creditCards = mysqlTable(
   "credit_cards",
   {
     id: id(),
@@ -237,11 +258,11 @@ export const creditCards = pgTable(
     /** Dono do cartão (pessoa). Cada pessoa tem os próprios cartões, independentes dos outros. */
     ownerId: uuid().references(() => participants.id, { onDelete: "cascade" }),
     /** Dia do mês em que a fatura fecha (1–31; em meses curtos vale o último dia). */
-    closingDay: integer().notNull(),
+    closingDay: int().notNull(),
     /** Dia do mês em que a fatura vence (1–31). Se for menor ou igual ao fechamento, vence no mês seguinte. */
-    dueDay: integer().notNull(),
+    dueDay: int().notNull(),
     /** Quantos dias antes avisar do fechamento e do vencimento; nulo = não avisar. */
-    alertDays: integer().default(3),
+    alertDays: int().default(3),
     archived: boolean().notNull().default(false),
     createdAt: createdAt(),
   },
@@ -252,7 +273,7 @@ export const creditCards = pgTable(
  * Lançamento que se repete todo mês sem data para acabar. Guarda o modelo; o lançamento de cada
  * mês é criado quando o mês chega (até o fim do mês corrente), e todos têm seriesId = id daqui.
  */
-export const recurringSeries = pgTable(
+export const recurringSeries = mysqlTable(
   "recurring_series",
   {
     id: id(),
@@ -260,7 +281,7 @@ export const recurringSeries = pgTable(
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
     description: text().notNull(),
-    amountCents: integer().notNull(),
+    amountCents: int().notNull(),
     kind: text().notNull().default("expense"),
     payerId: uuid().references(() => participants.id, { onDelete: "set null" }),
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
@@ -275,7 +296,7 @@ export const recurringSeries = pgTable(
     /** Data do primeiro lançamento; os seguintes caem no mesmo dia dos meses seguintes. */
     startDate: date({ mode: "string" }).notNull(),
     /** Número do próximo lançamento a criar (1 = o primeiro). */
-    nextIndex: integer().notNull().default(1),
+    nextIndex: int().notNull().default(1),
     active: boolean().notNull().default(true),
     createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
     createdAt: createdAt(),
@@ -287,7 +308,7 @@ export const recurringSeries = pgTable(
  * O que cada pessoa fez nos lançamentos (criou, alterou, excluiu, importou…).
  * Vira o popup "o que mudou" para quem está envolvido (audience = ids de pessoas) e para o admin.
  */
-export const activities = pgTable(
+export const activities = mysqlTable(
   "activities",
   {
     id: id(),
@@ -311,7 +332,7 @@ export const activities = pgTable(
  * Registro da família (não é notificação): quem entrou, saiu, virou administrador, convites, pedidos
  * de convite, mudança de nome… Quem administra vê tudo; cada membro vê o que fez ou o que foi com ele.
  */
-export const familyLog = pgTable(
+export const familyLog = mysqlTable(
   "family_log",
   {
     id: id(),
@@ -335,7 +356,7 @@ export const familyLog = pgTable(
  * Pedido de convite: um membro pede para chamar alguém; quem administra aceita (gera o link, que
  * aparece para quem pediu) ou recusa.
  */
-export const inviteRequests = pgTable(
+export const inviteRequests = mysqlTable(
   "invite_requests",
   {
     id: id(),
@@ -353,18 +374,18 @@ export const inviteRequests = pgTable(
     inviteId: uuid().references(() => invites.id, { onDelete: "set null" }),
     reason: text(),
     decidedBy: uuid().references(() => users.id, { onDelete: "set null" }),
-    decidedAt: timestamp({ withTimezone: true }),
+    decidedAt: ts(),
     createdAt: createdAt(),
   },
   (t) => [index("invite_requests_household_idx").on(t.householdId)],
 );
 
 /** Senhas erradas no login (por e-mail): depois de 5 em 15 minutos, o login espera. */
-export const loginFailures = pgTable(
+export const loginFailures = mysqlTable(
   "login_failures",
   {
     id: id(),
-    email: text().notNull(),
+    email: str().notNull(),
     createdAt: createdAt(),
   },
   (t) => [index("login_failures_email_idx").on(t.email, t.createdAt)],
@@ -374,7 +395,7 @@ export const loginFailures = pgTable(
  * Orçamento: limite mensal por categoria, de cada pessoa (só a parte dela nos gastos conta).
  * alertedMonth/alertedLevel guardam o último aviso (80 ou 100) do mês, para não avisar de novo.
  */
-export const budgets = pgTable(
+export const budgets = mysqlTable(
   "budgets",
   {
     userId: uuid()
@@ -383,23 +404,23 @@ export const budgets = pgTable(
     categoryId: uuid()
       .notNull()
       .references(() => categories.id, { onDelete: "cascade" }),
-    monthlyCents: integer().notNull(),
+    monthlyCents: int().notNull(),
     alertedMonth: text(),
-    alertedLevel: integer().notNull().default(0),
+    alertedLevel: int().notNull().default(0),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.categoryId] })],
 );
 
 /** Metas de economia: de cada pessoa. targetMonth é "AAAA-MM"; savedCents é quanto já foi guardado. */
-export const goals = pgTable("goals", {
+export const goals = mysqlTable("goals", {
   id: id(),
   userId: uuid()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   name: text().notNull(),
-  targetCents: integer().notNull(),
-  savedCents: integer().notNull().default(0),
+  targetCents: int().notNull(),
+  savedCents: int().notNull().default(0),
   targetMonth: text().notNull(),
   /** Meta do casal: as duas pessoas veem e guardam nela. */
   shared: boolean().notNull().default(false),
@@ -407,14 +428,14 @@ export const goals = pgTable("goals", {
 });
 
 /** Contas (banco, carteira, poupança) de cada pessoa, com o saldo que ela informa. Entram na "posição" junto com cartões e dívidas. */
-export const accounts = pgTable("accounts", {
+export const accounts = mysqlTable("accounts", {
   id: id(),
   userId: uuid()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   name: text().notNull(),
-  balanceCents: integer().notNull().default(0),
-  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  balanceCents: int().notNull().default(0),
+  updatedAt: createdAt(),
   createdAt: createdAt(),
 });
 
@@ -422,7 +443,7 @@ export const accounts = pgTable("accounts", {
  * Aceite automático: "aceitar sempre o que [fromParticipantId] lançar para mim [participantId]", opcionalmente só até
  * um valor (a minha parte) e/ou só quando a descrição tem certo texto (ex.: "aluguel"). Vale para lançamentos novos.
  */
-export const autoAcceptRules = pgTable(
+export const autoAcceptRules = mysqlTable(
   "auto_accept_rules",
   {
     id: id(),
@@ -435,7 +456,7 @@ export const autoAcceptRules = pgTable(
     fromParticipantId: uuid()
       .notNull()
       .references(() => participants.id, { onDelete: "cascade" }),
-    maxCents: integer(),
+    maxCents: int(),
     match: text(),
     createdAt: createdAt(),
   },
@@ -446,32 +467,32 @@ export const autoAcceptRules = pgTable(
  * Chave pessoal para "compra recebida" (rota /api/compra): quem tem a chave lança compras no cartão da pessoa.
  * Só o hash fica guardado; a chave aparece uma vez, quando é criada.
  */
-export const purchaseKeys = pgTable("purchase_keys", {
+export const purchaseKeys = mysqlTable("purchase_keys", {
   userId: uuid()
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
-  keyHash: text().notNull().unique(),
+  keyHash: str(128).notNull().unique(),
   /** Começo da chave, só para a pessoa reconhecer qual é. */
   prefix: text().notNull(),
-  lastUsedAt: timestamp({ withTimezone: true }),
+  lastUsedAt: ts(),
   createdAt: createdAt(),
 });
 
-export const importBatches = pgTable("import_batches", {
+export const importBatches = mysqlTable("import_batches", {
   id: id(),
   householdId: uuid()
     .notNull()
     .references(() => households.id, { onDelete: "cascade" }),
   fileName: text().notNull(),
   format: text().notNull(), // ofx | csv
-  imported: integer().notNull().default(0),
-  skipped: integer().notNull().default(0),
+  imported: int().notNull().default(0),
+  skipped: int().notNull().default(0),
   createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });
 
 /** Modelos salvos de leitura de CSV (qual coluna é data, valor etc.). */
-export const csvPresets = pgTable("csv_presets", {
+export const csvPresets = mysqlTable("csv_presets", {
   id: id(),
   householdId: uuid()
     .notNull()
@@ -481,7 +502,7 @@ export const csvPresets = pgTable("csv_presets", {
   createdAt: createdAt(),
 });
 
-export const transactions = pgTable(
+export const transactions = mysqlTable(
   "transactions",
   {
     id: id(),
@@ -491,7 +512,7 @@ export const transactions = pgTable(
     date: date({ mode: "string" }).notNull(),
     description: text().notNull(),
     /** Valor em centavos, sempre positivo. O sentido vem do "kind". */
-    amountCents: integer().notNull(),
+    amountCents: int().notNull(),
     kind: text().notNull().default("expense"), // expense | income | transfer
     payerId: uuid().references(() => participants.id, { onDelete: "set null" }),
     categoryId: uuid().references(() => categories.id, { onDelete: "set null" }),
@@ -510,21 +531,21 @@ export const transactions = pgTable(
      * Acerto que paga uma dívida de outro lançamento (ex.: Fulano pagando a parte dele).
      * Se o valor for maior que o devido, a sobra fica com quem recebeu (ou vira um adiantamento à parte).
      */
-    settlesId: uuid().references((): AnyPgColumn => transactions.id, { onDelete: "cascade" }),
+    settlesId: uuid().references((): AnyMySqlColumn => transactions.id, { onDelete: "cascade" }),
     /** Cartão de crédito usado; a fatura sai da data e do dia de fechamento do cartão. */
     cardId: uuid().references(() => creditCards.id, { onDelete: "set null" }),
     /** Compras parceladas ou recorrentes: todas as parcelas compartilham o mesmo seriesId. */
     seriesId: uuid(),
     seriesKind: text(), // installment | monthly
-    seriesIndex: integer(), // 1, 2, 3…
-    seriesTotal: integer(),
+    seriesIndex: int(), // 1, 2, 3…
+    seriesTotal: int(),
     notes: text(),
     source: text().notNull().default("manual"), // manual | ofx | csv
-    externalId: text(),
+    externalId: str(),
     /** Entrou de fora (compra recebida): só aparece em "A identificar" até a pessoa confirmar. */
     needsReview: boolean().notNull().default(false),
     /** Conta (de "Contas") em que a receita entrou ou de onde a despesa saiu: o saldo da conta vem daí. */
-    accountId: uuid().references((): AnyPgColumn => accounts.id, { onDelete: "set null" }),
+    accountId: uuid().references((): AnyMySqlColumn => accounts.id, { onDelete: "set null" }),
     /** Importado reaproveitando o que já foi feito no mesmo lugar, mas o histórico varia (ex.: uber às vezes é de outra pessoa): fica em A identificar até confirmar. */
     reuseCheck: boolean().notNull().default(false),
     importBatchId: uuid().references(() => importBatches.id, { onDelete: "set null" }),
@@ -541,7 +562,7 @@ export const transactions = pgTable(
 );
 
 /** Quanto cabe a cada participante numa transação. A soma é igual ao valor da transação. */
-export const transactionSplits = pgTable(
+export const transactionSplits = mysqlTable(
   "transaction_splits",
   {
     transactionId: uuid()
@@ -550,7 +571,7 @@ export const transactionSplits = pgTable(
     participantId: uuid()
       .notNull()
       .references(() => participants.id, { onDelete: "cascade" }),
-    amountCents: integer().notNull(),
+    amountCents: int().notNull(),
     /** Acerto que pagou esta parte (a dívida desta pessoa neste lançamento acabou). */
     paidById: uuid().references(() => transactions.id, { onDelete: "set null" }),
   },
@@ -561,14 +582,14 @@ export const transactionSplits = pgTable(
 );
 
 /** Aparelhos que aceitaram notificações push (iPhone pela Tela de Início, Android, computador). */
-export const pushSubscriptions = pgTable(
+export const pushSubscriptions = mysqlTable(
   "push_subscriptions",
   {
     id: id(),
     userId: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    endpoint: text().notNull(),
+    endpoint: str(700).notNull(),
     p256dh: text().notNull(),
     auth: text().notNull(),
     /** "iPhone", "Android", "Computador": só para mostrar onde está ligado. */
@@ -579,13 +600,13 @@ export const pushSubscriptions = pgTable(
 );
 
 /** Avisos agendados já enviados (ex.: "fatura vence amanhã"), para não mandar o mesmo duas vezes. */
-export const pushSent = pgTable(
+export const pushSent = mysqlTable(
   "push_sent",
   {
     userId: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    key: text().notNull(),
+    key: str().notNull(),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
@@ -597,7 +618,7 @@ export const pushSent = pgTable(
  * key = seriesId (parcelas e meses valem juntos) ou o id do lançamento.
  * fingerprint = o que foi aceito (tipo, valor, quem pagou, divisão): se mudar, pede de novo.
  */
-export const txApprovals = pgTable(
+export const txApprovals = mysqlTable(
   "tx_approvals",
   {
     householdId: uuid()
@@ -619,7 +640,7 @@ export const txApprovals = pgTable(
  * "Esqueci minha senha": código de 4 dígitos mandado por e-mail. Só o hash do código fica guardado;
  * vale 15 minutos, aceita poucas tentativas e serve uma vez só.
  */
-export const passwordResets = pgTable(
+export const passwordResets = mysqlTable(
   "password_resets",
   {
     id: id(),
@@ -629,9 +650,9 @@ export const passwordResets = pgTable(
     /** "reset" (esqueci a senha) ou "verify" (confirmar o e-mail ao criar a conta). */
     purpose: text().notNull().default("reset"),
     codeHash: text().notNull(),
-    expiresAt: timestamp({ withTimezone: true }).notNull(),
-    attempts: integer().notNull().default(0),
-    usedAt: timestamp({ withTimezone: true }),
+    expiresAt: ts().notNull(),
+    attempts: int().notNull().default(0),
+    usedAt: ts(),
     createdAt: createdAt(),
   },
   (t) => [index("password_resets_user_idx").on(t.userId)],

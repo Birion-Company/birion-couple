@@ -42,6 +42,7 @@ import {
   MEMBERS_FULL_MESSAGE,
 } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
+import { affected, deleteReturning, insertReturning, updateReturning } from "@/db/ops";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
@@ -585,7 +586,7 @@ async function makeInvite(
         eq(schema.invites.householdId, auth.householdId),
         isNull(schema.invites.usedAt),
         gte(schema.invites.expiresAt, new Date()),
-        sql`${schema.invites.createdAt} > now() - interval '1 day'`,
+        sql`${schema.invites.createdAt} > now() - interval 1 day`,
       ),
     );
   if (open >= INVITES_OPEN_MAX)
@@ -608,9 +609,7 @@ async function makeInvite(
   }
   const code = randomBytes(12).toString("base64url");
   const db = getDb();
-  const [inv] = await db
-    .insert(schema.invites)
-    .values({
+  const [inv] = await insertReturning(db, schema.invites, {
       householdId: auth.householdId,
       code,
       role: role === "owner" ? "owner" : "member",
@@ -618,8 +617,7 @@ async function makeInvite(
       participantId,
       createdBy: auth.userId,
       expiresAt: new Date(Date.now() + INVITE_VALID_HOURS * 3600 * 1000),
-    })
-    .returning({ id: schema.invites.id });
+    }, { id: schema.invites.id });
   await logFamily(db, {
     householdId: auth.householdId,
     actorUserId: auth.userId,
@@ -786,15 +784,10 @@ export async function decideInviteRequest(
 export async function revokeInvite(id: string): Promise<ActionResult> {
   const auth = await requireOwner();
   const db = getDb();
-  const del = await db
-    .delete(schema.invites)
-    .where(
-      and(
+  const del = await deleteReturning(db, schema.invites, and(
         eq(schema.invites.id, id),
         eq(schema.invites.householdId, auth.householdId),
-      ),
-    )
-    .returning({ id: schema.invites.id });
+      ), { id: schema.invites.id });
   if (del.length)
     await logFamily(db, {
       householdId: auth.householdId,
@@ -836,9 +829,8 @@ export async function setMemberRole(
         eq(schema.memberships.userId, userId),
         ne(schema.memberships.role, role),
       ),
-    )
-    .returning({ id: schema.memberships.userId });
-  if (done1.length) {
+    );
+  if (affected(done1) > 0) {
     const [who] = await db
       .select({ name: schema.users.name })
       .from(schema.users)
@@ -1140,11 +1132,7 @@ export async function mergeContactIntoMember(
   const t = schema.transactions;
   const S = schema.transactionSplits;
   const moved = await db.transaction(async (q) => {
-    const payer = await q
-      .update(t)
-      .set({ payerId: member.pid, updatedAt: new Date() })
-      .where(and(eq(t.householdId, auth.householdId), eq(t.payerId, contactId)))
-      .returning({ id: t.id });
+    const payer = await updateReturning(q, t, { payerId: member.pid, updatedAt: new Date() }, and(eq(t.householdId, auth.householdId), eq(t.payerId, contactId)), { id: t.id });
     // Partes: se a pessoa já tinha parte no mesmo lançamento, soma; senão, a parte muda de nome.
     const parts = await q
       .select()

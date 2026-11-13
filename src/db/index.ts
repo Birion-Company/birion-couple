@@ -1,30 +1,22 @@
 import "server-only";
-import { drizzle as drizzleNetlify } from "drizzle-orm/netlify-db";
-import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import pg from "pg";
+import { drizzle } from "drizzle-orm/mysql2";
+import type { MySql2Database } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
+import { mysqlPoolOptions, prepareConnection } from "./connection";
 import * as schema from "./schema";
 
-/**
- * Duas formas de chegar ao banco, com a mesma API de consultas (por isso expomos um tipo só):
- * - DATABASE_URL definido (hospedagem comum, VPS, qualquer Postgres): conexão direta com o `pg`.
- * - sem ele: o adaptador netlify-db, que escolhe sozinho a conexão certa (Netlify Database em produção,
- *   Postgres local via NETLIFY_DB_URL no desenvolvimento).
- */
-export type Db = NodePgDatabase<typeof schema>;
+export type Db = MySql2Database<typeof schema>;
 
 let instance: Db | undefined;
 
 export function getDb(): Db {
   if (!instance) {
     const url = process.env.DATABASE_URL;
-    if (url) {
-      // Poucas conexões: hospedagens compartilhadas limitam quantas cada app pode abrir.
-      const pool = new pg.Pool({ connectionString: url, max: Number(process.env.DATABASE_POOL_MAX ?? 5) });
-      instance = drizzlePg({ client: pool, schema }) as unknown as Db;
-    } else {
-      instance = drizzleNetlify({ schema }) as unknown as Db;
-    }
+    if (!url) throw new Error("DATABASE_URL não definido (ex.: mysql://usuario:senha@127.0.0.1:3306/banco).");
+    // Poucas conexões: hospedagens compartilhadas limitam quantas cada app pode abrir.
+    const pool = mysql.createPool(mysqlPoolOptions(url, Number(process.env.DATABASE_POOL_MAX ?? 5)));
+    prepareConnection(pool);
+    instance = drizzle({ client: pool, schema, mode: "default" }) as unknown as Db;
   }
   return instance;
 }

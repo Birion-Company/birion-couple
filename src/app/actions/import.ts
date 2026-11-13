@@ -16,6 +16,7 @@ import { expandInstallments, learnedByMerchant, PREDICTED } from "@/lib/patterns
 import type { CsvMapping, ParseIssue } from "@/lib/import/types";
 import { splitEqually } from "@/lib/money";
 import { checkPeople, usablePeople } from "@/lib/people-access";
+import { deleteReturning, insertReturning } from "@/db/ops";
 
 const MAX_TEXT = 3_000_000; // ~3 MB de texto
 
@@ -176,10 +177,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
   }
 
   const result = await db.transaction(async (tx) => {
-    const [batch] = await tx
-      .insert(schema.importBatches)
-      .values({ householdId: auth.householdId, fileName: data.fileName || "arquivo", format: data.format, createdBy: auth.userId })
-      .returning({ id: schema.importBatches.id });
+    const [batch] = await insertReturning(tx, schema.importBatches, { householdId: auth.householdId, fileName: data.fileName || "arquivo", format: data.format, createdBy: auth.userId }, { id: schema.importBatches.id });
     let imported = 0;
     let replaced = 0;
     let learnedSplits = 0;
@@ -244,10 +242,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
     }
     for (let i = 0; i < rest.length; i += 200) {
       const chunk = rest.slice(i, i + 200);
-      const inserted = await tx
-        .insert(schema.transactions)
-        .values(
-          chunk.map((r) => ({
+      const inserted = await insertReturning(tx, schema.transactions, chunk.map((r) => ({
             householdId: auth.householdId,
             date: r.date,
             // "Loja - Parcela 2/3" vira "Loja", com a parcela guardada na série (aparece ao lado: Parcela 2/3).
@@ -267,10 +262,7 @@ export async function commitImport(input: z.input<typeof CommitSchema>): Promise
             importBatchId: batch.id,
             reuseCheck: mustCheck(r.description, r.amountCents),
             createdBy: auth.userId,
-          })),
-        )
-        .onConflictDoNothing()
-        .returning({ id: schema.transactions.id, amountCents: schema.transactions.amountCents, description: schema.transactions.description });
+          })), { id: schema.transactions.id, amountCents: schema.transactions.amountCents, description: schema.transactions.description }, { ignoreDuplicates: true });
       for (const row of inserted) items.push({ d: row.description, a: involved({ payerId: data.payerId, splits: data.splitIds.map((p) => ({ participantId: p, amountCents: 0 })) }) });
       const byId = new Map(chunk.map((r) => [(r.amountCents < 0 ? parseInstallment(r.description)?.base : null) || r.description || "Sem descrição", r]));
       const splits = inserted.flatMap((row) => {
@@ -332,10 +324,7 @@ export async function deleteImport(batchId: string): Promise<{ ok: boolean; erro
         .where(and(eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.importBatchId, batch.id)))
     ).map((r) => r.id);
     const snaps = await snapshots(tx, auth.householdId, ids);
-    const rows = await tx
-      .delete(schema.transactions)
-      .where(and(eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.importBatchId, batch.id)))
-      .returning({ id: schema.transactions.id });
+    const rows = await deleteReturning(tx, schema.transactions, and(eq(schema.transactions.householdId, auth.householdId), eq(schema.transactions.importBatchId, batch.id)), { id: schema.transactions.id });
     await tx.delete(schema.importBatches).where(eq(schema.importBatches.id, batch.id));
     const items = [...snaps.values()].map((x) => ({ d: x.description, a: involved(x) }));
     if (items.length) await logActivity(tx, auth, { action: "import_deleted", data: { fileName: batch.fileName, items }, audience: items.flatMap((x) => x.a) });

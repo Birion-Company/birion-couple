@@ -30,7 +30,7 @@ Saldo positivo = tem a receber. Negativo = deve. A lógica está em `src/lib/bal
 ## Tecnologia
 
 - [Next.js 16](https://nextjs.org) (App Router, Server Actions) e React 19
-- PostgreSQL via [Netlify Database](https://docs.netlify.com) com [Drizzle ORM](https://orm.drizzle.team)
+- MySQL/MariaDB (o da Hostinger) com [Drizzle ORM](https://orm.drizzle.team); migrações em `db/migrations`, aplicadas ao ligar o app
 - Leitura de arquivos: [Papa Parse](https://www.papaparse.com) (CSV) e [ofx-data-extractor](https://www.npmjs.com/package/ofx-data-extractor) (OFX)
 - Sessão em cookie assinado ([jose](https://github.com/panva/jose)), senhas com bcrypt, validação com Zod
 
@@ -41,8 +41,7 @@ Requer Node 22+.
 ```bash
 npm install
 cp .env.example .env.local
-npm run db:dev      # sobe um Postgres local e aplica as migrações (deixe aberto)
-npm run dev         # em outro terminal: http://localhost:3000
+financas            # sobe o MariaDB (Docker) + o app; ou, à mão: docker run mariadb:10.11 na porta 33306 e `npm run dev`
 ```
 
 Verificações:

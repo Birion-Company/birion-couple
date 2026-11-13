@@ -38,7 +38,9 @@
     ".next-carga/types/**/*.ts",
     ".next-carga/dev/types/**/*.ts",
     ".next-verify/types/**/*.ts",
-    ".next-verify/dev/types/**/*.ts"
+    ".next-verify/dev/types/**/*.ts",
+    ".next-sa/types/**/*.ts",
+    ".next-sa/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
