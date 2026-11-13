@@ -15,7 +15,7 @@ import { logFamily } from "@/lib/family-log";
 import { destroySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { ICON_KEYS } from "@/lib/category-icons";
-import { ADMINS_FULL_MESSAGE, ADMINS_MAX, HOUSEHOLD_NAME_MAX, INVITE_VALID_HOURS, INVITES_OPEN_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
+import { ADMINS_FULL_MESSAGE, APPROVALS_OFF, ADMINS_MAX, HOUSEHOLD_NAME_MAX, INVITE_VALID_HOURS, INVITES_OPEN_MAX, MEMBERS_FULL_MESSAGE } from "@/lib/defaults";
 import { hasRoomForMember } from "@/lib/household";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
@@ -32,7 +32,7 @@ const firstIssue = (e: z.ZodError) => fail(e.issues[0].message);
 
 // ---------- Família ----------
 
-export async function updateHousehold(input: { name: string; currency: string }): Promise<ActionResult> {
+export async function updateHousehold(input: { name: string; currency: string; approvals?: boolean }): Promise<ActionResult> {
   const auth = await requireOwner();
   const parsed = z
     .object({
@@ -42,6 +42,7 @@ export async function updateHousehold(input: { name: string; currency: string })
         .min(1, { error: "Dê um nome para a família." })
         .max(HOUSEHOLD_NAME_MAX, { error: `O nome da família pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.` }),
       currency: z.enum(["BRL", "USD", "EUR"]),
+      approvals: z.boolean().optional(),
     })
     .safeParse(input);
   if (!parsed.success) return firstIssue(parsed.error);
@@ -51,7 +52,12 @@ export async function updateHousehold(input: { name: string; currency: string })
     const [{ n }] = await db.select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, auth.householdId));
     if (n > 0) return fail("A moeda não pode mudar depois que a família tem lançamentos: os valores não são convertidos, só o símbolo mudaria.");
   }
-  await db.update(schema.households).set(parsed.data).where(eq(schema.households.id, auth.householdId));
+  const { approvals, ...base } = parsed.data;
+  const [cur] = await db.select({ from: schema.households.approvalsFrom }).from(schema.households).where(eq(schema.households.id, auth.householdId));
+  const wasOn = !!cur && cur.from.getTime() < APPROVALS_OFF.getTime();
+  // Ligar vale só dali para frente (o que já existe continua aceito); desligar aceita tudo.
+  const approvalsFrom = approvals === undefined || approvals === wasOn ? undefined : approvals ? new Date() : APPROVALS_OFF;
+  await db.update(schema.households).set({ ...base, ...(approvalsFrom ? { approvalsFrom } : {}) }).where(eq(schema.households.id, auth.householdId));
   const changes = [
     parsed.data.name !== auth.householdName ? `mudou o nome da família de “${auth.householdName}” para “${parsed.data.name}”` : null,
     parsed.data.currency !== auth.currency ? `mudou a moeda de ${auth.currency} para ${parsed.data.currency}` : null,

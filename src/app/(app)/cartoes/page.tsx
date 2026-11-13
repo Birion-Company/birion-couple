@@ -1,3 +1,4 @@
+import { MoneyTabs } from "@/components/money-tabs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -301,6 +302,7 @@ export default async function CardsPage() {
 
   return (
     <div className="cards-page">
+      <MoneyTabs on="cartoes" />
       <div className="page-head">
         <div>
           <h1>Cartões</h1>

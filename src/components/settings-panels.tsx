@@ -25,7 +25,6 @@ const TABS = [
   { href: "/ajustes", label: "Família", help: "Nome e moeda, as pessoas (família com login e contatos), como a família está e o histórico." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
   { href: "/ajustes/orcamento", label: "Orçamento", help: "Quanto você quer gastar por mês em cada categoria. Só você vê." },
-  { href: "/ajustes/metas", label: "Metas", help: "Quanto quer juntar e até quando. Só você vê." },
   { href: "/ajustes/automacao", label: "Automação", help: "Aceitar sozinho o que você já sabe que vai aceitar." },
   { href: "/ajustes/membros", label: "Acesso", help: "Quem entra no app, quem administra e convites." },
   { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
@@ -62,8 +61,9 @@ function useAct() {
   })] as const;
 }
 
-export function HouseholdForm({ name, currency, isOwner, currencyLocked = false }: { name: string; currency: string; isOwner: boolean; currencyLocked?: boolean }) {
+export function HouseholdForm({ name, currency, isOwner, currencyLocked = false, approvals = false }: { name: string; currency: string; isOwner: boolean; currencyLocked?: boolean; approvals?: boolean }) {
   const [pending, act] = useAct();
+  const [ask, setAsk] = useState(approvals);
   const [n, setN] = useState(name);
   const [c, setC] = useState(currency);
   return (
@@ -72,11 +72,11 @@ export function HouseholdForm({ name, currency, isOwner, currencyLocked = false 
       data-tour="family-form"
       onSubmit={(e) => {
         e.preventDefault();
-        act(() => updateHousehold({ name: n, currency: c }));
+        act(() => updateHousehold({ name: n, currency: c, approvals: ask }));
       }}
     >
       <div className="field">
-        <label htmlFor="familia-nome">Nome da família ou grupo</label>
+        <label htmlFor="familia-nome">Nome do casal</label>
         <input
           id="familia-nome"
           className="input"
@@ -95,6 +95,10 @@ export function HouseholdForm({ name, currency, isOwner, currencyLocked = false 
         <span>Moeda</span>
         <Select value={c} onChange={setC} disabled={!isOwner || currencyLocked} options={CURRENCIES.map((x) => ({ value: x.value, label: x.label }))} />
         {currencyLocked && <span className="faint">Travada: já há lançamentos, e trocar a moeda não converte os valores (só mudaria o símbolo).</span>}
+      </label>
+      <label className="check-row">
+        <input type="checkbox" checked={ask} onChange={(e) => setAsk(e.target.checked)} disabled={!isOwner} />
+        <span>Um confirma os gastos do outro</span>
       </label>
       {isOwner ? (
         <div className="actions" style={{ justifyContent: "flex-end" }}>

@@ -367,7 +367,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             <section className="card" aria-labelledby="metas-painel">
               <div className="card-head">
                 <h2 id="metas-painel">Metas</h2>
-                <Link href="/ajustes/metas" className="faint">
+                <Link href="/metas" className="faint">
                   ajustar
                 </Link>
               </div>

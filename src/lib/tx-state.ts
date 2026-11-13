@@ -50,7 +50,7 @@ export const STATE_PARAM: Record<TxState, string> = {
 export const STATE_INFO: Record<TxState, { label: string; color: string; help: string }> = {
   "to-pay": { label: "Falta quem pagou", color: "#E0A526", help: "Falta dizer quem pagou. Complete em A identificar." },
   "on-card": { label: "Na fatura", color: "#8B7CF6", help: "Cartão com a fatura em aberto." },
-  "to-settle": { label: "A acertar", color: "#1AC4DB", help: "Alguém ainda deve a parte dele." },
+  "to-settle": { label: "A acertar", color: "#E07A5F", help: "Alguém ainda deve a parte dele." },
   paid: { label: "Pago", color: "#3BAA7F", help: "Ninguém deve mais nada." },
   "to-receive": { label: "A receber", color: "#E0A526", help: "Ainda não caiu na conta. Toque em Recebi quando receber." },
 };

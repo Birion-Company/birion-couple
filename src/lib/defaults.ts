@@ -25,6 +25,9 @@ export const MEMBERS_FULL_MESSAGE = `O casal já está completo: são ${MEMBERS_
 export const CONTACTS_FULL_MESSAGE = `Já há ${CONTACTS_ACTIVE_MAX} contatos ativos. Esconda um que não usa mais, em Ajustes → Pessoas.`;
 export const CONTACTS_TOTAL_MESSAGE = `Você chegou a ${CONTACTS_TOTAL_MAX} contatos guardados. Exclua alguns que não usa mais.`;
 
+/** Confirmação entre o casal desligada: "vale a partir de" uma data bem no futuro, então tudo conta como aceito. */
+export const APPROVALS_OFF = new Date("9999-01-01T00:00:00Z");
+
 /** Tamanho máximo do nome da família (aparece no menu lateral, abaixo da marca). */
 export const HOUSEHOLD_NAME_MAX = 20;
 
@@ -36,7 +39,7 @@ export function defaultHouseholdName(fullName: string) {
 
 export const DEFAULT_STATUSES = [
   { name: "Pendente", color: "#E0A526", behavior: "pending", isDefault: true, isImportDefault: true },
-  { name: "Pago por mim", color: "#1AC4DB", behavior: "open", isDefault: false, isImportDefault: false },
+  { name: "Pago por mim", color: "#E07A5F", behavior: "open", isDefault: false, isImportDefault: false },
   { name: "Reembolsado", color: "#3BAA7F", behavior: "settled", isDefault: false, isImportDefault: false },
 ] as const;
 
@@ -48,21 +51,21 @@ export const DEFAULT_CATEGORIES = [
   { name: "Saúde", icon: "health", color: "#E26D5C" },
   { name: "Compras", icon: "bag", color: "#E8788F" },
   { name: "Lazer", icon: "party", color: "#A77BDB" },
-  { name: "Educação", icon: "education", color: "#1AC4DB" },
+  { name: "Educação", icon: "education", color: "#26A6B5" },
   { name: "Assinaturas", icon: "tv", color: "#D46BA3" },
   { name: "Outros", icon: "tag", color: "#94A3B8" },
 ];
 
 /** Paleta suave usada nos seletores de cor e para novas pessoas. */
 export const PALETTE = [
-  "#1AC4DB",
+  "#E07A5F",
+  "#6F9C7C",
   "#5B7FDB",
-  "#3BAA7F",
   "#E0A526",
-  "#E26D5C",
-  "#A77BDB",
   "#D46BA3",
-  "#64748B",
+  "#A77BDB",
+  "#26A6B5",
+  "#85756A",
 ];
 
 export const STATUS_BEHAVIORS = [

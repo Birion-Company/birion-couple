@@ -9111,3 +9111,10 @@ body.modal-open .new-fab {
   --brand: #98a1ae;
   --on-brand: #121315;
 }
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}

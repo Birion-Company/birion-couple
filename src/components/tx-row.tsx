@@ -150,7 +150,8 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
   // Quem ainda deve vem primeiro (é o que a pessoa precisa ver logo), depois quem está confirmando,
   // quem já pagou e, por fim, a parte de quem pagou. Com muita gente, só os 3 primeiros + um resumo.
   const ORDER = { open: 0, pending: 1, paid: 2, own: 3 } as const;
-  const sorted = [...who].sort((a, b) => ORDER[a.state] - ORDER[b.state] || b.cents - a.cents);
+  // Para o casal, a parte de quem pagou não precisa de selo: só aparece o que o outro deve ou já pagou.
+  const sorted = who.filter((x) => x.state !== "own" || income).sort((a, b) => ORDER[a.state] - ORDER[b.state] || b.cents - a.cents);
   const MAX = 3;
   const visible = sorted.length > MAX + 1 ? sorted.slice(0, MAX) : sorted;
   const rest = sorted.slice(visible.length);
@@ -160,7 +161,7 @@ export function TxExplain(props: { tx: TxRow; lookups: Lookups; me: string | nul
     <p className="sub tx-explain">
       {/* Acerto ligado a uma dívida: a frase diz o que ele paga; o "falta" vai junto dos selos. */}
       {tx.settles ? `${head.replace(/^Acerto para /, "Para ")} · paga “${tx.settles.description}”, de ${formatMoney(tx.settles.owedCents, currency)}` : head}
-      {who.length > 0 && (
+      {sorted.length > 0 && (
         <span className="who-pays">
           {visible.map((x) => (
             <span key={x.participantId} className="tx-paid">

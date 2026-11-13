@@ -2,7 +2,7 @@ import "server-only";
 import { and, count, eq, isNotNull, notInArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { missingDefaultRules } from "./default-rules";
-import { DEFAULT_CATEGORIES, DEFAULT_STATUSES, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "./defaults";
+import { APPROVALS_OFF, DEFAULT_CATEGORIES, DEFAULT_STATUSES, HOUSEHOLD_NAME_MAX, MEMBERS_MAX } from "./defaults";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Db = ReturnType<typeof getDb> | Tx;
@@ -46,7 +46,7 @@ export async function createHouseholdForUser(
   tx: Tx,
   input: { userId: string; userName: string; householdName: string },
 ): Promise<string> {
-  const [home] = await tx.insert(schema.households).values({ name: input.householdName.trim().slice(0, HOUSEHOLD_NAME_MAX) }).returning({ id: schema.households.id });
+  const [home] = await tx.insert(schema.households).values({ name: input.householdName.trim().slice(0, HOUSEHOLD_NAME_MAX), approvalsFrom: APPROVALS_OFF }).returning({ id: schema.households.id });
   await tx.insert(schema.statuses).values(DEFAULT_STATUSES.map((s, i) => ({ ...s, householdId: home.id, sortOrder: i })));
   const cats = await tx
     .insert(schema.categories)
@@ -57,7 +57,7 @@ export async function createHouseholdForUser(
   if (rules.length) await tx.insert(schema.categoryRules).values(rules.map((r) => ({ ...r, householdId: home.id })));
   const [me] = await tx
     .insert(schema.participants)
-    .values({ householdId: home.id, name: input.userName, color: "#1AC4DB", sortOrder: 0 })
+    .values({ householdId: home.id, name: input.userName, color: "#E07A5F", sortOrder: 0 })
     .returning({ id: schema.participants.id });
   await tx.insert(schema.memberships).values({ householdId: home.id, userId: input.userId, role: "owner", participantId: me.id });
   return home.id;

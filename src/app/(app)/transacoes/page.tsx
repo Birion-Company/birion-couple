@@ -20,7 +20,7 @@ import {
 } from "@/lib/queries";
 import { DebtsPanel } from "@/components/debts-panel";
 
-export const metadata: Metadata = { title: "Lançamentos" };
+export const metadata: Metadata = { title: "Gastos" };
 
 /** A página abre com estes; o resto vem aos poucos ao rolar (TxList). */
 const PAGE = 40;
@@ -69,7 +69,7 @@ export default async function TransactionsPage({
     <>
       <div className="page-head">
         <div>
-          <h1>Lançamentos</h1>
+          <h1>Gastos</h1>
           <p className="muted">
             {debtsTab ? (
               <>
@@ -113,7 +113,7 @@ export default async function TransactionsPage({
           className={debtsTab ? "on" : ""}
           aria-current={debtsTab ? "page" : undefined}
         >
-          Dívidas
+          Acerto
         </Link>
       </nav>
 

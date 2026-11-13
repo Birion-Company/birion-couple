@@ -5,7 +5,7 @@ import { HistoryPanel, InviteRequestsAdmin } from "@/components/family-panels";
 import { PeopleSections } from "@/components/people-sections";
 import { feedPage } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
-import { ADMINS_MAX, MEMBERS_MAX } from "@/lib/defaults";
+import { ADMINS_MAX, APPROVALS_OFF, MEMBERS_MAX } from "@/lib/defaults";
 import { getFamilyLog, getInviteRequests } from "@/lib/family-log";
 import { getInvites, getLookupsFor, getMembers } from "@/lib/queries";
 import { getDb, schema } from "@/db";
@@ -25,15 +25,16 @@ export default async function SettingsPage() {
     getLookupsFor(auth),
     getFamilyLog(auth, { size: 20 }),
     getInviteRequests(auth),
-    getDb().select({ createdAt: schema.households.createdAt }).from(schema.households).where(eq(schema.households.id, auth.householdId)),
+    getDb().select({ createdAt: schema.households.createdAt, approvalsFrom: schema.households.approvalsFrom }).from(schema.households).where(eq(schema.households.id, auth.householdId)),
   ]);
   const feed = await feedPage(auth, lookups, auth.currency, { audit: true, size: 20 });
   const [{ n: txCount }] = await getDb().select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, auth.householdId));
   const hasTx = txCount > 0;
+  const approvalsOn = !!house && house.approvalsFrom.getTime() < APPROVALS_OFF.getTime();
   const openInvites = isAdmin ? (await getInvites(auth.householdId)).length : 0;
   return (
     <div className="grid">
-      <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={isAdmin} currencyLocked={hasTx} />
+      <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={isAdmin} currencyLocked={hasTx} approvals={approvalsOn} />
 
       <FamilyOverview
         people={members.map((m) => {

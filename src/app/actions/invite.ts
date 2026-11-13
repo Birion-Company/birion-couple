@@ -65,7 +65,7 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
       } else {
         const [p] = await tx
           .insert(schema.participants)
-          .values({ householdId: invite.householdId, name: user?.name ?? "Pessoa", color: "#A77BDB", sortOrder: 99 })
+          .values({ householdId: invite.householdId, name: user?.name ?? "Pessoa", color: "#6F9C7C", sortOrder: 99 })
           .returning({ id: schema.participants.id });
         participantId = p.id;
       }
