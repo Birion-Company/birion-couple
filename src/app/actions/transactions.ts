@@ -1,11 +1,11 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, gte, inArray, isNotNull, lte } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
-import { canEditTx, canManageCard, checkEditable, NOT_YOURS } from "@/lib/access";
+import { canEditTx, canManageCard, checkEditable, NOT_YOURS, txScope } from "@/lib/access";
 import { diff, involved, logActivity, snapshots, type TxSnapshot } from "@/lib/activity";
 import { requireAuth, type AuthContext } from "@/lib/auth";
 import { buildSeries, dayInMonth, invoiceDates, invoiceOf, invoiceRange, isPastInstallment, monthLabel, shortDate, todayIn } from "@/lib/cards";
@@ -1196,4 +1196,48 @@ export async function refundExpense(transactionId: string, amountCents: number):
   });
   revalidatePath("/", "layout");
   return { ok: true, message: `Estorno de ${formatMoney(amountCents, auth.currency)}: “${tx.description}” agora é ${formatMoney(left, auth.currency)}.` };
+}
+
+
+/**
+ * Dívidas em aberto de `debtorId` com `creditorId` (contas que o credor pagou e a parte do devedor ainda não foi paga),
+ * da mais antiga para a mais nova. Serve para "abater" ao registrar um acerto no sentido contrário.
+ */
+export async function debtsOwedTo(creditorId: string, debtorId: string): Promise<{ items: { id: string; description: string; leftCents: number }[]; totalCents: number }> {
+  const auth = await requireAuth();
+  const t = schema.transactions;
+  const S = schema.transactionSplits;
+  const rows = await getDb()
+    .select({ id: t.id, description: t.description, kind: t.kind, payerId: t.payerId, settlesId: t.settlesId, createdBy: t.createdBy, amountCents: S.amountCents })
+    .from(t)
+    .innerJoin(S, and(eq(S.transactionId, t.id), eq(S.participantId, debtorId)))
+    .where(
+      txScope(auth, eq(t.payerId, creditorId), inArray(t.kind, ["expense", "loan"]), eq(t.settled, false), isNull(t.settlesId), isNull(S.paidById), sql`${S.amountCents} > 0`, lte(t.date, todayIn())),
+    )
+    .orderBy(asc(t.date), asc(t.createdAt))
+    .limit(300);
+  const out: { id: string; description: string; leftCents: number }[] = [];
+  for (const r of rows) {
+    const orig = { id: r.id, description: r.description, kind: r.kind, payerId: r.payerId, settlesId: r.settlesId, createdBy: r.createdBy, splits: [] } as never;
+    const left = r.amountCents - (await partialPaid(getDb(), orig, debtorId));
+    if (left > 0) out.push({ id: r.id, description: r.description, leftCents: left });
+  }
+  return { items: out, totalCents: out.reduce((a, x) => a + x.leftCents, 0) };
+}
+
+/** Quita (do mais antigo para o mais novo) até `amountCents` do que `debtorId` deve a `creditorId`. */
+export async function offsetDebt(creditorId: string, debtorId: string, amountCents: number): Promise<ActionResult> {
+  const { items } = await debtsOwedTo(creditorId, debtorId);
+  let rest = amountCents;
+  let used = 0;
+  for (const it of items) {
+    if (rest <= 0) break;
+    const pay = Math.min(rest, it.leftCents);
+    const r = await payDebt({ transactionId: it.id, participantId: debtorId, amountCents: pay });
+    if (!r.ok) return r;
+    rest -= pay;
+    used += pay;
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, message: used > 0 ? `Abatido ${formatMoney(used, "BRL")} da dívida.` : "Nada para abater." };
 }

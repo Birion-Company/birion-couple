@@ -5,9 +5,9 @@ import { DebtPayments } from "./debt-payments";
 import { SettlesBadge } from "./tx-row";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { ArrowRight, CreditCard, Lightbulb, Lock, Repeat, RotateCcw, Trash2 } from "lucide-react";
-import { deleteSeries, deleteTransactions, refundExpense, saveTransaction, stopRecurring } from "@/app/actions/transactions";
+import { debtsOwedTo, deleteSeries, deleteTransactions, offsetDebt, refundExpense, saveTransaction, stopRecurring } from "@/app/actions/transactions";
 import { addMonthsIso, buildSeries, cardSchedule, invoiceDates, invoiceOf, isPastInstallment, monthLabel, shortDate, todayIn } from "@/lib/cards";
 import { describeImpact } from "@/lib/impact";
 import { centsToInput, formatMoney, parseAmountToCents, splitEqually } from "@/lib/money";
@@ -368,6 +368,26 @@ export function TxForm({
   const customSum = splitIds.reduce((a, id) => a + (parseAmountToCents(custom[id] ?? "", ",") ?? 0), 0);
   const equalParts = splitEqually(Math.max(0, cents), splitIds.length);
 
+  // Acerto: se quem recebe também deve a quem paga (contas que o pagador pagou), dá para abater uma coisa na outra.
+  const [offsetOwed, setOffsetOwed] = useState(0);
+  const [offsetOn, setOffsetOn] = useState(false);
+  const recipientId = splitIds[0] ?? null;
+  useEffect(() => {
+    let alive = true;
+    if (kind !== "transfer" || initial || !payerId || !recipientId || payerId === recipientId) {
+      Promise.resolve().then(() => alive && setOffsetOwed(0));
+      return () => {
+        alive = false;
+      };
+    }
+    debtsOwedTo(payerId, recipientId).then((r) => alive && setOffsetOwed(r.totalCents)).catch(() => alive && setOffsetOwed(0));
+    return () => {
+      alive = false;
+    };
+  }, [kind, initial, payerId, recipientId]);
+  const pName = (id: string | null) => (id === me ? "você" : people.find((p) => p.id === id)?.name ?? "a pessoa");
+  const offsetCents = offsetOn && offsetOwed > 0 ? Math.min(offsetOwed, Math.max(0, parseAmountToCents(amount, ",") ?? 0)) : 0;
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (cents <= 0) return toast("Digite um valor maior que zero.", "error");
@@ -402,6 +422,10 @@ export function TxForm({
         })),
       });
       toastResult(r);
+      if (r.ok && kind === "transfer" && offsetCents > 0 && payerId && recipientId) {
+        const o = await offsetDebt(payerId, recipientId, offsetCents);
+        toastResult(o);
+      }
       if (r.ok) {
         leave(returnTo ?? (initial ? "/transacoes" : "/painel"));
       }
@@ -684,6 +708,15 @@ export function TxForm({
               }}
               required
             />
+            {kind === "transfer" && !initial && offsetOwed > 0 && (
+              <label className="check-row offset-row">
+                <input type="checkbox" checked={offsetOn} onChange={(e) => setOffsetOn(e.target.checked)} />
+                <span>
+                  Abater a dívida desse usuário? {pName(recipientId)} deve {formatMoney(offsetOwed, currency)} a {pName(payerId)}
+                  {offsetOn && offsetCents > 0 ? `: ${formatMoney(offsetCents, currency)} sai da dívida e o dinheiro de fato é ${formatMoney(Math.max(0, cents - offsetCents), currency)}.` : "."}
+                </span>
+              </label>
+            )}
             {/* Dívida: a pessoa paga no fim do mês (no vencimento da fatura), igual a quem usou o seu cartão. */}
             {kind === "loan" && !initial && (
               <span className="faint lend-date-hint">
