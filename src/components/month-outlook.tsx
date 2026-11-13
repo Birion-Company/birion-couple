@@ -56,7 +56,7 @@ export function MonthOutlook({ months, selected, current, filters, currency }: {
           </span>
         )}
       </div>
-      <p className="faint outlook-help">O que já está comprometido em cada mês. Toque num mês para abrir.</p>
+      <p className="faint outlook-help">Já comprometido em cada mês.</p>
       <div className="outlook-bars" role="list">
         {/* Grade: metade e topo do eixo, mais a média tracejada. Fica atrás das barras e rola junto. */}
         <div className="outlook-grid" aria-hidden>

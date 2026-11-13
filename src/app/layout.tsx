@@ -42,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={inter.variable} data-theme="dark" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#030a14" />
+        <meta name="theme-color" content="#1c1613" />
         {/* Aplica o tema salvo antes de desenhar a página (sem piscar claro → escuro). */}
         <Script id="bf-theme" strategy="beforeInteractive">
           {THEME_SCRIPT}

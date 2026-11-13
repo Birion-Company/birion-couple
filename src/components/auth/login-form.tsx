@@ -20,7 +20,7 @@ export function LoginForm({ errorCode, notice, convite }: { errorCode?: string; 
   const error = state?.error ?? (errorCode ? ERRORS[errorCode] : undefined);
   return (
     <>
-      <AuthHeader title="Olá, seja bem-vindo!" subtitle={notice ?? "Faça login para acessar sua planilha financeira"} error={error} />
+      <AuthHeader title="Bem-vindo de volta" subtitle={notice ?? "Entre para continuar"} error={error} />
       <form action={action} className="auth-form">
         {convite && <input type="hidden" name="convite" value={convite} />}
         <AuthInput label="E-mail ou nome de usuário" name="email" type="text" autoComplete="username" defaultValue={state?.fields?.email} icon={User} />

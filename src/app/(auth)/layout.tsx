@@ -1,6 +1,6 @@
 import { AuthScaler } from "@/components/auth/auth-scaler";
 import { BrandPanel } from "@/components/auth/brand-panel";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { PaletteToggle, ThemeToggle } from "@/components/theme-toggle";
 
 /** LoginPage e demais telas de entrada: container central dividido (marca | formulário). */
 export default function AuthLayout({ children }: LayoutProps<"/">) {
@@ -9,11 +9,11 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       <AuthScaler />
       <div className="auth-viewport">
         <div className="auth-frame">
-          <ThemeToggle className="auth-theme auth-theme-desktop" />
+          <div className="auth-theme auth-theme-desktop auth-theme-row"><PaletteToggle /><ThemeToggle className="icon-btn" /></div>
           <BrandPanel />
           <section className="auth-panel">
             {/* Celular: o tema fica dentro do bloco, no canto. */}
-            <ThemeToggle className="auth-theme auth-theme-mobile" />
+            <div className="auth-theme auth-theme-mobile auth-theme-row"><PaletteToggle /><ThemeToggle className="icon-btn" /></div>
             <div className="auth-panel-logo" aria-hidden>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/brand/mark.png" alt="" />
@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
                 Birion <span>Finance</span>
               </p>
               <p className="auth-mobile-tagline">
-                Organize suas finanças de forma <em>simples e eficiente.</em>
+                Suas finanças, <em>sem complicação.</em>
               </p>
             </div>
             <div className="auth-box">{children}</div>

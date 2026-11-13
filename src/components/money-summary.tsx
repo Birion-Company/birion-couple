@@ -61,7 +61,7 @@ export function MoneySummary({
         </span>
         <span className="summary-text">
           <span className="summary-say">{owedTotal > 0 ? (estimate ? `Em ${monthName}, as pessoas vão te dever` : "As pessoas te devem") : estimate ? `Em ${monthName}, ninguém vai te dever` : "Ninguém te deve nada"}</span>
-          <span className="summary-detail">{owedTotal > 0 ? <Who list={owedToMe} name={name} currency={currency} /> : estimate ? `Nada dividido em ${monthName} até agora` : "Quando alguém te dever, aparece aqui"}</span>
+          <span className="summary-detail">{owedTotal > 0 ? <Who list={owedToMe} name={name} currency={currency} /> : estimate ? `Nada dividido em ${monthName} até agora` : "Nada por enquanto"}</span>
         </span>
         {owedTotal > 0 && <Money cents={owedTotal} currency={currency} className="summary-value pos" />}
         <ChevronRight size={16} className="summary-go" aria-hidden />

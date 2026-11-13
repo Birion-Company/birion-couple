@@ -93,7 +93,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
         <div>
           <h1>Olá, {firstName}</h1>
           <p className="muted">
-            {mode === "other" ? `Vendo ${focus?.name}` : mode === "all" ? "A família inteira" : "Seu resumo do mês"}
+            {mode === "other" ? `Vendo ${focus?.name}` : mode === "all" ? "Os dois juntos" : "Seu resumo do mês"}
           </p>
         </div>
       </div>

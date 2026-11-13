@@ -1,11 +1,3 @@
-import { CreditCard, ShieldCheck, Users } from "lucide-react";
-
-const BENEFITS = [
-  { icon: Users, text: "Quem pagou e quem deve, sem planilha" },
-  { icon: CreditCard, text: "Faturas, parcelas e contas fixas no lugar certo" },
-  { icon: ShieldCheck, text: "Cada pessoa vê só o que é dela" },
-];
-
 /** Painel esquerdo: marca, título, descrição e benefícios. */
 export function BrandPanel() {
   return (
@@ -20,26 +12,11 @@ export function BrandPanel() {
       <div className="brand-content">
         <div className="brand-copy">
           <h2 className="brand-title">
-            Organize suas
+            Suas finanças,
             {" "}<br />
-            finanças de forma
-            {" "}<br />
-            <em>simples e eficiente.</em>
+            <em>sem complicação.</em>
           </h2>
-          <p className="brand-desc">
-            Controle seus gastos, divida as contas da família e importe o extrato do banco.
-          </p>
         </div>
-        <ul className="brand-benefits">
-          {BENEFITS.map(({ icon: Icon, text }) => (
-            <li key={text}>
-              <span className="brand-benefit-icon">
-                <Icon size={26} strokeWidth={2} />
-              </span>
-              <span>{text}</span>
-            </li>
-          ))}
-        </ul>
       </div>
     </section>
   );

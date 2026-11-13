@@ -11,9 +11,18 @@ const KEY = "bf-theme";
  * assim a tela não pisca ao carregar.
  */
 /** Cor da barra do celular (status bar / barra do navegador) em cada tema: a mesma do fundo do app. */
-export const BAR_COLOR: Record<Theme, string> = { light: "#eef6f8", dark: "#030a14" };
+export const BAR_COLOR: Record<Theme, string> = { light: "#fbf6f0", dark: "#1c1613" };
 
-export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}document.documentElement.setAttribute("data-theme",t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="light"?"${"#eef6f8"}":"${"#030a14"}")}catch(e){}})()`;
+export const PALETTES = [
+  { id: "aconchego", name: "Aconchego", color: "#e07a5f" },
+  { id: "jardim", name: "Jardim", color: "#6f9c7c" },
+  { id: "oceano", name: "Oceano", color: "#1ac4db" },
+  { id: "sobrio", name: "Sóbrio", color: "#5b6573" },
+] as const;
+export type Palette = (typeof PALETTES)[number]["id"];
+const PALETTE_KEY = "bf-palette";
+
+export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${KEY}");if(t!=="light"&&t!=="dark"){t="dark"}var r=document.documentElement;r.setAttribute("data-theme",t);var p=localStorage.getItem("${PALETTE_KEY}");if(p==="jardim"||p==="oceano"||p==="sobrio"){r.setAttribute("data-palette",p)}var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="light"?"#fbf6f0":"#1c1613")}catch(e){}})()`;
 
 /** Troca a cor da barra do celular junto com o tema. */
 function paintBar(theme: Theme) {
@@ -67,5 +76,46 @@ export function ThemeToggle({ className = "icon-btn", withLabel = false }: { cla
       {theme === "dark" ? <Sun size={18} strokeWidth={1.7} /> : <Moon size={18} strokeWidth={1.7} />}
       {withLabel && <span>{theme === "dark" ? "Tema claro" : "Tema escuro"}</span>}
     </button>
+  );
+}
+
+function currentPalette(): Palette {
+  if (typeof document === "undefined") return "aconchego";
+  const p = document.documentElement.getAttribute("data-palette");
+  return p === "jardim" || p === "oceano" || p === "sobrio" ? p : "aconchego";
+}
+
+function subscribePalette(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-palette"] });
+  return () => observer.disconnect();
+}
+
+/** Bolinhas para escolher a paleta de cores (cada pessoa guarda a sua neste aparelho). */
+export function PaletteToggle({ className = "palette-pick" }: { className?: string }) {
+  const palette = useSyncExternalStore<Palette>(subscribePalette, currentPalette, () => "aconchego");
+  const pick = (id: Palette) => {
+    const root = document.documentElement;
+    if (id === "aconchego") root.removeAttribute("data-palette");
+    else root.setAttribute("data-palette", id);
+    try {
+      localStorage.setItem(PALETTE_KEY, id);
+    } catch {}
+  };
+  return (
+    <div className={className} role="group" aria-label="Cores do app">
+      {PALETTES.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          className={palette === p.id ? "palette-dot on" : "palette-dot"}
+          style={{ background: p.color }}
+          onClick={() => pick(p.id)}
+          aria-label={p.name}
+          aria-pressed={palette === p.id}
+          title={p.name}
+        />
+      ))}
+    </div>
   );
 }
