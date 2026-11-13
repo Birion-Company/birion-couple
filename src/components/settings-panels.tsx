@@ -25,7 +25,6 @@ const TABS = [
   { href: "/ajustes", label: "Família", help: "Nome e moeda, como a família está e o histórico." },
   { href: "/ajustes/pessoas", label: "Pessoas", help: "Família (com login) e contatos (sem login)." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
-  { href: "/ajustes/contas", label: "Contas", help: "Seus bancos e carteiras com o saldo de cada um. Só você vê." },
   { href: "/ajustes/orcamento", label: "Orçamento", help: "Quanto você quer gastar por mês em cada categoria. Só você vê." },
   { href: "/ajustes/metas", label: "Metas", help: "Quanto quer juntar e até quando. Só você vê." },
   { href: "/ajustes/automacao", label: "Automação", help: "Aceitar sozinho o que você já sabe que vai aceitar." },

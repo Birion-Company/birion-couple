@@ -1,14 +1,6 @@
-import type { Metadata } from "next";
-import { asc, eq } from "drizzle-orm";
-import { getDb, schema } from "@/db";
-import { AccountsEditor } from "@/components/accounts-editor";
-import { requireAuth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Contas" };
-
-/** Contas e saldos, só seus: entram em "Minha posição" no painel. */
-export default async function AccountsPage() {
-  const auth = await requireAuth();
-  const rows = await getDb().select().from(schema.accounts).where(eq(schema.accounts.userId, auth.userId)).orderBy(asc(schema.accounts.createdAt));
-  return <AccountsEditor currency={auth.currency} accounts={rows.map((a) => ({ id: a.id, name: a.name, balanceCents: a.balanceCents, updatedAt: a.updatedAt.toISOString() }))} />;
+/** Contas moraram em Ajustes por um tempo; agora ficam junto com os cartões. */
+export default function AccountsRedirect() {
+  redirect("/cartoes#contas");
 }

@@ -9,7 +9,7 @@ const items = [
   { href: "/transacoes", label: "Lançamentos", icon: ArrowLeftRight },
   { href: "/transacoes/nova", label: "Novo", icon: Plus, add: true },
   { href: "/identificar", label: "A identificar", icon: ScanSearch, short: "Identificar" },
-  { href: "/cartoes", label: "Cartões", icon: CreditCard },
+  { href: "/cartoes", label: "Cartões e contas", icon: CreditCard, short: "Cartões" },
   { href: "/projetos", label: "Projetos", icon: FolderKanban },
   { href: "/confirmar", label: "Para confirmar", icon: UserCheck, short: "Confirmar" },
 ];

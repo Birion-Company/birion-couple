@@ -332,7 +332,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             <section className="card" aria-labelledby="posicao">
               <div className="card-head">
                 <h2 id="posicao">Minha posição</h2>
-                <Link href="/ajustes/contas" className="faint">
+                <Link href="/cartoes#contas" className="faint">
                   {accountRows.length > 0 ? "contas" : "cadastrar contas"}
                 </Link>
               </div>
