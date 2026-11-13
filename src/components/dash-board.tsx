@@ -74,9 +74,12 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
   const [editing, setEditing] = useState(false);
   const [wide, setWide] = useState(false);
 
+  // Lê o que está guardado só depois de montar (no servidor não existe localStorage; evita diferença na hidratação).
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSaved(load());
     setWide(document.documentElement.getAttribute("data-wide") === "1");
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const ids = blocks.map((b) => b.id);
