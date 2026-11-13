@@ -31,7 +31,7 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
   const m = schema.memberships;
   const [already] = await db.select({ userId: m.userId }).from(m).where(and(eq(m.userId, userId), eq(m.householdId, invite.householdId))).limit(1);
   if (!already && !(await hasRoomForMember(db, invite.householdId))) {
-    return { ok: false, error: `Esta família já está no limite de ${MEMBERS_MAX} pessoas com login.` };
+    return { ok: false, error: `Este casal já está no limite de ${MEMBERS_MAX} pessoas com login.` };
   }
   const [user] = await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   const claimed = await db.transaction(async (tx) => {

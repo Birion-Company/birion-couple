@@ -22,7 +22,7 @@ const password = z.string().min(8, { error: "A senha precisa ter pelo menos 8 ca
 const name = z.string().trim().min(1, { error: "Digite seu nome." }).max(60);
 
 const SignupSchema = z.object({
-  // Opcional: sem nome, a família vira "Família de <primeiro nome>" (dá para mudar em Ajustes).
+  // Opcional: sem nome, o casal vira "Casal de <primeiro nome>" (dá para mudar em Ajustes).
   household: z.string().trim().max(HOUSEHOLD_NAME_MAX, { error: `O nome da família pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.` }).optional(),
   name,
   email,

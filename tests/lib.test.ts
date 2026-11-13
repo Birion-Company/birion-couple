@@ -262,7 +262,7 @@ describe("OFX de cartão de crédito", () => {
 
 describe("nome da família", () => {
   test("padrão cabe em 20 caracteres", () => {
-    expect(defaultHouseholdName("Fulano de Tal")).toBe("Família de Fulano");
+    expect(defaultHouseholdName("Fulano de Tal")).toBe("Casal de Fulano");
     expect(defaultHouseholdName("Maximiliano Souza").length).toBeLessThanOrEqual(HOUSEHOLD_NAME_MAX);
     expect(HOUSEHOLD_NAME_MAX).toBe(20);
   });

@@ -9,9 +9,9 @@ export const CARDS_PER_PERSON_MAX = 3;
  * - Contatos: sem login (quem só divide conta, como Fulano). Limite de ativos (os que aparecem nas listas)
  *   e um teto do total guardado, para as listas e os cálculos de dívida não crescerem sem fim.
  */
-export const MEMBERS_MAX = 10;
+export const MEMBERS_MAX = 2;
 /** Administradores por família: quem administra vê e altera tudo, então é bom ter poucos. */
-export const ADMINS_MAX = 3;
+export const ADMINS_MAX = 2;
 /** Convites abertos (não usados e não vencidos) ao mesmo tempo, e quanto tempo cada um vale. */
 export const INVITES_OPEN_MAX = 10;
 export const INVITE_VALID_HOURS = 24;
@@ -21,17 +21,17 @@ export const CONTACTS_ACTIVE_MAX = 80;
 export const CONTACTS_TOTAL_MAX = 200;
 /** Contato sem dívida e sem lançamento há esse tempo sai das listas sozinho (volta ao digitar o nome). */
 export const CONTACT_IDLE_DAYS = 90;
-export const MEMBERS_FULL_MESSAGE = `A família já tem ${MEMBERS_MAX} pessoas com login, o máximo do plano.`;
+export const MEMBERS_FULL_MESSAGE = `O casal já está completo: são ${MEMBERS_MAX} pessoas com login, o máximo.`;
 export const CONTACTS_FULL_MESSAGE = `Já há ${CONTACTS_ACTIVE_MAX} contatos ativos. Esconda um que não usa mais, em Ajustes → Pessoas.`;
 export const CONTACTS_TOTAL_MESSAGE = `Você chegou a ${CONTACTS_TOTAL_MAX} contatos guardados. Exclua alguns que não usa mais.`;
 
 /** Tamanho máximo do nome da família (aparece no menu lateral, abaixo da marca). */
 export const HOUSEHOLD_NAME_MAX = 20;
 
-/** "Família de Fulano", cortado para caber no limite quando o primeiro nome é muito longo. */
+/** "Casal de Fulano", cortado para caber no limite quando o primeiro nome é muito longo. */
 export function defaultHouseholdName(fullName: string) {
   const first = fullName.trim().split(/\s+/)[0] || "";
-  return `Família de ${first}`.slice(0, HOUSEHOLD_NAME_MAX).trim();
+  return `Casal de ${first}`.slice(0, HOUSEHOLD_NAME_MAX).trim();
 }
 
 export const DEFAULT_STATUSES = [
