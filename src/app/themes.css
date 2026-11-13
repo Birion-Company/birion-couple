@@ -445,3 +445,112 @@
 :root[data-palette="rose"] .icon-btn {
   border-radius: 0;
 }
+
+/* =========================================================
+   Troca de tema: o visual novo se abre em círculo a partir do botão tocado
+   ========================================================= */
+html.vt-reveal::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html.vt-reveal::view-transition-new(root) {
+  animation: theme-reveal 0.85s cubic-bezier(0.65, 0, 0.35, 1) both;
+  mix-blend-mode: normal;
+}
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 50%));
+  }
+  to {
+    clip-path: circle(160vmax at var(--vt-x, 50%) var(--vt-y, 50%));
+  }
+}
+
+/* =========================================================
+   Todo menu, painel e janela abre com animação (mesma linguagem em todos)
+   ========================================================= */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.92);
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+/* menus que saem de um botão: crescem a partir dele, com um leve "pulo" no fim */
+.bf-select-pop,
+.people-panel,
+.people-menu-panel,
+.month-picker,
+.delete-menu,
+.refund-panel,
+.filters-inline {
+  transform-origin: top center;
+  animation: menu-in 0.26s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+/* janelas no meio da tela */
+.alert-dialog,
+.bulk-dialog,
+.tx-modal,
+.push-dialog,
+.tour-card {
+  animation: dialog-in 0.32s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+.tour-card.sheet {
+  animation: panel-in 0.3s ease-out both;
+}
+/* painel de avisos entra pela direita */
+.notif-panel {
+  animation: panel-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* fundo escuro atrás das janelas */
+.alert-backdrop,
+.tx-modal-backdrop,
+.modal-backdrop,
+.push-dialog-backdrop,
+.notif-backdrop {
+  animation: backdrop-in 0.22s ease-out both;
+}
+/* itens das listas entram um depois do outro */
+.bf-select-pop .bf-select-option,
+.people-list > li,
+.people-menu-panel .people-menu-link,
+.user-menu .user-menu-item {
+  animation: item-in 0.26s ease-out both;
+}
+.bf-select-pop > :nth-child(1), .people-list > :nth-child(1) { animation-delay: 30ms; }
+.bf-select-pop > :nth-child(2), .people-list > :nth-child(2) { animation-delay: 60ms; }
+.bf-select-pop > :nth-child(3), .people-list > :nth-child(3) { animation-delay: 90ms; }
+.bf-select-pop > :nth-child(4), .people-list > :nth-child(4) { animation-delay: 120ms; }
+.bf-select-pop > :nth-child(5), .people-list > :nth-child(5) { animation-delay: 150ms; }
+.bf-select-pop > :nth-child(6), .people-list > :nth-child(6) { animation-delay: 180ms; }
+.bf-select-pop > :nth-child(n + 7), .people-list > :nth-child(n + 7) { animation-delay: 210ms; }
+@media (prefers-reduced-motion: reduce) {
+  .bf-select-pop, .people-panel, .people-menu-panel, .month-picker, .delete-menu, .refund-panel, .filters-inline,
+  .alert-dialog, .bulk-dialog, .tx-modal, .push-dialog, .tour-card, .notif-panel,
+  .alert-backdrop, .tx-modal-backdrop, .modal-backdrop, .push-dialog-backdrop, .notif-backdrop,
+  .bf-select-pop .bf-select-option, .people-list > li, .people-menu-panel .people-menu-link, .user-menu .user-menu-item {
+    animation: none !important;
+  }
+}
