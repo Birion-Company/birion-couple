@@ -138,7 +138,7 @@ export async function setNickname(participantId: string, raw: string): Promise<A
     .from(schema.memberships)
     .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, participantId)))
     .limit(1);
-  if (!member) return { ok: false, error: "Apelido só vale para quem tem login na sua família." };
+  if (!member) return { ok: false, error: "Apelido só vale para o seu par." };
   const key = and(eq(schema.nicknames.userId, auth.userId), eq(schema.nicknames.participantId, participantId));
   const [p] = await db.select({ name: schema.participants.name }).from(schema.participants).where(eq(schema.participants.id, participantId)).limit(1);
   if (!nickname || nickname === p?.name) {

@@ -15,7 +15,7 @@ export const ADMINS_MAX = 2;
 /** Convites abertos (não usados e não vencidos) ao mesmo tempo, e quanto tempo cada um vale. */
 export const INVITES_OPEN_MAX = 10;
 export const INVITE_VALID_HOURS = 24;
-export const ADMINS_FULL_MESSAGE = `A família já tem ${ADMINS_MAX} pessoas administrando, o máximo. Tire alguém da administração antes.`;
+export const ADMINS_FULL_MESSAGE = `O casal já está completo.`;
 /** Por pessoa com login: cada uma tem os próprios contatos. */
 export const CONTACTS_ACTIVE_MAX = 80;
 export const CONTACTS_TOTAL_MAX = 200;

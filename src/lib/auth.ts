@@ -108,6 +108,6 @@ export async function requireAuth(): Promise<AuthContext> {
 
 export async function requireOwner(): Promise<AuthContext> {
   const auth = await requireAuth();
-  if (auth.role !== "owner") throw new Error("Só quem administra a família pode fazer isso.");
+  if (auth.role !== "owner") throw new Error("Só uma das pessoas do casal pode fazer isso.");
   return auth;
 }

@@ -22,7 +22,7 @@ export function MergeContact({ contacts, members }: { contacts: Opt[]; members: 
   return (
     <section className="card section merge-contact" aria-labelledby="juntar">
       <h2 id="juntar">
-        <UserCheck size={17} strokeWidth={1.9} aria-hidden /> Um contato seu entrou na família?
+        <UserCheck size={17} strokeWidth={1.9} aria-hidden /> O seu par já estava nos seus contatos?
       </h2>
       <p className="faint">
         Passe as contas dele para a pessoa com login: quem pagou, as partes e as contas que se repetem. O contato sai da sua lista, e a pessoa confirma

@@ -12,7 +12,7 @@ const ERRORS: Record<string, string> = {
   "google-indisponivel": "O login com Google ainda não foi configurado neste site.",
   "google-cancelado": "Login com Google cancelado.",
   "google-falhou": "Não foi possível entrar com o Google. Tente de novo.",
-  "sem-familia": "Esta conta não participa de nenhuma família.",
+  "sem-familia": "Esta conta não participa de nenhum casal.",
 };
 
 export function LoginForm({ errorCode, notice, convite }: { errorCode?: string; notice?: string; convite?: string }) {
@@ -23,7 +23,7 @@ export function LoginForm({ errorCode, notice, convite }: { errorCode?: string; 
       <AuthHeader title="Bem-vindo de volta" subtitle={notice ?? "Entre para continuar"} error={error} />
       <form action={action} className="auth-form">
         {convite && <input type="hidden" name="convite" value={convite} />}
-        <AuthInput label="E-mail ou nome de usuário" name="email" type="text" autoComplete="username" defaultValue={state?.fields?.email} icon={User} />
+        <AuthInput label="E-mail" name="email" type="text" autoComplete="username" defaultValue={state?.fields?.email} icon={User} />
         <AuthInput label="Sua senha" name="password" type="password" autoComplete="current-password" icon={Lock} />
         <Link href="/esqueci-senha" className="auth-forgot">
           Esqueci minha senha

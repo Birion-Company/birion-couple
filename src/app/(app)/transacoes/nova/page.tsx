@@ -25,9 +25,9 @@ export default async function NewTransactionPage({ searchParams }: PageProps<"/t
     return (
       <div className="card">
         <div className="empty">
-          Cadastre as pessoas da família antes de lançar.
+          Convide o seu par antes de lançar.
           <div style={{ marginTop: 12 }}>
-            <Link className="btn primary" href="/ajustes#familia">Cadastrar pessoas</Link>
+            <Link className="btn primary" href="/ajustes">Ir para Nós</Link>
           </div>
         </div>
       </div>

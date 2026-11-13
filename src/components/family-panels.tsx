@@ -179,7 +179,7 @@ export function HistoryPanel({
   type Tab = "familia" | "lancamentos" | "pedidos";
   const [tab, setTab] = useState<Tab>("familia");
   const tabs: { id: Tab; label: string }[] = [
-    { id: "familia", label: "Família" },
+    { id: "familia", label: "Nós" },
     { id: "lancamentos", label: "Lançamentos" },
     ...(isAdmin ? [{ id: "pedidos" as Tab, label: "Pedidos de convite" }] : []),
   ];
@@ -188,13 +188,13 @@ export function HistoryPanel({
     <details className="card section history history-fold">
       <summary>
         <h2 id="historico">
-          <History size={17} strokeWidth={1.9} aria-hidden /> {isAdmin ? "Histórico da família" : "Seu histórico"}
+          <History size={17} strokeWidth={1.9} aria-hidden /> {isAdmin ? "Histórico" : "Seu histórico"}
         </h2>
         <ChevronDown size={18} strokeWidth={1.8} className="history-chevron" aria-hidden />
       </summary>
       <p className="faint">
         {isAdmin
-          ? "Tudo que aconteceu na família, de todo mundo. Não é notificação: fica guardado aqui."
+          ? "Tudo que aconteceu, dos dois. Não é notificação: fica guardado aqui."
           : "O que você fez e o que foi feito com você. Não é notificação: fica guardado aqui."}
       </p>
       <div className="history-tabs" role="tablist">
@@ -210,7 +210,7 @@ export function HistoryPanel({
           className="history-list"
           initial={family}
           load={loadFamilyLog}
-          placeholder="Buscar no histórico da família"
+          placeholder="Buscar no histórico"
           empty="Nada por aqui ainda."
           render={(r) => (
             <div className="history-item">

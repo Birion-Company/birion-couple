@@ -224,18 +224,18 @@ const STEPS: Step[] = [
     text: "Ao editar uma parcela, ou um mês de algo que repete, aparece **Salvar a mudança em**: **Só esta parcela** (o padrão: ex., neste mês sua mãe pagou o aluguel inteiro) ou **Esta e as próximas** (valor e divisão mudam daqui para frente). Em **Todo mês** também tem **Parar de repetir**.",
   },
   {
-    chapter: "Dívidas",
+    chapter: "Acerto",
     route: "/transacoes?dividas=1",
     targets: ["debts"],
-    title: "Quem deve para quem",
-    text: "O saldo de cada pessoa, já descontando o que ela pagou e o que você deve a ela. Escolha uma pessoa no filtro para ver o saldo com ela, **Registrar pagamento do total** e o histórico do que ela já pagou.",
+    title: "Quem deve a quem",
+    text: "O saldo entre vocês dois, já descontando o que cada um pagou. Quando acertarem, use **Registrar pagamento do total**.",
     demo: "debts",
   },
   {
-    chapter: "Dívidas",
+    chapter: "Acerto",
     route: "/transacoes?dividas=1",
     title: "Recebi e Paguei",
-    text: "Abra um lançamento com dívida (ou use o **A receber** do painel): cada pessoa que deve tem **Recebi** (ou **Paguei**), que pergunta **quanto** foi pago de verdade. Menos que o devido? O resto continua em aberto no mesmo lançamento, com o valor antigo riscado. Mais? A diferença vira **lucro**. Se a outra pessoa tem login, ela confirma o pagamento.",
+    text: "Abra um lançamento com dívida (ou use o **A receber** do painel): cada pessoa que deve tem **Recebi** (ou **Paguei**), que pergunta **quanto** foi pago de verdade. Menos que o devido? O resto continua em aberto no mesmo lançamento, com o valor antigo riscado. Mais? A diferença vira **lucro**. ",
   },
   // ---------- Outras telas ----------
   {
@@ -254,21 +254,6 @@ const STEPS: Step[] = [
     demo: "card",
   },
   {
-    chapter: "Projetos",
-    route: "/projetos",
-    targets: ["projects-new"],
-    title: "Projetos",
-    text: "Junte os gastos de um assunto: uma viagem, uma reforma, uma festa. Crie o projeto e coloque os lançamentos nele (ou escolha o projeto na hora de lançar). Cada projeto mostra o total e a categoria de cada gasto.",
-  },
-  {
-    chapter: "Para confirmar",
-    route: "/confirmar",
-    targets: ["confirm-list"],
-    title: "Para confirmar",
-    text: "Quando alguém **com login** coloca você numa conta, numa dívida ou num pagamento, aparece aqui. Você **aceita** ou **recusa** (e pode dizer o motivo). Só vale nas dívidas depois de aceito. Contatos sem login não precisam confirmar nada.",
-    demo: "confirm",
-  },
-  {
     chapter: "Avisos",
     targets: ["bell"],
     title: "Avisos",
@@ -280,16 +265,16 @@ const STEPS: Step[] = [
     chapter: "Ajustes",
     route: "/ajustes",
     targets: ["family-form", "settings-tabs"],
-    title: "Família",
-    text: "O nome da família e a **moeda**. Família é o grupo que divide as contas. Quem **administra** pode mudar; os outros só veem. As abas acima levam a cada parte dos ajustes.",
+    title: "Nós",
+    text: "O nome do casal e a **moeda**. As abas acima levam a cada parte dos ajustes.",
     demo: "settings",
   },
   {
     chapter: "Ajustes",
     route: "/ajustes",
     targets: ["people-login"],
-    title: "Pessoas com login",
-    text: "Quem **entra no app**: vê o que o envolve, recebe avisos e **confirma** o que você lança no nome dele. Conta no limite de pessoas do plano, junto com você.",
+    title: "Nós dois",
+    text: "Você e o seu par. Falta alguém? **Convidar parceiro(a)** gera um link: copie ou mande pelo WhatsApp. Vale por 1 dia.",
   },
   {
     chapter: "Ajustes",
@@ -297,13 +282,6 @@ const STEPS: Step[] = [
     targets: ["people-contacts"],
     title: "Contatos sem login",
     text: "Quem **entra nas contas, mas não usa o app**: sua mãe, o amigo do churrasco. Não confirma nada; o que você lança vale direto. Parado e sem dever nada, some das listas sozinho e volta ao aparecer num lançamento. O **aviãozinho** manda um convite para ele virar “com login”.",
-  },
-  {
-    chapter: "Ajustes",
-    route: "/ajustes/membros",
-    targets: ["members-invite", "members-access"],
-    title: "Acesso e convites",
-    text: "Quem tem login na família e o papel de cada um: **Administra** (vê e muda tudo) ou **Membro** (vê o que o envolve). Em **Convidar alguém**, gere um link e mande para a pessoa entrar.",
   },
   {
     chapter: "Ajustes",
@@ -565,10 +543,8 @@ function DemoView({ kind }: { kind: Demo }) {
       return (
         <div className="tour-demo">
           {[
-            ["Família", "nome e moeda"],
-            ["Pessoas", "família e contatos"],
-            ["Categorias", "e regras automáticas"],
-            ["Acesso", "convites"],
+            ["Nós", "casal e convite"],
+            ["Categorias", "limite e regras"],
             ["Importação", "extrato do banco"],
             ["Exportação", "Excel e PDF"],
           ].map(([n, d]) => (

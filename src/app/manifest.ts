@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Birion Finance",
     short_name: "Birion",
-    description: "Finanças da família em um só lugar.",
+    description: "Finanças do casal em um só lugar.",
     start_url: "/painel",
     display: "standalone",
     background_color: "#fbf6f0",

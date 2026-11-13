@@ -151,7 +151,7 @@ export function CardForm({
         </div>
       </div>
       <label className="field">
-        <span>Avisar a família antes do fechamento e do vencimento</span>
+        <span>Avisar antes do fechamento e do vencimento</span>
         <Select value={alert} onChange={setAlert} options={alertOptions} />
       </label>
       <div className="actions" style={{ justifyContent: "flex-end" }}>

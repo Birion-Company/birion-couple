@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { HouseholdForm } from "@/components/settings-panels";
-import { FamilyOverview } from "@/components/family-overview";
-import { HistoryPanel, InviteRequestsAdmin } from "@/components/family-panels";
+import { CoupleCard } from "@/components/couple-card";
+import { HistoryPanel } from "@/components/family-panels";
 import { PeopleSections } from "@/components/people-sections";
 import { feedPage } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
-import { ADMINS_MAX, APPROVALS_OFF, MEMBERS_MAX } from "@/lib/defaults";
+import { APPROVALS_OFF } from "@/lib/defaults";
 import { getFamilyLog, getInviteRequests } from "@/lib/family-log";
 import { getInvites, getLookupsFor, getMembers } from "@/lib/queries";
 import { getDb, schema } from "@/db";
@@ -31,33 +31,21 @@ export default async function SettingsPage() {
   const [{ n: txCount }] = await getDb().select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, auth.householdId));
   const hasTx = txCount > 0;
   const approvalsOn = !!house && house.approvalsFrom.getTime() < APPROVALS_OFF.getTime();
-  const openInvites = isAdmin ? (await getInvites(auth.householdId)).length : 0;
+  const invite = (await getInvites(auth.householdId))[0] ?? null;
   return (
     <div className="grid">
-      <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={isAdmin} currencyLocked={hasTx} approvals={approvalsOn} />
-
-      <FamilyOverview
+      <CoupleCard
+        meId={auth.userId}
         people={members.map((m) => {
           const pp = lookups.participants.find((x) => x.id === m.participantId);
-          return { userId: m.userId, name: m.name, username: m.username, role: m.role, avatarUrl: pp?.avatarUrl ?? null, color: pp?.color ?? "#1AC4DB" };
+          return { userId: m.userId, name: m.name, avatarUrl: pp?.avatarUrl ?? null, color: pp?.color ?? "#E07A5F" };
         })}
-        meId={auth.userId}
-        isAdmin={isAdmin}
-        membersMax={MEMBERS_MAX}
-        adminsMax={ADMINS_MAX}
-        openInvites={openInvites}
-        pendingRequests={requests.filter((r) => r.status === "pending").length}
-        createdAt={house ? house.createdAt.toLocaleDateString("pt-BR") : ""}
-        currency={auth.currency}
+        invite={invite ? { id: invite.id, code: invite.code, expiresAt: invite.expiresAt.toISOString() } : null}
       />
 
-      <PeopleSections auth={auth} />
+      <HouseholdForm name={auth.householdName} currency={auth.currency} isOwner={isAdmin} currencyLocked={hasTx} approvals={approvalsOn} />
 
-      {isAdmin && (
-        <div id="pedidos">
-          <InviteRequestsAdmin requests={requests} />
-        </div>
-      )}
+      <PeopleSections auth={auth} />
 
       <HistoryPanel
         isAdmin={isAdmin}

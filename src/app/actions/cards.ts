@@ -61,7 +61,7 @@ export async function saveCard(id: string | null, input: CardInput): Promise<Act
 
   // Dono: quem administra pode escolher qualquer pessoa da família; os outros só cadastram para si.
   let ownerId: string | null = isAdmin(auth) ? (input.ownerId || auth.participantId) : auth.participantId;
-  if (!ownerId) return { ok: false, error: "Sua conta não está ligada a uma pessoa da família; peça para quem administra." };
+  if (!ownerId) return { ok: false, error: "Sua conta não está ligada a uma pessoa do casal." };
   const id0 = id ? z.uuid().safeParse(id) : null;
   if (id0 && !id0.success) return { ok: false, error: "Cartão inválido." };
   const current = id ? await findCard(auth.householdId, id) : null;

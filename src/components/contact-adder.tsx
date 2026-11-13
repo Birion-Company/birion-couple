@@ -92,7 +92,7 @@ export function PeopleMenu({ suggestions, canInvite, onAdd }: { suggestions: str
             </div>
           </div>
           {canInvite && (
-            <Link className="people-menu-link" href="/ajustes/membros">
+            <Link className="people-menu-link" href="/ajustes">
               <Send size={15} strokeWidth={1.8} aria-hidden />
               <span>
                 <strong>Convidar para o app</strong>
@@ -104,7 +104,7 @@ export function PeopleMenu({ suggestions, canInvite, onAdd }: { suggestions: str
             <Users size={15} strokeWidth={1.8} aria-hidden />
             <span>
               <strong>Ver todas as pessoas</strong>
-              <span className="faint">Família e contatos, esconder ou convidar.</span>
+              <span className="faint">Seu par e contatos, esconder ou convidar.</span>
             </span>
           </Link>
         </div>

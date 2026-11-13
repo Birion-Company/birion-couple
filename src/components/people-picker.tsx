@@ -191,7 +191,7 @@ export function PeoplePicker({
                 const on = value.includes(p.id);
                 return (
                   <li key={p.id} className="people-li" data-index={i}>
-                    {i === 0 && p.hasLogin && !q && <span className="people-group">Família</span>}
+                    {i === 0 && p.hasLogin && !q && <span className="people-group">Nós</span>}
                     {i === firstContact && !q && <span className="people-group">Contatos</span>}
                     <div
                       role="option"

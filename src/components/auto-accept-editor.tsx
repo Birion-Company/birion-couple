@@ -71,7 +71,7 @@ export function AutoAcceptEditor({
       </div>
       {people.length === 0 ? (
         <p className="faint">
-          Quando outra pessoa entrar na família, você poderá criar regras para
+          Quando o seu par entrar, você poderá criar regras para
           ela.
         </p>
       ) : (

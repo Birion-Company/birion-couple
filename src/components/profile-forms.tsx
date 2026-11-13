@@ -170,18 +170,17 @@ export function AvatarEditor({ name, avatarUrl }: { name: string; avatarUrl: str
   );
 }
 
-export function ProfileForm({ name, email, username }: { name: string; email: string; username: string }) {
+export function ProfileForm({ name, email }: { name: string; email: string }) {
   const [pending, start] = useTransition();
   const [n, setN] = useState(name);
   const [e, setE] = useState(email);
-  const [u, setU] = useState(username);
-  const changed = n.trim() !== name || e.trim().toLowerCase() !== email || u.trim().replace(/^@/, "").toLowerCase() !== username;
+  const changed = n.trim() !== name || e.trim().toLowerCase() !== email;
   return (
     <form
       className="card form"
       onSubmit={(ev) => {
         ev.preventDefault();
-        start(async () => toastResult(await updateProfile({ name: n, email: e, username: u })));
+        start(async () => toastResult(await updateProfile({ name: n, email: e })));
       }}
     >
       <h2>Dados pessoais</h2>
@@ -189,24 +188,6 @@ export function ProfileForm({ name, email, username }: { name: string; email: st
         <span>Nome</span>
         <input className="input" value={n} onChange={(ev) => setN(ev.target.value)} maxLength={60} autoComplete="name" required />
       </label>
-      <div className="field">
-        <label htmlFor="perfil-usuario">Nome de usuário</label>
-        <div className="at-input">
-          <span aria-hidden>@</span>
-          <input
-            id="perfil-usuario"
-            className="input"
-            value={u}
-            onChange={(ev) => setU(ev.target.value.toLowerCase().replace(/\s/g, ""))}
-            maxLength={12}
-            autoCapitalize="none"
-            spellCheck={false}
-            aria-describedby="perfil-usuario-hint"
-            required
-          />
-        </div>
-        <span id="perfil-usuario-hint" className="faint">Único no Birion, até 12: letras, números, ponto ou _. Também serve para entrar.</span>
-      </div>
       <div className="field">
         <label htmlFor="perfil-email">E-mail</label>
         <input

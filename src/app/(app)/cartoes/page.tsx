@@ -293,7 +293,7 @@ export default async function CardsPage() {
         }))
     : undefined;
   const blocked = !me
-    ? "Sua conta não está ligada a uma pessoa da família."
+    ? "Sua conta não está ligada a uma pessoa do casal."
     : !admin && countOf(me) >= CARDS_PER_PERSON_MAX
       ? `Você já tem ${CARDS_PER_PERSON_MAX} cartões. Arquive um para cadastrar outro.`
       : admin && owners?.length === 0

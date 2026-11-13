@@ -93,7 +93,7 @@ export default async function ConfirmPage() {
             <CheckCircle2 size={18} strokeWidth={1.7} aria-hidden /> Nada para confirmar.
           </p>
           <p className="faint" style={{ marginTop: 6 }}>
-            Quando alguém da família lançar algo com você (uma conta dividida, uma dívida, um pagamento), aparece aqui para aceitar ou recusar.
+            Quando o seu par lançar algo com você (uma conta dividida, uma dívida, um pagamento), aparece aqui para aceitar ou recusar.
           </p>
         </div>
       )}

@@ -24,7 +24,7 @@ export async function leaveHousehold(tx: Tx, userId: string, householdId: string
     actorName: u?.name ?? "Alguém",
     subjectUserId: userId,
     action: "left",
-    text: `${u?.name ?? "Alguém"} saiu da família (continua nos lançamentos, sem login).`,
+    text: `${u?.name ?? "Alguém"} saiu do casal (continua nos lançamentos, sem login).`,
   });
   const rest = await tx.select({ userId: m.userId, role: m.role }).from(m).where(eq(m.householdId, householdId)).orderBy(asc(m.createdAt));
   if (mine.role === "owner" && rest.length > 0 && !rest.some((r) => r.role === "owner")) {

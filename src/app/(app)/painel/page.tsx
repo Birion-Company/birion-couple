@@ -115,7 +115,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
       {welcome && (
         <div className="notice" style={{ marginBottom: 16 }}>
-          Conta criada. Próximos passos: cadastre as pessoas em <Link href="/ajustes#familia" className="pos">Ajustes → Pessoas</Link>,
+          Conta criada. Próximo passo: convide o seu par em <Link href="/ajustes" className="pos">Ajustes → Nós</Link>,
           depois registre um gasto ou importe um extrato. Categorias e projetos também são editáveis em Ajustes.
         </div>
       )}
@@ -181,7 +181,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
       ) : (
       <div className="stats stats-4 dash-stats">
         <div className="stat">
-          <p className="label">{mode === "other" ? `Gastos de ${focus?.name} no mês` : mode === "all" ? "Gastos da família" : diff > 0 ? "Já comprometido" : "Seus gastos"}</p>
+          <p className="label">{mode === "other" ? `Gastos de ${focus?.name} no mês` : mode === "all" ? "Gastos dos dois" : diff > 0 ? "Já comprometido" : "Seus gastos"}</p>
           <p className="value"><Money cents={data.spent} currency={cur} /></p>
           <p className="hint">
             {mode === "all" ? "todas as despesas" : data.familySpent !== data.spent ? <>de <Money cents={data.familySpent} currency={cur} /> no total</> : mode === "other" ? "parte dela(e)" : "sua parte"}
@@ -343,7 +343,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             <section className="card" aria-labelledby="orc">
               <div className="card-head">
                 <h2 id="orc">Orçamento do mês</h2>
-                <Link href="/ajustes/orcamento" className="faint">
+                <Link href="/ajustes/categorias" className="faint">
                   ajustar
                 </Link>
               </div>

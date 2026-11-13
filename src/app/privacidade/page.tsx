@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         <p className="legal-date">Atualizada em {ATUALIZADA}</p>
 
         <p>
-          O Birion Finance (<strong>birion.com.br</strong>) é um site para organizar finanças e dividir contas entre pessoas de uma família. Esta página
+          O Birion Finance (<strong>birion.com.br</strong>) é um site para organizar finanças e dividir contas entre duas pessoas, o casal. Esta página
           explica, de forma simples, quais dados guardamos, para que usamos e como você pode pedir para apagar. Seguimos a Lei Geral de Proteção de Dados
           (LGPD, Lei 13.709/2018).
         </p>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
         <h2>2. Para que usamos</h2>
         <ul>
           <li>Mostrar as suas finanças: quem pagou, quem deve, faturas, gastos por categoria e os próximos meses.</li>
-          <li>Mostrar para as pessoas da sua família só o que envolve cada uma delas.</li>
+          <li>Mostrar para o seu par só o que envolve vocês dois.</li>
           <li>Mandar e-mails necessários, como o código para criar uma senha nova, e avisos que você escolher receber.</li>
           <li>Manter o site seguro e funcionando.</li>
         </ul>
@@ -67,8 +67,7 @@ export default function PrivacyPage() {
         <h2>3. Quem mais vê seus dados</h2>
         <ul>
           <li>
-            <strong>Pessoas da sua família no app:</strong> veem os lançamentos que as envolvem (por exemplo, uma conta dividida com elas). Quem
-            administra a família vê os lançamentos de todos.
+            <strong>O seu par no app:</strong> vê os lançamentos que os envolvem (por exemplo, uma conta dividida).
           </li>
           <li>
             <strong>Empresas que fazem o site funcionar</strong>, só no necessário para isso: Netlify (hospedagem e banco de dados), Resend (envio dos

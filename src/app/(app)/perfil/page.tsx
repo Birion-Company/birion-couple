@@ -3,14 +3,12 @@ import { AvatarEditor, PasswordForm, ProfileForm } from "@/components/profile-fo
 import { MyColor } from "@/components/my-color";
 import { requireAuth } from "@/lib/auth";
 import { getLookups } from "@/lib/queries";
-import { getUsername } from "@/lib/username-server";
 
 export const metadata: Metadata = { title: "Meu perfil" };
 
 export default async function ProfilePage() {
   const auth = await requireAuth();
   const avatarUrl = auth.avatarVersion ? `/api/avatar/${auth.userId}?v=${auth.avatarVersion}` : null;
-  const username = (await getUsername(auth.userId)) ?? "";
   const me = auth.participantId ? (await getLookups(auth.householdId, auth.userId)).participants.find((p) => p.id === auth.participantId) : null;
   return (
     <div className="profile-page">
@@ -18,15 +16,14 @@ export default async function ProfilePage() {
         <AvatarEditor name={auth.userName} avatarUrl={avatarUrl} />
         <div className="profile-id">
           <h1>{auth.userName}</h1>
-          {username && <p className="profile-username">@{username}</p>}
           <span className="badge profile-family">
-            {auth.householdName} · {auth.role === "owner" ? "administra a família" : "membro"}
+            {auth.householdName}
           </span>
           <p className="muted">{auth.email}</p>
         </div>
       </section>
       <div className="grid">
-        <ProfileForm name={auth.userName} email={auth.email} username={username} />
+        <ProfileForm name={auth.userName} email={auth.email} />
         <PasswordForm />
       </div>
       {me && <MyColor color={me.color} />}

@@ -13,7 +13,7 @@ const R = schema.autoAcceptRules;
 export async function createAutoRule(fromId: string, max: string, match: string): Promise<ActionResult> {
   const auth = await requireAuth();
   const me = auth.participantId;
-  if (!me) return { ok: false, error: "Sua conta não está ligada a uma pessoa da família." };
+  if (!me) return { ok: false, error: "Sua conta não está ligada a uma pessoa do casal." };
   if (fromId === me) return { ok: false, error: "Escolha outra pessoa." };
   const db = getDb();
   // Só vale para quem tem login na família (contatos não lançam nada).
@@ -21,7 +21,7 @@ export async function createAutoRule(fromId: string, max: string, match: string)
     .select({ id: schema.memberships.participantId })
     .from(schema.memberships)
     .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, fromId)));
-  if (!from) return { ok: false, error: "Escolha alguém da família com login." };
+  if (!from) return { ok: false, error: "Escolha o seu par." };
   let maxCents: number | null = null;
   if (max.trim()) {
     maxCents = parseAmountToCents(max, ",");

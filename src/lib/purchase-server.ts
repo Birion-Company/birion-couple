@@ -43,7 +43,7 @@ export async function recordPurchase(key: string, input: PurchaseInput): Promise
     .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .where(eq(schema.memberships.userId, found.userId))
     .limit(1);
-  if (!m?.participantId) return { ok: false, status: 403, error: "Chave sem família ligada." };
+  if (!m?.participantId) return { ok: false, status: 403, error: "Chave sem casal ligado." };
   const me = m.participantId;
   const userId = found.userId;
   const householdId = m.householdId;

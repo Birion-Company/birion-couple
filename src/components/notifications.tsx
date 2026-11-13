@@ -321,7 +321,7 @@ export function NotificationCenter({ initial, cardAlerts, currency }: { initial:
                 )}
 
                 <section aria-labelledby="notif-activity">
-                  <h3 id="notif-activity" className="notif-section">Da família</h3>
+                  <h3 id="notif-activity" className="notif-section">De nós dois</h3>
                   {items.length === 0 ? (
                     <p className="notif-empty">Nada por aqui ainda.</p>
                   ) : (

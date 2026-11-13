@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { NewHouseholdForm } from "@/components/auth/new-household-form";
 import { getAuth, getHomeless } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Nova família" };
+export const metadata: Metadata = { title: "Novo casal" };
 
 /** Quem ficou sem família só chega aqui: o resto do app fica bloqueado até criar uma nova. */
 export default async function NewHouseholdPage() {

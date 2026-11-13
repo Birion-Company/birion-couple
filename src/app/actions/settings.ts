@@ -39,8 +39,8 @@ export async function updateHousehold(input: { name: string; currency: string; a
       name: z
         .string()
         .trim()
-        .min(1, { error: "Dê um nome para a família." })
-        .max(HOUSEHOLD_NAME_MAX, { error: `O nome da família pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.` }),
+        .min(1, { error: "Dê um nome para o casal." })
+        .max(HOUSEHOLD_NAME_MAX, { error: `O nome do casal pode ter até ${HOUSEHOLD_NAME_MAX} caracteres.` }),
       currency: z.enum(["BRL", "USD", "EUR"]),
       approvals: z.boolean().optional(),
     })
@@ -50,7 +50,7 @@ export async function updateHousehold(input: { name: string; currency: string; a
   // Trocar a moeda só muda o símbolo (os valores não são convertidos): depois que há lançamentos, fica travada.
   if (parsed.data.currency !== auth.currency) {
     const [{ n }] = await db.select({ n: count() }).from(schema.transactions).where(eq(schema.transactions.householdId, auth.householdId));
-    if (n > 0) return fail("A moeda não pode mudar depois que a família tem lançamentos: os valores não são convertidos, só o símbolo mudaria.");
+    if (n > 0) return fail("A moeda não pode mudar depois que o casal tem lançamentos: os valores não são convertidos, só o símbolo mudaria.");
   }
   const { approvals, ...base } = parsed.data;
   const [cur] = await db.select({ from: schema.households.approvalsFrom }).from(schema.households).where(eq(schema.households.id, auth.householdId));
@@ -59,13 +59,13 @@ export async function updateHousehold(input: { name: string; currency: string; a
   const approvalsFrom = approvals === undefined || approvals === wasOn ? undefined : approvals ? new Date() : APPROVALS_OFF;
   await db.update(schema.households).set({ ...base, ...(approvalsFrom ? { approvalsFrom } : {}) }).where(eq(schema.households.id, auth.householdId));
   const changes = [
-    parsed.data.name !== auth.householdName ? `mudou o nome da família de “${auth.householdName}” para “${parsed.data.name}”` : null,
+    parsed.data.name !== auth.householdName ? `mudou o nome do casal de “${auth.householdName}” para “${parsed.data.name}”` : null,
     parsed.data.currency !== auth.currency ? `mudou a moeda de ${auth.currency} para ${parsed.data.currency}` : null,
   ].filter(Boolean);
   if (changes.length)
     await logFamily(db, { householdId: auth.householdId, actorUserId: auth.userId, actorName: auth.userName, action: "household", text: `${auth.userName} ${changes.join(" e ")}.` });
   revalidatePath("/", "layout");
-  return done("Família atualizada.");
+  return done("Salvo.");
 }
 
 /**
@@ -84,7 +84,7 @@ export async function deleteMyData(confirm: string): Promise<ActionResult> {
   revalidatePath("/", "layout");
   return done(
     removed === 0
-      ? "Você não tinha lançamentos só seus nesta família."
+      ? "Você não tinha lançamentos só seus neste casal."
       : `Pronto: ${removed} ${removed === 1 ? "lançamento apagado" : "lançamentos apagados"}. O que envolve outras pessoas com login continua.`,
   );
 }
@@ -207,7 +207,7 @@ export async function deleteListItem(kind: ListKind, id: string): Promise<Action
       .select({ n: count() })
       .from(schema.statuses)
       .where(and(eq(schema.statuses.householdId, auth.householdId), ne(schema.statuses.id, id)));
-    if (n === 0) return fail("A família precisa ter pelo menos um status.");
+    if (n === 0) return fail("É preciso ter pelo menos um status.");
   }
   if (kind === "participants") {
     await db
@@ -312,7 +312,7 @@ async function makeInvite(
           sql`not exists (select 1 from "memberships" m where m."participantId" = ${schema.participants.id})`,
         ),
       );
-    if (!ok) return fail("Essa pessoa já tem login ou não é desta família.");
+    if (!ok) return fail("Essa pessoa já tem login ou não é do casal.");
   }
   const code = randomBytes(12).toString("base64url");
   const db = getDb();
@@ -333,7 +333,7 @@ async function makeInvite(
     actorUserId: auth.userId,
     actorName: auth.userName,
     action: "invite",
-    text: `${auth.userName} gerou um convite${forName ? ` para ${forName}` : ""} ${role === "owner" ? "como administrador" : "como membro"}.`,
+    text: `${auth.userName} gerou um convite${forName ? ` para ${forName}` : ""}.`,
   });
   revalidatePath("/ajustes", "layout");
   return { ok: true, code, inviteId: inv.id, message: "Convite criado. Vale por 1 dia e para uma pessoa." };
@@ -595,7 +595,7 @@ export async function setMyColor(value: string): Promise<ActionResult> {
   const auth = await requireAuth();
   const parsed = color.safeParse(value);
   if (!parsed.success) return firstIssue(parsed.error);
-  if (!auth.participantId) return fail("Sua conta não está ligada a uma pessoa da família.");
+  if (!auth.participantId) return fail("Sua conta não está ligada a uma pessoa do casal.");
   await getDb()
     .update(schema.participants)
     .set({ color: parsed.data })
@@ -626,7 +626,7 @@ export async function mergeContactIntoMember(contactId: string, memberPid: strin
     .from(schema.memberships)
     .innerJoin(P, eq(P.id, schema.memberships.participantId))
     .where(and(eq(schema.memberships.householdId, auth.householdId), eq(schema.memberships.participantId, memberPid)));
-  if (!member?.pid) return fail("Escolha uma pessoa com login da família.");
+  if (!member?.pid) return fail("Escolha o seu par.");
   const t = schema.transactions;
   const S = schema.transactionSplits;
   const moved = await db.transaction(async (q) => {

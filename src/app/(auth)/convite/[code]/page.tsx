@@ -15,7 +15,7 @@ export default async function InvitePage({ params }: PageProps<"/convite/[code]"
   if (!invite) {
     return (
       <>
-        <AuthHeader title="Convite inválido" subtitle="Este link expirou ou já foi usado. Peça um novo para quem administra a família." />
+        <AuthHeader title="Convite inválido" subtitle="Este link expirou ou já foi usado. Peça um novo para o seu par." />
         <p className="auth-bottom">
           <Link href="/entrar">Ir para a entrada</Link>
         </p>

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { WelcomeForm } from "@/components/auth/welcome-form";
 import { requireAuth } from "@/lib/auth";
-import { getUsername } from "@/lib/username-server";
 
 export const metadata: Metadata = { title: "Boas-vindas" };
 
@@ -9,6 +8,5 @@ export const metadata: Metadata = { title: "Boas-vindas" };
 export default async function WelcomePage({ searchParams }: PageProps<"/boas-vindas">) {
   const auth = await requireAuth();
   const { convite } = await searchParams;
-  const username = (await getUsername(auth.userId)) ?? "";
-  return <WelcomeForm name={auth.userName} username={username} household={auth.householdName} canRenameHousehold={auth.role === "owner"} convite={typeof convite === "string" ? convite : undefined} />;
+  return <WelcomeForm name={auth.userName} household={auth.householdName} canRenameHousehold={auth.role === "owner"} convite={typeof convite === "string" ? convite : undefined} />;
 }

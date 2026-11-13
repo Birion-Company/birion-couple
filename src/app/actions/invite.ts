@@ -9,7 +9,7 @@ import { createSession, readSession } from "@/lib/session";
 import { findInvite } from "@/lib/invites";
 import { leaveHousehold } from "@/lib/leave";
 import { logFamily } from "@/lib/family-log";
-import { ADMINS_MAX, MEMBERS_MAX } from "@/lib/defaults";
+import { MEMBERS_MAX } from "@/lib/defaults";
 
 export type InviteResult = { ok: false; error: string } | undefined;
 
@@ -26,7 +26,7 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
   const [acc] = await getDb().select({ at: schema.users.emailVerifiedAt }).from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   if (!acc?.at) redirect(`/verificar-email?convite=${encodeURIComponent(code)}`);
   const invite = await findInvite(code);
-  if (!invite) return { ok: false, error: "Este convite não vale mais. Peça um novo para quem administra a família." };
+  if (!invite) return { ok: false, error: "Este convite não vale mais. Peça um novo para o seu par." };
   const db = getDb();
   const m = schema.memberships;
   const [already] = await db.select({ userId: m.userId }).from(m).where(and(eq(m.userId, userId), eq(m.householdId, invite.householdId))).limit(1);
@@ -69,12 +69,8 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
           .returning({ id: schema.participants.id });
         participantId = p.id;
       }
-      // Convite de administrador com a administração cheia: entra como membro.
-      const [{ admins }] = await tx
-        .select({ admins: sql<number>`count(*)::int` })
-        .from(m)
-        .where(and(eq(m.householdId, invite.householdId), eq(m.role, "owner")));
-      const role = invite.role === "owner" && admins < ADMINS_MAX ? "owner" : "member";
+      // No casal as duas pessoas têm o mesmo poder.
+      const role = "owner";
       await tx.insert(m).values({ householdId: invite.householdId, userId, role, participantId });
       await logFamily(tx, {
         householdId: invite.householdId,
@@ -82,7 +78,7 @@ export async function acceptInviteLoggedIn(code: string): Promise<InviteResult> 
         actorName: user?.name ?? "Alguém",
         subjectUserId: userId,
         action: "joined",
-        text: `${user?.name ?? "Alguém"} entrou na família${role === "owner" ? " como administrador" : ""}.`,
+        text: `${user?.name ?? "Alguém"} entrou no casal.`,
       });
     }
     return true;

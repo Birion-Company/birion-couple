@@ -607,8 +607,7 @@ export function TxForm({
     <form className="form" onSubmit={submit}>
       {readOnly && (
         <div className="notice readonly-notice" role="note">
-          <Lock size={15} strokeWidth={1.8} aria-hidden /> Lançado por {createdByName ?? "outra pessoa"}. Você pode ver, mas só quem lançou (ou quem
-          administra a família) pode alterar ou excluir.
+          <Lock size={15} strokeWidth={1.8} aria-hidden /> Lançado por {createdByName ?? "outra pessoa"}. Você pode ver, mas só quem lançou pode alterar ou excluir.
         </div>
       )}
       {initial?.approval && <ApprovalNotice tx={initial} me={me} names={Object.fromEntries(lookups.participants.map((p) => [p.id, p.name]))} currency={currency} />}

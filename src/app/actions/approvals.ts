@@ -25,7 +25,7 @@ export async function decideApproval(input: z.input<typeof Schema>): Promise<Act
   if (!parsed.success) return { ok: false, error: "Pedido inválido." };
   const d = parsed.data;
   const me = auth.participantId;
-  if (!me) return { ok: false, error: "Sua conta não está ligada a uma pessoa da família." };
+  if (!me) return { ok: false, error: "Sua conta não está ligada a uma pessoa do casal." };
   const tx = await getTransaction(auth, d.transactionId);
   if (!tx) return { ok: false, error: "Lançamento não encontrado." };
   const ctx = await approvalContext(auth.householdId);

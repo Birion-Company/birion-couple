@@ -10,7 +10,7 @@ const inter = Inter({ variable: "--font-sans", subsets: ["latin"], display: "swa
 // Prévia do link (WhatsApp, Instagram, iMessage…): a logo (opengraph-image.png) e o diferencial.
 const SHARE_TITLE = "Birion Finance - Suas finanças, simples e práticas";
 const SHARE_DESCRIPTION =
-  "Finanças simples e práticas. No plano Família, todo mundo vê quem pagou e quem deve, sem planilha.";
+  "Finanças do casal, simples: quem pagou, quem deve e para onde vai o dinheiro dos dois.";
 
 export const metadata: Metadata = {
   // Endereço do site publicado (o Netlify define URL); serve para a imagem da prévia ter o link completo.

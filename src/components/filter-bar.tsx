@@ -143,7 +143,7 @@ export function FilterBar({ filters, participants, categories, projects, cards =
             {people.length > 1 && (
               <ChipSelect
                 label="Pessoa"
-                allLabel={defaultPerson ? "Todos (a família)" : "Todas as pessoas"}
+                allLabel={defaultPerson ? "Os dois" : "Todos"}
                 value={selected}
                 options={people}
                 onChange={(v) => pickPerson(v)}

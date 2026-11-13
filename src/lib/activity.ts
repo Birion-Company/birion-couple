@@ -407,7 +407,7 @@ export async function getActivityFeed(
       case "imported": {
         const n = visibleItems(d.items).length;
         if (n === 0) continue;
-        text = `${actor} importou ${n} ${n === 1 ? "lançamento" : "lançamentos"} de "${d.fileName ?? "arquivo"}" que envolvem ${isAdmin(viewer) ? "a família" : "você"}`;
+        text = `${actor} importou ${n} ${n === 1 ? "lançamento" : "lançamentos"} de "${d.fileName ?? "arquivo"}" que envolvem ${isAdmin(viewer) ? "vocês" : "você"}`;
         href = null;
         break;
       }

@@ -34,7 +34,7 @@ export function InviteAccept({
   if (!current) {
     return (
       <>
-        <AuthHeader title={`Entrar em “${household}”`} subtitle={`${who} para dividir as finanças desta família. Entre ou crie sua conta para aceitar.`} />
+        <AuthHeader title={`Entrar em “${household}”`} subtitle={`${who} para organizar as finanças de vocês dois. Entre ou crie sua conta para aceitar.`} />
         <div className="auth-form">
           <Link href={`/entrar${q}`} className="auth-submit">
             <LogIn size={22} strokeWidth={2} /> Já tenho conta: entrar
@@ -54,7 +54,7 @@ export function InviteAccept({
   if (alreadyMember) {
     return (
       <>
-        <AuthHeader title={`Você já está em “${household}”`} subtitle="Este convite é para uma família da qual você já faz parte." />
+        <AuthHeader title={`Você já está em “${household}”`} subtitle="Este convite é para um casal do qual você já faz parte." />
         <div className="auth-form">
           <Link href="/painel" className="auth-submit">
             <Check size={22} strokeWidth={2} /> Abrir o painel
@@ -70,7 +70,7 @@ export function InviteAccept({
       {current.household && (
         <div className="invite-note">
           <p>
-            Ao aceitar, você <strong>sai da família “{current.household}”</strong> e passa para “{household}”.
+            Ao aceitar, você <strong>sai de “{current.household}”</strong> e passa para “{household}”.
           </p>
           <p>
             Lá, você continua aparecendo como <strong>pessoa sem login</strong>, com tudo que já foi lançado: ninguém perde histórico nem dívidas.

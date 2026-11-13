@@ -2,43 +2,39 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { Copy, Plus, Search, Trash2, X } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import {
   addRule,
-  createInvite,
   deleteAccount, deleteMyData,
   deletePreset,
   deleteRule,
-  removeMember,
-  revokeInvite,
-  setMemberRole,
   updateHousehold,
 } from "@/app/actions/settings";
-import { ADMINS_MAX, CURRENCIES, HOUSEHOLD_NAME_MAX, INVITES_OPEN_MAX } from "@/lib/defaults";
+import { CURRENCIES, HOUSEHOLD_NAME_MAX } from "@/lib/defaults";
 import { Select } from "./select";
-import { toast, toastResult } from "./toaster";
+import { toastResult } from "./toaster";
 import { Dot } from "./ui";
 
 /** Abas de Ajustes, com uma frase dizendo para que serve cada uma. */
-const TABS = [
-  { href: "/ajustes", label: "Família", help: "Nome e moeda, as pessoas (família com login e contatos), como a família está e o histórico." },
-  { href: "/ajustes/categorias", label: "Categorias", help: "Arraste para ordenar. Embaixo, regras que categorizam sozinhas." },
-  { href: "/ajustes/orcamento", label: "Orçamento", help: "Quanto você quer gastar por mês em cada categoria. Só você vê." },
-  { href: "/ajustes/automacao", label: "Automação", help: "Aceitar sozinho o que você já sabe que vai aceitar." },
-  { href: "/ajustes/membros", label: "Acesso", help: "Quem entra no app, quem administra e convites." },
-  { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir o que já entrou." },
-  { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou em PDF, para guardar ou mandar para alguém." },
-  { href: "/ajustes/perigo", label: "Perigo", help: "Apagar seus dados ou a sua conta. Não tem volta.", danger: true },
+const TABS: { href: string; label: string; help: string; danger?: boolean; needsApprovals?: boolean }[] = [
+  { href: "/ajustes", label: "Nós", help: "O casal, o convite e o histórico." },
+  { href: "/ajustes/categorias", label: "Categorias", help: "Ordem, limite por mês e regras automáticas." },
+  { href: "/ajustes/automacao", label: "Automação", help: "Aceitar sozinho o que já é de confiança.", needsApprovals: true },
+  { href: "/ajustes/importacao", label: "Importação", help: "Extratos OFX ou CSV, sem repetir." },
+  { href: "/ajustes/exportacao", label: "Exportação", help: "O mês em planilha ou PDF." },
+  { href: "/ajustes/perigo", label: "Perigo", help: "Apagar seus dados ou a conta. Sem volta.", danger: true },
 ];
 
-export function SettingsTabs() {
+export function SettingsTabs({ approvals = false }: { approvals?: boolean }) {
   const path = usePathname();
-  const active = TABS.find((t) => t.href === path);
+  // "Automação" (aceitar sozinho) só faz sentido quando um confirma os gastos do outro.
+  const tabs = TABS.filter((t) => !t.needsApprovals || approvals || path === t.href);
+  const active = tabs.find((t) => t.href === path);
   return (
     <>
       <nav className="tabs" aria-label="Ajustes" data-tour="settings-tabs">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Link key={t.href} href={t.href} aria-current={path === t.href ? "page" : undefined} className={t.danger ? "tab-danger" : undefined}>
             {t.label}
           </Link>
@@ -105,7 +101,7 @@ export function HouseholdForm({ name, currency, isOwner, currencyLocked = false,
           <button className="btn primary" disabled={pending}>Salvar</button>
         </div>
       ) : (
-        <p className="faint">Só quem administra a família pode mudar estes dados.</p>
+        <p className="faint">Só quem faz parte do casal pode mudar estes dados.</p>
       )}
     </form>
   );
@@ -188,182 +184,6 @@ export function RulesEditor({ rules, categories }: { rules: { id: string; patter
         ))}
       </div>
     </div>
-  );
-}
-
-/** "vence em 23h 41min": contagem regressiva do convite (atualiza a cada 30 segundos). */
-function Countdown({ until }: { until: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(t);
-  }, []);
-  const left = Math.max(0, Date.parse(until) - now);
-  if (left === 0) return <span className="neg">venceu</span>;
-  const h = Math.floor(left / 3_600_000);
-  const m = Math.floor((left % 3_600_000) / 60_000);
-  return <span className={h < 2 ? "warn" : undefined}>vence em {h > 0 ? `${h}h ` : ""}{m}min</span>;
-}
-
-export function MembersPanel({
-  members,
-  invites,
-  participants,
-  me,
-  isOwner,
-}: {
-  members: { userId: string; name: string; email: string; role: string; participantId: string | null }[];
-  invites: { id: string; code: string; role: string; expiresAt: string; label: string | null }[];
-  participants: Opt[];
-  me: string;
-  isOwner: boolean;
-}) {
-  const [pending, act] = useAct();
-  const [role, setRole] = useState<"member" | "owner">("member");
-  const [label, setLabel] = useState("");
-  const pName = new Map(participants.map((p) => [p.id, p.name]));
-  const linkFor = (code: string) => `${window.location.origin}/convite/${code}`;
-  const copy = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(linkFor(code));
-      toast("Link copiado. Envie para a pessoa.");
-    } catch {
-      window.prompt("Copie o link do convite:", linkFor(code));
-    }
-  };
-
-  return (
-    <>
-      <section className="card" data-tour="members-access">
-        <div className="card-head">
-          <h2>Quem tem acesso</h2>
-          <span className="faint num">
-            {members.filter((m) => m.role === "owner").length} de {ADMINS_MAX} administram
-          </span>
-        </div>
-        <p className="faint" style={{ marginBottom: 8 }}>
-          Quem administra vê e altera tudo. É bom ter poucos: no máximo {ADMINS_MAX}.
-        </p>
-        <div className="rows">
-          {members.map((m) => (
-            <div key={m.userId} className="row">
-              <div className="grow">
-                <p className="title">{m.name}{m.userId === me ? " (você)" : ""}</p>
-                <p className="sub">
-                  {m.email}
-                  {m.participantId ? ` · é “${pName.get(m.participantId) ?? "?"}”` : ""}
-                </p>
-              </div>
-              {isOwner && m.userId !== me ? (
-                <>
-                  <Select
-                    ariaLabel={`Permissão de ${m.name}`}
-                    style={{ width: "auto", minHeight: 36 }}
-                    value={m.role}
-                    disabled={pending}
-                    onChange={(v) => {
-                      if (
-                        v === "owner" &&
-                        !window.confirm(
-                          `Tornar ${m.name} administrador?\n\nQuem administra vê e altera tudo da família, inclusive os lançamentos de todos. Não é recomendado ter muitos administradores (no máximo ${ADMINS_MAX}).`,
-                        )
-                      )
-                        return;
-                      act(() => setMemberRole(m.userId, v as "owner" | "member"));
-                    }}
-                    options={[
-                      { value: "member", label: "Membro" },
-                      { value: "owner", label: "Administra" },
-                    ]}
-                  />
-                  <button
-                    className="icon-btn"
-                    disabled={pending}
-                    onClick={() => window.confirm(`Remover o acesso de ${m.name}?`) && act(() => removeMember(m.userId))}
-                    aria-label={`Remover ${m.name}`}
-                  >
-                    <Trash2 size={16} strokeWidth={1.6} />
-                  </button>
-                </>
-              ) : (
-                <span className="badge">{m.role === "owner" ? "Administra" : "Membro"}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {isOwner && (
-        <section className="card section" data-tour="members-invite">
-          <h2 style={{ marginBottom: 4 }}>Convidar alguém</h2>
-          <p className="faint" style={{ marginBottom: 12 }}>
-            Dê um nome ao convite e envie o link para a pessoa. Cada convite vale por 1 dia e para uma pessoa só; quando alguém usa, ele sai
-            daqui. Até {INVITES_OPEN_MAX} abertos.
-          </p>
-          <div className="actions">
-            <input
-              className="input grow"
-              placeholder="Nome do convite. Ex.: mãe"
-              maxLength={30}
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              aria-label="Nome do convite"
-            />
-            <Select
-              ariaLabel="Permissão do convite"
-              style={{ width: "auto" }}
-              value={role}
-              onChange={(v) => setRole(v as "owner" | "member")}
-              options={[
-                { value: "member", label: "Como membro" },
-                { value: "owner", label: "Como administrador" },
-              ]}
-            />
-            <button
-              className="btn primary"
-              disabled={pending || invites.length >= INVITES_OPEN_MAX}
-              onClick={() =>
-                act(async () => {
-                  const r = await createInvite(role, null, label);
-                  if (r.ok && r.code) {
-                    setLabel("");
-                    await copy(r.code);
-                  }
-                  return { ...r, message: undefined };
-                })
-              }
-            >
-              <Plus size={16} /> Gerar link de convite
-            </button>
-          </div>
-          {invites.length > 0 && (
-            <p className="faint num" style={{ marginTop: 12 }}>
-              {invites.length} de {INVITES_OPEN_MAX} convites abertos
-            </p>
-          )}
-          {invites.length > 0 && (
-            <div className="rows" style={{ marginTop: 12 }}>
-              {invites.map((i) => (
-                <div key={i.id} className="row">
-                  <div className="grow">
-                    <p className="title">{i.label ?? "Convite sem nome"}</p>
-                    <p className="sub">
-                      {i.role === "owner" ? "administrador" : "membro"} · <Countdown until={i.expiresAt} />
-                    </p>
-                  </div>
-                  <button className="icon-btn" onClick={() => copy(i.code)} aria-label="Copiar link">
-                    <Copy size={16} strokeWidth={1.6} />
-                  </button>
-                  <button className="icon-btn" disabled={pending} onClick={() => act(() => revokeInvite(i.id))} aria-label="Cancelar convite">
-                    <Trash2 size={16} strokeWidth={1.6} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-    </>
   );
 }
 
@@ -466,12 +286,12 @@ export function DangerZone() {
         text={
           <>
             <p>
-              Apaga o que <strong>você lançou e é só seu</strong> nesta família: despesas, receitas, contas que repetem, importações e os contatos que
+              Apaga o que <strong>você lançou e é só seu</strong> neste casal: despesas, receitas, contas que repetem, importações e os contatos que
               não aparecem em mais nada.
             </p>
             <p>
               <strong>Não muda nada para os outros:</strong> o que envolve outra pessoa com login (uma dívida que ela aceitou, uma conta dividida com
-              ela) continua. Sua conta e a família continuam. Não dá para desfazer.
+              ela) continua. Sua conta e o casal continuam. Não dá para desfazer.
             </p>
           </>
         }
