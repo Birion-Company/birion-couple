@@ -177,7 +177,7 @@ export function HistoryPanel({
   type Tab = "familia" | "lancamentos";
   const [tab, setTab] = useState<Tab>("familia");
   const tabs: { id: Tab; label: string }[] = [
-    { id: "familia", label: "Nós" },
+    { id: "familia", label: "Pessoas" },
     { id: "lancamentos", label: "Movimentação" },
   ];
   return (

@@ -18,7 +18,7 @@ import { Dot } from "./ui";
 
 /** Abas de Ajustes, com uma frase dizendo para que serve cada uma. */
 const TABS: { href: string; label: string; help: string; danger?: boolean; needsApprovals?: boolean }[] = [
-  { href: "/ajustes", label: "Nós", help: "O casal, o convite e o histórico." },
+  { href: "/ajustes", label: "Pessoas", help: "Quem participa, o modo casal e o histórico." },
   { href: "/ajustes/aparencia", label: "Aparência", help: "Cores, claro ou escuro e a largura das páginas." },
   { href: "/ajustes/categorias", label: "Categorias", help: "Ordem, limite por mês e regras automáticas." },
   { href: "/ajustes/automacao", label: "Automação", help: "O que o app reaproveita ao importar um mês novo." },

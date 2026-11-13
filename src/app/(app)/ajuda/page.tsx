@@ -21,7 +21,8 @@ const SECTIONS: Section[] = [
     id: "menu",
     title: "Onde fica cada coisa",
     items: [
-      { term: "Início", text: "O mês dos dois. Arraste os blocos em Organizar e use Página larga se quiser mais espaço." },
+      { term: "Início", text: "O seu mês: o que entrou, saiu e o que você deve ou tem a receber. Arraste os blocos em Organizar." },
+      { term: "Nós dois (modo casal)", text: "Aparece quando o seu par entra pelo convite: só o que vocês dividem, a parte de cada um e quem deve a quem. Sem par, o menu mostra Modo casal para habilitar." },
       { term: "Movimentação", text: "Tudo o que entrou e saiu no mês, com busca e filtros." },
       { term: "Acerto", text: "Quem deve a quem. Quando acertarem, registre o pagamento." },
       { term: "Metas", text: "O que querem juntar e até quando." },
@@ -43,7 +44,7 @@ const SECTIONS: Section[] = [
     id: "ajustes",
     title: "Ajustes",
     items: [
-      { term: "Nós", text: "Nome do casal, moeda, o convite, se um confirma os gastos do outro e o histórico." },
+      { term: "Pessoas", text: "Quem participa, moeda, o modo casal (convite), se um confirma os gastos do outro e o histórico." },
       { term: "Categorias", text: "Ordem, limite por mês (com aviso aos 80% e ao passar) e regras que categorizam sozinhas." },
       { term: "Importação e exportação", text: "Extrato do banco (OFX ou CSV) sem repetir; o mês em planilha ou PDF." },
       { term: "Perigo", text: "Apagar seus dados ou a conta. Não tem volta." },

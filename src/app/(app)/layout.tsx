@@ -39,7 +39,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     <div className="shell">
       <aside className="sidebar">
         <Brand />
-        <SideNav toIdentify={toIdentify} toConfirm={toConfirm} />
+        <SideNav toIdentify={toIdentify} toConfirm={toConfirm} couple={!!partner} />
         <div className="side-foot">
           <UserMenu name={auth.userName} household={auth.householdName} avatarUrl={avatarUrl} partner={partner} />
         </div>
@@ -61,7 +61,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <NavProgress />
         <main className="main">{children}</main>
       </div>
-      <BottomNav toIdentify={toIdentify} toConfirm={toConfirm} />
+      <BottomNav toIdentify={toIdentify} toConfirm={toConfirm} couple={!!partner} />
       {/* Novo lançamento sempre à mão: botão no canto inferior direito (no celular, é o + da barra de baixo). */}
       <NewFab />
       <ScrollReveal />

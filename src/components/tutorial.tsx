@@ -300,7 +300,7 @@ function DemoView({ kind }: { kind: Demo }) {
       return (
         <div className="tour-demo">
           {[
-            ["Nós", "casal e convite"],
+            ["Pessoas", "modo casal e convite"],
             ["Categorias", "limite e regras"],
             ["Importação", "extrato do banco"],
             ["Exportação", "Excel e PDF"],

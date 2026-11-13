@@ -51,7 +51,7 @@ export function CoupleCard({ people, invite, meId }: { people: Person[]; invite:
       <div className="card-head">
         <h2 id="nos">
           <Heart size={16} strokeWidth={1.8} style={{ verticalAlign: -2, marginRight: 6 }} />
-          Nós dois
+          Modo casal{partner ? " · ligado" : ""}
         </h2>
       </div>
       <div className="couple-pair">

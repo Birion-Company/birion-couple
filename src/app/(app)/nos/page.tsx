@@ -38,10 +38,15 @@ export default async function CouplePage({ searchParams }: { searchParams: Promi
     return (
       <section className="couple-empty card">
         <Heart size={36} strokeWidth={1.4} />
-        <h1>Nós dois</h1>
-        <p className="muted">Aqui fica o mês de vocês juntos. Falta o seu par entrar.</p>
-        <Link className="btn primary" href="/ajustes">
-          <UserPlus size={16} /> Convidar parceiro(a)
+        <h1>Habilitar modo casal</h1>
+        <p className="muted">
+          Para quem divide as contas com alguém. Vocês continuam com tudo separado: cada um vê só o que é seu. Com o modo
+          casal ligado, aparece o painel <strong>Nós dois</strong>, só com o que vocês dividem: quanto gastaram juntos, a
+          parte de cada um e quem deve a quem.
+        </p>
+        <p className="faint">Não usa com ninguém? Pode ignorar: o resto do app funciona igual.</p>
+        <Link className="btn primary" href="/ajustes#nos">
+          <UserPlus size={16} /> Convidar meu par
         </Link>
       </section>
     );

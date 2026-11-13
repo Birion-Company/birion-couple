@@ -82,7 +82,11 @@ function useTapped(path: string, debts: boolean) {
   return { tapped: tapped && tapped.from === here ? tapped.href : null, tap };
 }
 
-export function SideNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number; toConfirm?: number }) {
+/** Sem par conectado, o item do casal convida a habilitar o modo casal. */
+const coupleLabel = (href: string, label: string, short: string | undefined, couple: boolean) =>
+  href === "/nos" && !couple ? { label: "Modo casal", short: "Casal" } : { label, short };
+
+export function SideNav({ toIdentify = 0, toConfirm = 0, couple = true }: { toIdentify?: number; toConfirm?: number; couple?: boolean }) {
   const path = usePathname();
   const debts = useSearchParams().get("dividas") === "1";
   const shown = useShown(path, debts, toIdentify, toConfirm);
@@ -91,10 +95,10 @@ export function SideNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number
   return (
     <nav aria-label="Principal">
       {/* "Novo lançamento" fica no botão do canto da tela (no celular, no + da barra de baixo). */}
-      {shown.map(({ href, label, icon: Icon }) => (
+      {shown.map(({ href, label, icon: Icon, short }) => (
         <Link key={href} href={href} aria-current={on(href) ? "page" : undefined} onClick={tap(href)} data-tour={TOUR[href]}>
           <Icon size={18} strokeWidth={1.6} />
-          {label}
+          {coupleLabel(href, label, short, couple).label}
           {href === "/identificar" && <Count n={toIdentify} />}
           {href === "/confirmar" && <Count n={toConfirm} what="para confirmar" />}
         </Link>
@@ -103,7 +107,7 @@ export function SideNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number
   );
 }
 
-export function BottomNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number; toConfirm?: number }) {
+export function BottomNav({ toIdentify = 0, toConfirm = 0, couple = true }: { toIdentify?: number; toConfirm?: number; couple?: boolean }) {
   const path = usePathname();
   const debts = useSearchParams().get("dividas") === "1";
   // No celular só cabem os 5 principais; "Identificar" e "Confirmar" entram quando há algo esperando.
@@ -120,7 +124,7 @@ export function BottomNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: numb
             {href === "/identificar" && <Count n={toIdentify} />}
             {href === "/confirmar" && <Count n={toConfirm} what="para confirmar" />}
           </span>
-          <span className="label">{short ?? label}</span>
+          <span className="label">{(() => { const c = coupleLabel(href, label, short, couple); return c.short ?? c.label; })()}</span>
         </Link>
       ))}
     </nav>
