@@ -153,7 +153,7 @@ export default async function CouplePage({ searchParams }: { searchParams: Promi
         <section className="card" aria-labelledby="juntos">
           <div className="card-head">
             <h2 id="juntos">Últimos gastos juntos</h2>
-            <Link href="/transacoes" className="faint">ver todos</Link>
+            <Link href={`/transacoes?juntos=1&mes=${month}`} className="faint">ver todos</Link>
           </div>
           {data.recentShared.length === 0 ? (
             <div className="empty">Ainda não dividiram nenhum gasto neste mês.</div>

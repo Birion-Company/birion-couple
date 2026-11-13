@@ -63,7 +63,7 @@ export default async function TransactionsPage({
     <>
       <div className="page-head">
         <div>
-          <h1>{debtsTab ? "Acerto" : "Movimentação"}</h1>
+          <h1>{debtsTab ? "Acerto" : filters.together ? "Movimentação dos dois" : "Movimentação"}</h1>
           <p className="muted">
             {debtsTab ? (
               <>
@@ -75,6 +75,12 @@ export default async function TransactionsPage({
                 {count} {count === 1 ? "lançamento" : "lançamentos"} ·{" "}
                 <Money cents={total} currency={auth.currency} /> em despesas
                 {personName ? ` (parte de ${personName})` : ""}
+                {filters.together && (
+                  <>
+                    {" "}· só o que é entre vocês ·{" "}
+                    <Link href={`/transacoes?mes=${month}`} className="pos">ver tudo</Link>
+                  </>
+                )}
               </>
             )}
           </p>

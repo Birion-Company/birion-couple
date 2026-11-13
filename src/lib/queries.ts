@@ -175,6 +175,15 @@ function whereFor(viewer: Viewer, f: Filters, opts: { includeFuture?: boolean; w
     );
   }
   if (f.card) parts.push(eq(t.cardId, f.card));
+  if (f.together && viewer.participantId) {
+    // "Dos dois": só o que é entre as duas pessoas do casal. Sem par, não mostra nada.
+    const me = viewer.participantId;
+    const other = f.partnerId ?? "";
+    const part = (id: string) =>
+      sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${id} and s."amountCents" > 0)`;
+    // Entra o que as duas dividem e tudo que cria dívida/pagamento entre elas (um pagou, o outro tem parte).
+    parts.push(or(and(part(me), part(other)), and(eq(t.payerId, me), part(other)), and(eq(t.payerId, other), part(me))));
+  }
   if (f.q) parts.push(or(sqlLike(t.description, `%${f.q}%`), sqlLike(t.notes, `%${f.q}%`)));
   if (f.person) {
     const hasPart = sql`exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id" and s."participantId" = ${f.person} and s."amountCents" > 0)`;
@@ -385,7 +394,17 @@ const txColumns = {
   createdAt: t.createdAt,
 };
 
+/** A outra pessoa do casal (participante com login que não é quem está olhando). */
+async function partnerOf(viewer: Viewer): Promise<string | null> {
+  const rows = await getDb()
+    .select({ pid: schema.memberships.participantId })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, viewer.householdId), isNotNull(schema.memberships.participantId)));
+  return rows.map((r) => r.pid!).find((p) => p !== viewer.participantId) ?? null;
+}
+
 export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, offset = 0, opts: { rowsOnly?: boolean } = {}) {
+  if (f.together && f.partnerId === undefined) f = { ...f, partnerId: await partnerOf(viewer) };
   if (!opts.rowsOnly) await ensureRecurring(viewer.householdId);
   const db = getDb();
   const where = whereFor(viewer, f);

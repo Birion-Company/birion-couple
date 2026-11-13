@@ -41,6 +41,10 @@ export type Filters = {
   competence?: string | null;
   /** Em "Todo o período": incluir lançamentos depois do mês atual (parcelas e meses futuros). */
   future: boolean;
+  /** "Dos dois" (?juntos=1): só o que o casal divide e os pagamentos entre as duas pessoas. */
+  together?: boolean;
+  /** Preenchido no servidor: a outra pessoa do casal (para o filtro "Dos dois"). */
+  partnerId?: string | null;
 };
 
 export type PersonRole = "dele" | "a-receber";
@@ -126,6 +130,7 @@ export function parseFilters(sp: Search, defaultPeriod: PeriodKey = "tudo"): Fil
     card: isId(one(sp.cartao)),
     future: one(sp.futuros) === "1",
     debtsOnly: one(sp.dividas) === "1",
+    together: one(sp.juntos) === "1",
     q: one(sp.q)?.slice(0, 100) ?? null,
   };
 }
@@ -151,6 +156,7 @@ export function filtersToQuery(f: Partial<Filters>, defaultPeriod: PeriodKey = "
   if (f.card) p.set("cartao", f.card);
   if (f.q) p.set("q", f.q);
   if (f.future) p.set("futuros", "1");
+  if (f.together) p.set("juntos", "1");
   const s = p.toString();
   return s ? `?${s}` : "";
 }
