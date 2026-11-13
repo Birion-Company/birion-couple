@@ -31,9 +31,8 @@ jobs:
           mkdir -p dist/.next && cp -r .next/static dist/.next/static
           cp -r public dist/public
           mkdir -p dist/db && cp -r db/migrations dist/db/migrations
-          cat > dist/package.json <<'JSON'
-          { "name": "birion-couple", "private": true, "scripts": { "build": "node -e \"console.log('pacote pronto, nada para compilar')\"", "start": "node server.js" }, "engines": { "node": ">=20.9.0" } }
-          JSON
+          node scripts/pacote-package-json.mjs dist
+          rm -rf dist/node_modules
       - name: Publica na branch hostinger
         run: |
           cd dist
