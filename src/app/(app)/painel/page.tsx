@@ -92,6 +92,17 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
   return (
     <>
+      {mode === "me" && diff <= 0 ? (
+        <section className="month-hero" aria-label={`Resumo de ${monthName}`}>
+          <p className="hero-hello rise" style={{ "--i": 0 } as React.CSSProperties}>Olá, {firstName}</p>
+          <h1 className="hero-title rise" style={{ "--i": 1 } as React.CSSProperties}>Seu resumo de {monthName}</h1>
+          <MonthStatement
+            monthName={monthName}
+            currency={cur}
+            input={{ initialCents: carry, incomeCents: data.income, spentCents: data.spent, owedToMeCents: data.paidForOthers, iOweCents: data.iOweMonth }}
+          />
+        </section>
+      ) : (
       <div className="page-head">
         <div>
           <h1>Olá, {firstName}</h1>
@@ -100,6 +111,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
           </p>
         </div>
       </div>
+      )}
 
       <MonthNav
         filters={filters}
@@ -161,22 +173,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
 
       <DashBoard
         blocks={[
-          ...(mode === "me" && diff <= 0
-            ? [
-                {
-                  id: "extrato",
-                  label: "Extrato do mês",
-                  size: "wide" as const,
-                  node: (
-                    <MonthStatement
-                      monthName={monthName}
-                      currency={cur}
-                      input={{ initialCents: carry, incomeCents: data.income, spentCents: data.spent, owedToMeCents: data.paidForOthers, iOweCents: data.iOweMonth }}
-                    />
-                  ),
-                },
-              ]
-            : []),
           {
             id: "resumo",
             label: "Resumo",

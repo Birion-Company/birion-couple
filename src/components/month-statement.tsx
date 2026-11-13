@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { CountMoney } from "@/components/count-money";
 import { Money } from "@/components/ui";
 import { statement } from "@/lib/statement";
 
@@ -8,30 +9,28 @@ export function MonthStatement({ input, monthName, currency }: { input: Paramete
   const s = statement(input);
   const tone = (c: number) => (c < 0 ? "neg" : "");
   return (
-    <section className="card statement" aria-labelledby="extrato">
-      <div className="card-head">
-        <h2 id="extrato">Extrato de {monthName}</h2>
-      </div>
+    <section className="card statement hero-statement" aria-labelledby="extrato">
+      <h2 id="extrato" className="sr-only">Extrato de {monthName}</h2>
       <div className="statement-grid">
-        <div className="st-cell">
+        <div className="st-cell rise" style={{ "--i": 0 } as React.CSSProperties}>
           <span className="st-label">Saldo inicial</span>
-          <strong className={`st-value ${tone(s.initial)}`}><Money cents={s.initial} currency={currency} /></strong>
+          <strong className={`st-value ${tone(s.initial)}`}><CountMoney cents={s.initial} currency={currency} /></strong>
         </div>
-        <div className="st-cell">
+        <div className="st-cell rise" style={{ "--i": 1 } as React.CSSProperties}>
           <span className="st-label">Receitas</span>
-          <strong className="st-value pos">+ <Money cents={s.income} currency={currency} /></strong>
+          <strong className="st-value pos">+ <CountMoney cents={s.income} currency={currency} /></strong>
         </div>
-        <div className="st-cell">
+        <div className="st-cell rise" style={{ "--i": 2 } as React.CSSProperties}>
           <span className="st-label">Despesas</span>
-          <strong className="st-value neg">− <Money cents={s.spent} currency={currency} /></strong>
+          <strong className="st-value neg">− <CountMoney cents={s.spent} currency={currency} /></strong>
         </div>
-        <div className="st-cell st-final">
+        <div className="st-cell st-final rise" style={{ "--i": 3 } as React.CSSProperties}>
           <span className="st-label">Saldo final</span>
-          <strong className={`st-value ${tone(s.final)}`}><Money cents={s.final} currency={currency} /></strong>
+          <strong className={`st-value ${tone(s.final)}`}><CountMoney cents={s.final} currency={currency} duration={1500} /></strong>
         </div>
       </div>
       {s.hasGap && (
-        <div className="st-gap">
+        <div className="st-gap rise" style={{ "--i": 4 } as React.CSSProperties}>
           <div className="st-gap-rows">
             {s.owedToMe > 0 && (
               <p>

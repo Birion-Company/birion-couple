@@ -2106,7 +2106,7 @@ button.user-menu-item {
 
 /* ---------- Cartões de crédito ---------- */
 .cards-page {
-  max-width: 820px;
+  max-width: 1080px;
 }
 .credit-card-head {
   display: flex;
@@ -9575,4 +9575,327 @@ body.modal-open .new-fab {
   .couple-title {
     font-size: 64px;
   }
+}
+
+/* ---------- Resumo do mês no centro da página ---------- */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent); }
+  50% { box-shadow: 0 0 34px 2px color-mix(in srgb, var(--brand) 32%, transparent); }
+}
+.rise {
+  animation: rise-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 110ms);
+}
+.month-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 0 8px;
+}
+.hero-hello {
+  color: var(--text-3);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+.hero-title {
+  margin: 4px 0 24px;
+  font-size: clamp(1.7rem, 4.2vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.hero-statement {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto 8px;
+  padding: 20px;
+  text-align: left;
+}
+.hero-statement .st-final {
+  animation: rise-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both, glow-pulse 3.2s ease-in-out 1.6s 2;
+  animation-delay: calc(var(--i, 0) * 110ms), 1.6s;
+}
+.hero-statement .st-value {
+  font-size: clamp(1.25rem, 2.6vw, 1.7rem);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise, .hero-statement .st-final {
+    animation: none;
+  }
+}
+
+/* Cartões lado a lado: quantas colunas couberem, cada uma com a cor do banco no topo */
+.card-owner {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.card-owner > .card-owner-title {
+  grid-column: 1 / -1;
+}
+.card-owner > .credit-card-panel {
+  margin-top: 0;
+  height: 100%;
+}
+
+/* ---------- Contas ---------- */
+.accounts-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 28px 16px;
+  margin-bottom: 18px;
+  text-align: center;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, var(--brand-soft), var(--surface));
+  border: 1px solid var(--line);
+}
+.accounts-total strong {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.account-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  min-height: 168px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--ac, var(--brand));
+  box-shadow: var(--shadow);
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.account-card:hover {
+  transform: translateY(-2px);
+}
+.account-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--ac, var(--brand)) 14%, transparent), transparent 60%);
+}
+.account-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.account-top h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.account-balance {
+  margin-top: auto;
+  font-size: 1.9rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.account-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  position: relative;
+  z-index: 1;
+}
+.account-edit .bud-input {
+  flex: 1;
+  min-width: 0;
+}
+.account-new {
+  border-style: dashed;
+  border-top-style: solid;
+  gap: 12px;
+  z-index: 1;
+}
+.account-add {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed var(--line-strong);
+  border-top-width: 2px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+.account-add-ico {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+.account-add::after {
+  display: none;
+}
+.account-help {
+  margin-top: 14px;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-card:hover {
+    transform: none;
+  }
+}
+
+/* ---------- Páginas largas: o conteúdo se espalha em colunas em vez de esticar ---------- */
+:root[data-wide] .settings-page,
+:root[data-wide] .profile-page,
+:root[data-wide] .help-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+:root[data-wide] .settings-page > .page-head,
+:root[data-wide] .settings-page > .tabs,
+:root[data-wide] .settings-page > .tab-help,
+:root[data-wide] .settings-page > h2,
+:root[data-wide] .profile-page > .page-head,
+:root[data-wide] .help-page > .page-head,
+:root[data-wide] .help-page > .help-toc,
+:root[data-wide] .help-page > #conecta {
+  grid-column: 1 / -1;
+}
+:root[data-wide] .settings-page > .card,
+:root[data-wide] .settings-page > .grid,
+:root[data-wide] .help-page > .card,
+:root[data-wide] .profile-page > .card {
+  margin-top: 0;
+}
+:root[data-wide] .settings-page .grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+  align-items: start;
+}
+/* Textos corridos e campos não esticam até o fim da tela */
+:root[data-wide] .faint,
+:root[data-wide] .muted {
+  max-width: 90ch;
+}
+:root[data-wide] .form .field .input,
+:root[data-wide] .form .field .select {
+  max-width: 620px;
+}
+
+/* ---------- Metas e seletor de mês ---------- */
+.goal-ring .track {
+  stroke: var(--line);
+}
+.goal-ring .bar {
+  stroke: var(--brand);
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.goal-ring.ok .bar {
+  stroke: var(--pos);
+}
+.goal-ring.over .bar {
+  stroke: var(--neg);
+}
+.goal-ring .pct {
+  fill: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+}
+.goal-card {
+  --ac: var(--brand);
+}
+.goal-nums {
+  font-size: 1.35rem;
+  position: relative;
+  z-index: 1;
+}
+.goal-nums .faint {
+  font-size: 0.9rem;
+}
+.goal-plan {
+  font-size: 0.9rem;
+  color: var(--text-2);
+  position: relative;
+  z-index: 1;
+}
+.goal-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
+  position: relative;
+  z-index: 1;
+}
+.goal-add label {
+  flex: 1;
+  min-width: 0;
+}
+.goal-presets {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.mpick {
+  border: 1px solid var(--field-edge);
+  border-radius: var(--radius-sm);
+  background: var(--field-bg);
+  padding: 8px;
+}
+.mpick-year {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.mpick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.mpick-m {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+.mpick-m:hover:not(:disabled) {
+  border-color: var(--brand);
+}
+.mpick-m.on {
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 600;
+}
+.mpick-m:disabled {
+  opacity: 0.35;
+  cursor: default;
 }

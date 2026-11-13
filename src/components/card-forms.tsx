@@ -227,7 +227,7 @@ export function CardPanel({
     });
 
   return (
-    <section className="card section credit-card-panel" aria-label={`Cartão ${card.name}`}>
+    <section className="card section credit-card-panel" aria-label={`Cartão ${card.name}`} style={{ borderTop: `4px solid ${card.color}` }}>
       <div className="credit-card-head">
         {header}
         {!editing && (
