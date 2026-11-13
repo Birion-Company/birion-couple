@@ -4,14 +4,13 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Maximize2, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 /** "wide" ocupa a linha toda; "card" divide a linha com os outros e se ajusta sozinho à largura. */
 export type DashKind = "wide" | "card";
 export type DashBlock = { id: string; label: string; size: DashKind; node: ReactNode };
 
 const KEY = "bf-dash-v1";
-const WIDE_KEY = "bf-wide";
 /** Largura mínima de um cartão: quantas colunas cabem depende da área disponível. */
 const CARD_MIN = 340;
 const GAP = 16;
@@ -32,13 +31,6 @@ function save(s: Saved) {
   try {
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch {}
-}
-
-/** Aplica a largura escolhida (normal ou ampla) em toda a área de conteúdo. */
-export function applyWide(on: boolean) {
-  const root = document.documentElement;
-  if (on) root.setAttribute("data-wide", "1");
-  else root.removeAttribute("data-wide");
 }
 
 function Block({ block, span, editing }: { block: DashBlock; span: number; editing: boolean }) {
@@ -73,13 +65,11 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
   const [cols, setCols] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
-  const [wide, setWide] = useState(false);
 
   // Lê o que está guardado só depois de montar (no servidor não existe localStorage; evita diferença na hidratação).
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     setSaved(load());
-    setWide(document.documentElement.getAttribute("data-wide") === "1");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -134,21 +124,9 @@ export function DashBoard({ blocks }: { blocks: DashBlock[] }) {
     if (from < 0 || to < 0) return;
     commit({ ...saved, order: arrayMove(order, from, to) });
   };
-  const toggleWide = () => {
-    const next = !wide;
-    setWide(next);
-    applyWide(next);
-    try {
-      localStorage.setItem(WIDE_KEY, next ? "1" : "0");
-    } catch {}
-  };
-
   return (
     <>
       <div className="dash-bar">
-        <button type="button" className={`btn${wide ? " on" : ""}`} onClick={toggleWide} aria-pressed={wide}>
-          <Maximize2 size={15} /> Página larga
-        </button>
         <button type="button" className={`btn${editing ? " primary" : ""}`} onClick={() => setEditing((v) => !v)} aria-pressed={editing}>
           <SlidersHorizontal size={15} /> {editing ? "Pronto" : "Organizar"}
         </button>

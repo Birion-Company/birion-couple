@@ -9,7 +9,7 @@ export default async function SettingsLayout({ children }: LayoutProps<"/ajustes
   const auth = await requireAuth();
   const [house] = await getDb().select({ from: schema.households.approvalsFrom }).from(schema.households).where(eq(schema.households.id, auth.householdId));
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div className="settings-page">
       <div className="page-head">
         <div>
           <h1>Ajustes</h1>
