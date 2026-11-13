@@ -34,7 +34,7 @@ function Ring({ pct, done, late }: { pct: number; done: boolean; late: boolean }
   );
 }
 
-export function GoalsEditor({ goals, currency, nowMonth }: { goals: GoalRow[]; currency: string; nowMonth: string }) {
+export function GoalsEditor({ goals, currency, nowMonth, shared = false, compact = false }: { goals: GoalRow[]; currency: string; nowMonth: string; shared?: boolean; compact?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [adding, setAdding] = useState(false);
@@ -57,6 +57,7 @@ export function GoalsEditor({ goals, currency, nowMonth }: { goals: GoalRow[]; c
 
   return (
     <section className="goals" aria-labelledby="metas">
+      {!compact && (
       <div className="accounts-total rise">
         <span className="st-label" id="metas">Guardado nas metas</span>
         <strong>
@@ -64,6 +65,7 @@ export function GoalsEditor({ goals, currency, nowMonth }: { goals: GoalRow[]; c
         </strong>
         <span className="faint">{goals.length === 0 ? "Comece com uma meta: viagem, reserva, casa…" : `de ${formatMoney(target, currency)} · ${goals.length} ${goals.length === 1 ? "meta" : "metas"}`}</span>
       </div>
+      )}
 
       <div className="accounts-grid">
         {goals.map((g, i) => {
@@ -117,7 +119,7 @@ export function GoalsEditor({ goals, currency, nowMonth }: { goals: GoalRow[]; c
             className="account-card account-new goal-new-card"
             onSubmit={(e) => {
               e.preventDefault();
-              run(() => createGoal(name, amount, month), () => {
+              run(() => createGoal(name, amount, month, shared), () => {
                 setName("");
                 setAmount("");
                 setMonth("");

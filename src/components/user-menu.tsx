@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ChevronUp, CircleHelp, LogOut, Settings2, UserRound } from "lucide-react";
+import { ChevronUp, CircleHelp, Heart, LogOut, Settings2, UserRound } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { Avatar } from "./ui";
 
@@ -19,12 +19,15 @@ export function UserMenu({
   name,
   household,
   avatarUrl,
+  partner = null,
   compact = false,
 }: {
   name: string;
   /** Nome da família, mostrado embaixo do nome da pessoa. */
   household?: string;
   avatarUrl?: string | null;
+  /** O par (se já entrou): aparece ao lado, com um coração no meio. */
+  partner?: { name: string; color: string; avatarUrl: string | null } | null;
   compact?: boolean;
 }) {
   const menuId = useId();
@@ -103,12 +106,25 @@ export function UserMenu({
           }
         }}
       >
-        <Avatar name={name} color="#E07A5F" size={compact ? 30 : 34} src={avatarUrl} />
-        {!compact && (
-          <span className="user-btn-text">
-            <span className="user-btn-name">{name}</span>
+        {!compact && partner ? (
+          <span className="user-btn-text couple-id" title={`${name} e ${partner.name}`}>
+            <span className="couple-faces">
+              <Avatar name={name} color="#E07A5F" size={36} src={avatarUrl} />
+              <Heart size={16} strokeWidth={0} fill="currentColor" className="couple-heart" aria-hidden />
+              <Avatar name={partner.name} color={partner.color} size={36} src={partner.avatarUrl} />
+            </span>
             {household && <span className="user-btn-sub">{household}</span>}
           </span>
+        ) : (
+          <>
+            <Avatar name={name} color="#E07A5F" size={compact ? 30 : 34} src={avatarUrl} />
+            {!compact && (
+              <span className="user-btn-text">
+                <span className="user-btn-name">{name}</span>
+                {household && <span className="user-btn-sub">{household}</span>}
+              </span>
+            )}
+          </>
         )}
         {!compact && <ChevronUp size={16} strokeWidth={1.8} className="user-btn-chevron" aria-hidden />}
       </button>

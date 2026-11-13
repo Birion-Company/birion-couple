@@ -395,6 +395,8 @@ export const goals = pgTable("goals", {
   targetCents: integer().notNull(),
   savedCents: integer().notNull().default(0),
   targetMonth: text().notNull(),
+  /** Meta do casal: as duas pessoas veem e guardam nela. */
+  shared: boolean().notNull().default(false),
   createdAt: createdAt(),
 });
 

@@ -727,7 +727,7 @@ const PaySchema = z.object({
    * Pagou a mais: a diferença é lucro (padrão). "credit" (só por chamada explícita) vira um
    * adiantamento que abate a próxima conta.
    */
-  extra: z.enum(["credit", "keep"]).optional(),
+  extra: z.enum(["credit", "keep", "next"]).optional(),
 });
 
 /** externalId do adiantamento criado com a sobra de um pagamento (para desfazer junto). */
@@ -763,8 +763,32 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
   // à parte (dela para você), que abate a parte dela na próxima conta.
   const extraCents = closes ? d.amountCents - left : 0;
   const asCredit = extraCents > 0 && d.extra === "credit";
+  // "Abater na próxima parcela": o excedente paga (no próprio lançamento seguinte da série) o que a pessoa deve lá,
+  // sem criar lançamento novo. O que sobrar continua como excedente deste.
+  let nextApplied: { id: string; cents: number } | null = null;
+  if (extraCents > 0 && d.extra === "next") {
+    const [me] = await db.select({ seriesId: schema.transactions.seriesId, seriesIndex: schema.transactions.seriesIndex }).from(schema.transactions).where(eq(schema.transactions.id, orig.id));
+    if (me?.seriesId && me.seriesIndex) {
+      const [nx] = await db
+        .select({ id: schema.transactions.id, description: schema.transactions.description, kind: schema.transactions.kind, payerId: schema.transactions.payerId, settlesId: schema.transactions.settlesId, createdBy: schema.transactions.createdBy })
+        .from(schema.transactions)
+        .where(and(eq(schema.transactions.seriesId, me.seriesId), eq(schema.transactions.seriesIndex, me.seriesIndex + 1), eq(schema.transactions.householdId, auth.householdId)));
+      const [nsplit] = nx ? await db.select().from(schema.transactionSplits).where(and(eq(schema.transactionSplits.transactionId, nx.id), eq(schema.transactionSplits.participantId, d.participantId))) : [];
+      if (nx && nsplit && !nsplit.paidById && nsplit.amountCents > 0) {
+        const before2 = await partialPaid(getDb(), { ...nx, splits: [] } as never, d.participantId);
+        const nLeft = nsplit.amountCents - before2;
+        if (nLeft > 0) nextApplied = { id: nx.id, cents: Math.min(extraCents, nLeft) };
+      }
+    }
+  }
   await db.transaction(async (tx) => {
-    const payId = await createPayment(tx, auth, orig, d.participantId, asCredit ? left : d.amountCents, date, closes);
+    const payId = await createPayment(tx, auth, orig, d.participantId, asCredit ? left : nextApplied ? d.amountCents - nextApplied.cents : d.amountCents, date, closes);
+    if (nextApplied) {
+      const [nx] = await tx.select({ id: schema.transactions.id, description: schema.transactions.description, kind: schema.transactions.kind, payerId: schema.transactions.payerId, settlesId: schema.transactions.settlesId, createdBy: schema.transactions.createdBy }).from(schema.transactions).where(eq(schema.transactions.id, nextApplied.id));
+      const [nsplit] = await tx.select().from(schema.transactionSplits).where(and(eq(schema.transactionSplits.transactionId, nextApplied.id), eq(schema.transactionSplits.participantId, d.participantId)));
+      const nLeft = nsplit.amountCents - (await partialPaid(tx, { ...nx, splits: [] } as never, d.participantId));
+      await createPayment(tx, auth, { ...nx, splits: [] } as never, d.participantId, nextApplied.cents, date, nextApplied.cents >= nLeft);
+    }
     if (asCredit) {
       const income = orig.kind === "income";
       const from = income ? orig.payerId! : d.participantId;
@@ -809,8 +833,10 @@ export async function payDebt(input: z.input<typeof PaySchema>): Promise<ActionR
         ? `Pagou ${money(d.amountCents)}. Ainda falta ${money(restCents)}.`
         : asCredit
           ? `Pago. Os ${money(extraCents)} a mais ficam com você e abatem a parte da pessoa na próxima conta.`
-          : diff > 0
-            ? `Pago, com ${money(diff)} de lucro.`
+          : nextApplied
+            ? `Pago. ${money(nextApplied.cents)} do excedente abateram a próxima parcela${diff - nextApplied.cents > 0 ? `; ${money(diff - nextApplied.cents)} ficam como excedente neste lançamento` : ""}.`
+            : diff > 0
+              ? `Pago, com ${money(diff)} de excedente.`
             : "Pago. Dívida quitada.",
   };
   if (wait) result.message += wait;
@@ -1076,10 +1102,8 @@ export async function loadTxForEdit(id: string) {
   const canEdit = canEditTx(auth, tx.createdBy);
   const members = await getMembers(auth.householdId);
   const series = tx.seriesId && tx.seriesTotal && canEdit ? await getSeriesItems(auth, tx.seriesId) : null;
-  const accounts = (await getDb().select({ id: schema.accounts.id, name: schema.accounts.name }).from(schema.accounts).where(eq(schema.accounts.userId, auth.userId)).orderBy(asc(schema.accounts.createdAt))).map((a) => ({ value: a.id, label: a.name }));
   return {
     tx,
-    accounts,
     canEdit,
     createdByName: members.find((m) => m.userId === tx.createdBy)?.name ?? null,
     series: series ? { items: series, total: tx.seriesTotal!, monthly: tx.seriesKind === "monthly" } : null,

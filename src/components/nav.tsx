@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowLeftRight, Handshake, House, Plus, ScanSearch, Target, UserCheck, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeftRight, CreditCard, Handshake, Heart, House, Plus, ScanSearch, Target, UserCheck } from "lucide-react";
 
 /** Menu do casal: o essencial. "A identificar" e "Para confirmar" só aparecem quando há algo esperando. */
 const items = [
   { href: "/painel", label: "Início", icon: House },
+  { href: "/nos", label: "Nós dois", icon: Heart, short: "Nós" },
   { href: "/transacoes", label: "Gastos", icon: ArrowLeftRight },
   { href: "/acerto", label: "Acerto", icon: Handshake },
   { href: "/transacoes/nova", label: "Novo", icon: Plus, add: true },
   { href: "/metas", label: "Metas", icon: Target },
-  { href: "/contas", label: "Contas", icon: Wallet },
+  { href: "/cartoes", label: "Cartões", icon: CreditCard },
   { href: "/identificar", label: "A identificar", icon: ScanSearch, short: "Identificar", whenWaiting: true },
   { href: "/confirmar", label: "Para confirmar", icon: UserCheck, short: "Confirmar", whenWaiting: true },
 ];
@@ -19,7 +21,6 @@ const items = [
 function isActive(path: string, href: string, debts: boolean) {
   if (href === "/acerto") return path === "/acerto" || (path === "/transacoes" && debts);
   if (href === "/transacoes") return !debts && (path === "/transacoes" || (path.startsWith("/transacoes/") && path !== "/transacoes/nova"));
-  if (href === "/contas") return path === "/contas" || path.startsWith("/contas/") || path === "/cartoes" || path.startsWith("/cartoes/");
   return path === href || path.startsWith(href + "/");
 }
 
@@ -47,15 +48,42 @@ function useShown(path: string, debts: boolean, toIdentify: number, toConfirm: n
   );
 }
 
+/**
+ * A categoria do menu muda no instante do toque, antes de a tela nova chegar (no site ela vem do servidor):
+ * guarda o link tocado e o usa como "ativo" até a rota de fato mudar.
+ */
+function useTapped(path: string, debts: boolean) {
+  const [tapped, setTapped] = useState<{ href: string; from: string } | null>(null);
+  const here = `${path}|${debts ? 1 : 0}`;
+  useEffect(() => {
+    // Chegou na tela nova (ou o toque não levou a lugar nenhum em 15 s): volta a seguir a rota.
+    if (!tapped) return;
+    if (tapped.from !== here) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTapped(null);
+      return;
+    }
+    const t = window.setTimeout(() => setTapped(null), 15000);
+    return () => window.clearTimeout(t);
+  }, [tapped, here]);
+  const tap = (href: string) => (e: React.MouseEvent) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    setTapped({ href, from: here });
+  };
+  return { tapped: tapped && tapped.from === here ? tapped.href : null, tap };
+}
+
 export function SideNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: number; toConfirm?: number }) {
   const path = usePathname();
   const debts = useSearchParams().get("dividas") === "1";
   const shown = useShown(path, debts, toIdentify, toConfirm);
+  const { tapped, tap } = useTapped(path, debts);
+  const on = (href: string) => (tapped ? tapped === href : isActive(path, href, debts));
   return (
     <nav aria-label="Principal">
       {/* "Novo lançamento" fica no botão do canto da tela (no celular, no + da barra de baixo). */}
       {shown.map(({ href, label, icon: Icon }) => (
-        <Link key={href} href={href} aria-current={isActive(path, href, debts) ? "page" : undefined} data-tour={TOUR[href]}>
+        <Link key={href} href={href} aria-current={on(href) ? "page" : undefined} onClick={tap(href)} data-tour={TOUR[href]}>
           <Icon size={18} strokeWidth={1.6} />
           {label}
           {href === "/identificar" && <Count n={toIdentify} />}
@@ -71,11 +99,13 @@ export function BottomNav({ toIdentify = 0, toConfirm = 0 }: { toIdentify?: numb
   const debts = useSearchParams().get("dividas") === "1";
   // No celular só cabem os 5 principais; "Identificar" e "Confirmar" entram quando há algo esperando.
   const shown = useShown(path, debts, toIdentify, toConfirm);
+  const { tapped, tap } = useTapped(path, debts);
+  const on = (href: string) => (tapped ? tapped === href : isActive(path, href, debts));
   return (
     <nav className="bottom-nav" aria-label="Principal">
       {/* O + fica no botão redondo do canto (fora da barra). */}
       {shown.map(({ href, label, icon: Icon, short }) => (
-        <Link key={href} href={href} aria-current={isActive(path, href, debts) ? "page" : undefined} data-tour={TOUR[href]}>
+        <Link key={href} href={href} aria-current={on(href) ? "page" : undefined} onClick={tap(href)} data-tour={TOUR[href]}>
           <span className="icon">
             <Icon size={20} strokeWidth={1.6} />
             {href === "/identificar" && <Count n={toIdentify} />}

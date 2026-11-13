@@ -38,12 +38,21 @@ export function ScrollReveal() {
     const prep = (root: ParentNode) => {
       root.querySelectorAll<HTMLElement>(TARGETS).forEach((el) => {
         if (seen.has(el) || el.closest(SKIP) || el.querySelector(":scope > .dash-grid")) return;
+        // O que já está na tela ao carregar não esconde nem anima (nada pisca): só o que está mais abaixo.
+        if (root === document && el.getBoundingClientRect().top < window.innerHeight) return;
         seen.add(el);
         el.classList.add("sr");
         io.observe(el);
       });
     };
-    prep(document);
+    // Só começa depois que a página terminou de carregar e hidratar (mexer antes disso faz o React reclamar).
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      prep(document);
+      mo.observe(document.body, { childList: true, subtree: true });
+    };
     const mo = new MutationObserver((muts) => {
       for (const m of muts)
         m.addedNodes.forEach((n) => {
@@ -57,8 +66,15 @@ export function ScrollReveal() {
           }
         });
     });
-    mo.observe(document.body, { childList: true, subtree: true });
+    let timer = 0;
+    const arm = () => {
+      timer = window.setTimeout(start, 900);
+    };
+    if (document.readyState === "complete") arm();
+    else window.addEventListener("load", arm, { once: true });
     return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("load", arm);
       io.disconnect();
       mo.disconnect();
       document.querySelectorAll<HTMLElement>(".sr").forEach(done);

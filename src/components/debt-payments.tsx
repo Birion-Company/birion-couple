@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Check, TrendingUp, Undo2 } from "lucide-react";
 import { deleteTransactions, payDebt, setTransactionsSettled } from "@/app/actions/transactions";
 import { centsToInput, formatMoney, parseAmountToCents } from "@/lib/money";
@@ -48,7 +49,7 @@ export function ProfitBadge({ paidCents, owedCents, restCents = 0, currency }: {
   if (diff <= 0) return null;
   return (
     <span className="profit-badge" title={`Devia ${formatMoney(owedCents, currency)} e pagou ${formatMoney(paidCents, currency)}`}>
-      <TrendingUp size={12} strokeWidth={2.4} aria-hidden /> +{formatMoney(diff, currency)} de lucro
+      <TrendingUp size={12} strokeWidth={2.4} aria-hidden /> +{formatMoney(diff, currency)} de excedente
     </span>
   );
 }
@@ -62,7 +63,8 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   const cents = parseAmountToCents(value, ",") ?? 0;
   const diff = cents - owedCents;
   // Pagou a mais: o excedente vira lucro (padrão) ou um adiantamento que abate a próxima conta.
-  const [extra, setExtra] = useState<"keep" | "credit">("keep");
+  const [extra, setExtra] = useState<"keep" | "next">("keep");
+  const [asking, setAsking] = useState(false);
   if (!open) {
     return (
       <button type="button" className="btn small ghost" data-tour="debts-settle" onClick={() => setOpen(true)}>
@@ -72,12 +74,15 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   }
   // Não é um <form>: este botão também aparece dentro do formulário do lançamento, e um formulário
   // dentro do outro fazia o "Confirmar" salvar o lançamento (e fechar) em vez de registrar o pagamento.
-  const confirm = () => {
+  const confirm = (chosen?: "keep" | "next") => {
     if (cents <= 0) return toast("Digite quanto foi pago.", "error");
+    // Pagou mais que o devido: antes de registrar, a caixa pergunta o que fazer com o excedente.
+    if (diff > 0 && !chosen) return setAsking(true);
     start(async () => {
-      const r = await payDebt({ transactionId: txId, participantId, amountCents: cents, extra: diff > 0 ? extra : undefined });
+      const r = await payDebt({ transactionId: txId, participantId, amountCents: cents, extra: diff > 0 ? chosen ?? extra : undefined });
       toastResult(r);
       if (r.ok) {
+        setAsking(false);
         setOpen(false);
         router.refresh();
         window.dispatchEvent(new Event("bf:tx-changed"));
@@ -105,20 +110,46 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
         />
       </label>
       <span className={`pay-diff ${diff > 0 ? "pos" : diff < 0 ? "neg" : "faint"}`}>
-        {diff > 0 ? `+${formatMoney(diff, currency)} de lucro` : diff < 0 && cents > 0 ? `Ainda vai faltar ${formatMoney(-diff, currency)}` : cents > 0 ? "quita a dívida" : ""}
+        {diff > 0 ? `+${formatMoney(diff, currency)} de excedente` : diff < 0 && cents > 0 ? `Ainda vai faltar ${formatMoney(-diff, currency)}` : cents > 0 ? "quita a dívida" : ""}
       </span>
-      {diff > 0 && (
-        <span className="pay-extra" role="radiogroup" aria-label={`O que fazer com os ${formatMoney(diff, currency)} a mais`}>
-          <label>
-            <input type="radio" name={`extra-${txId}-${participantId}`} checked={extra === "keep"} onChange={() => setExtra("keep")} /> Lucro
-          </label>
-          <label>
-            <input type="radio" name={`extra-${txId}-${participantId}`} checked={extra === "credit"} onChange={() => setExtra("credit")} /> Adiantamento (abate a próxima conta)
-          </label>
-        </span>
-      )}
-      <button type="button" className="btn small primary" disabled={pending} onClick={confirm}>Confirmar</button>
+      <button type="button" className="btn small primary" disabled={pending} onClick={() => confirm()}>Confirmar</button>
       <button type="button" className="btn small ghost" onClick={() => setOpen(false)}>Cancelar</button>
+      {asking &&
+        createPortal(
+          <div className="alert-backdrop" onClick={(e) => e.target === e.currentTarget && !pending && setAsking(false)}>
+            <div className="alert-dialog" role="dialog" aria-modal="true" aria-labelledby={`exc-${txId}-${participantId}`}>
+              <h2 id={`exc-${txId}-${participantId}`}>Excedente de {formatMoney(diff, currency)}</h2>
+              <p className="faint" style={{ margin: "6px 0 14px" }}>
+                Foi pago {formatMoney(cents, currency)} e o devido era {formatMoney(owedCents, currency)}. Tudo fica neste mesmo lançamento, sem criar outro.
+              </p>
+              <div className="excess-opts" role="radiogroup" aria-label="O que fazer com o excedente">
+                <label className={`opt${extra === "keep" ? " on" : ""}`}>
+                  <input type="radio" name={`ex-${txId}-${participantId}`} checked={extra === "keep"} onChange={() => setExtra("keep")} />
+                  <span>
+                    <strong>Deixar como excedente</strong>
+                    <span className="faint"> fica anotado aqui e não entra nas despesas</span>
+                  </span>
+                </label>
+                <label className={`opt${extra === "next" ? " on" : ""}`}>
+                  <input type="radio" name={`ex-${txId}-${participantId}`} checked={extra === "next"} onChange={() => setExtra("next")} />
+                  <span>
+                    <strong>Abater na próxima parcela</strong>
+                    <span className="faint"> se este lançamento se repete, o próximo já nasce com esse valor pago</span>
+                  </span>
+                </label>
+              </div>
+              <div className="alert-actions">
+                <button type="button" className="btn primary" disabled={pending} onClick={() => confirm(extra)}>
+                  Registrar pagamento
+                </button>
+                <button type="button" className="btn ghost" disabled={pending} onClick={() => setAsking(false)}>
+                  Voltar
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

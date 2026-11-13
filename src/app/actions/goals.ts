@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getDb, schema } from "@/db";
 import { requireAuth } from "@/lib/auth";
@@ -9,9 +9,12 @@ import { parseAmountToCents } from "@/lib/money";
 import type { ActionResult } from "./settings";
 
 const G = schema.goals;
+/** A meta é sua, ou é uma meta do casal criada por quem está no mesmo casal. */
+const mine = (auth: { userId: string; householdId: string }) =>
+  or(eq(G.userId, auth.userId), and(eq(G.shared, true), sql`${G.userId} in (select "userId" from "memberships" where "householdId" = ${auth.householdId})`))!;
 const MAX = 1_000_000_00;
 
-export async function createGoal(name: string, amount: string, targetMonth: string): Promise<ActionResult> {
+export async function createGoal(name: string, amount: string, targetMonth: string, shared = false): Promise<ActionResult> {
   const auth = await requireAuth();
   const n = name.trim().slice(0, 60);
   if (!n) return { ok: false, error: "Dê um nome para a meta." };
@@ -20,7 +23,7 @@ export async function createGoal(name: string, amount: string, targetMonth: stri
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(targetMonth)) return { ok: false, error: "Escolha o mês final." };
   const [{ c }] = await getDb().select({ c: sql<number>`count(*)::int` }).from(G).where(eq(G.userId, auth.userId));
   if (c >= LIMITS.goals) return { ok: false, error: limitMessage("metas", LIMITS.goals) };
-  await getDb().insert(G).values({ userId: auth.userId, name: n, targetCents: cents, targetMonth });
+  await getDb().insert(G).values({ userId: auth.userId, name: n, targetCents: cents, targetMonth, shared });
   revalidatePath("/", "layout");
   return { ok: true, message: `Meta "${n}" criada.` };
 }
@@ -33,7 +36,7 @@ export async function saveToGoal(id: string, amount: string, sign: 1 | -1 = 1): 
   const res = await getDb()
     .update(G)
     .set({ savedCents: sql`greatest(0, ${G.savedCents} + ${sign * cents})` })
-    .where(and(eq(G.id, id), eq(G.userId, auth.userId)))
+    .where(and(eq(G.id, id), mine(auth)))
     .returning({ id: G.id });
   if (!res.length) return { ok: false, error: "Meta não encontrada." };
   revalidatePath("/", "layout");
@@ -42,7 +45,7 @@ export async function saveToGoal(id: string, amount: string, sign: 1 | -1 = 1): 
 
 export async function deleteGoal(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  await getDb().delete(G).where(and(eq(G.id, id), eq(G.userId, auth.userId)));
+  await getDb().delete(G).where(and(eq(G.id, id), mine(auth)));
   revalidatePath("/", "layout");
   return { ok: true, message: "Meta apagada." };
 }

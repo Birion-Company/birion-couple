@@ -1,4 +1,3 @@
-import { MoneyTabs } from "@/components/money-tabs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -302,7 +301,6 @@ export default async function CardsPage() {
 
   return (
     <div className="cards-page">
-      <MoneyTabs on="cartoes" />
       <div className="page-head">
         <div>
           <h1>Cartões</h1>
@@ -420,8 +418,12 @@ export default async function CardsPage() {
                 Quando não há fatura fechada para pagar, fica só o bloco da aberta (sem repetir a mesma fatura). */}
                     {s.dueInvoice !== s.open && (
                       <div
-                        className={`card-stat ${s.overdue ? "overdue" : s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "warn" : ""}`}
+                        className={`card-stat ${dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "pay-next " : ""}${s.overdue ? "overdue" : s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "warn" : ""}`}
                       >
+                        {/* Borda tracejada que gira: chama atenção para a fatura que falta pagar. */}
+                        <svg className="ants" aria-hidden focusable="false">
+                          <rect />
+                        </svg>
                         <p className="label">
                           <Link
                             className="card-stat-link"

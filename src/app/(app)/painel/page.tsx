@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Inbox, Plus, ScanSearch, Upload } from "lucide-react";
-import { accountBalances } from "@/lib/account-balances";
 import { MonthStatement } from "@/components/month-statement";
 import { DashBoard } from "@/components/dash-board";
 import { FilterBar } from "@/components/filter-bar";
@@ -80,9 +79,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
     ...g,
     plan: goalPlan(g.targetCents, g.savedCents, g.targetMonth, current),
   }));
-  const accountRows = (await accountBalances(auth.userId)).map((a) => ({ id: a.id, name: a.name, balanceCents: a.balanceCents }));
+  // Sem contas: a posição é só o que há para pagar (faturas e dívidas) e o que há para receber.
   const pos = position({
-    accountsCents: accountRows.map((a) => a.balanceCents),
+    accountsCents: [],
     invoices: invoices.map((v) => ({ mineCents: v.mineCents, paid: v.paid, due: v.due })),
     debts: debts.map((d) => ({ net: d.net })),
     receivableMonthCents: debtsDue.reduce((a, x) => a + x.leftCents, 0),
@@ -384,25 +383,21 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                         },
                       ]
                     : []),
-                  ...(mode === "me" && (accountRows.length > 0 || pos.payInvoices > 0 || pos.payDebts > 0 || pos.receive > 0)
+                  ...(mode === "me" && (pos.payInvoices > 0 || pos.payDebts > 0 || pos.receive > 0)
                     ? [
                         {
                           id: "posicao",
-                          label: "Minha posição",
+                          label: "A pagar e a receber",
                           size: "card" as const,
                           node: (
             <section className="card" aria-labelledby="posicao">
               <div className="card-head">
-                <h2 id="posicao">Minha posição</h2>
-                <Link href="/contas" className="faint">
-                  {accountRows.length > 0 ? "contas" : "cadastrar contas"}
+                <h2 id="posicao">A pagar e a receber</h2>
+                <Link href="/cartoes" className="faint">
+                  cartões
                 </Link>
               </div>
               <div className="rows">
-                <div className="row pos-row">
-                  <span className="grow">Tenho agora{accountRows.length > 1 ? ` (${accountRows.length} contas)` : ""}</span>
-                  <Money cents={pos.have} currency={cur} />
-                </div>
                 <div className="row pos-row">
                   <span className="grow">Preciso pagar{pos.nextDue ? ` · fatura vence ${shortDate(pos.nextDue)}` : ""}</span>
                   <span className="num neg">
@@ -414,13 +409,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                   <span className="grow">Dependo de outros em {monthName}</span>
                   <Money cents={pos.receive} currency={cur} />
                 </div>
-                <div className="row pos-row">
-                  <strong className="grow">Sobra depois de pagar</strong>
-                  <strong className={`num ${pos.projected < 0 ? "neg" : ""}`}>
-                    <Money cents={pos.projected} currency={cur} />
-                  </strong>
-                </div>
-                {pos.receive > 0 && <p className="sub">Se te pagarem o que devem: {formatMoney(pos.projectedWithReceive, cur)}.</p>}
               </div>
             </section>
                           ),

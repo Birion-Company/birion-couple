@@ -31,13 +31,16 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     getApprovalInbox(auth),
   ]);
   const toConfirm = inbox.toMe.length;
+  // O par (outra pessoa com login no casal): aparece no rodapé do menu, ao lado de você.
+  const pp = lookups.participants.find((p) => p.hasLogin && p.id !== auth.participantId && !p.archived);
+  const partner = pp ? { name: pp.name, color: pp.color, avatarUrl: pp.avatarUrl ?? null } : null;
   return (
     <div className="shell">
       <aside className="sidebar">
         <Brand />
         <SideNav toIdentify={toIdentify} toConfirm={toConfirm} />
         <div className="side-foot">
-          <UserMenu name={auth.userName} household={auth.householdName} avatarUrl={avatarUrl} />
+          <UserMenu name={auth.userName} household={auth.householdName} avatarUrl={avatarUrl} partner={partner} />
         </div>
       </aside>
       <div className="shell-body">

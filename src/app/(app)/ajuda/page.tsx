@@ -13,7 +13,7 @@ const SECTIONS: Section[] = [
     title: "Para começar",
     items: [
       { term: "1. Convide", text: <>Em <Link href="/ajustes">Ajustes → Nós</Link>, toque em Convidar parceiro(a) e mande o link.</> },
-      { term: "2. Cartões", text: <>Escolha seus cartões em <Link href="/cartoes">Contas → Cartões</Link>, com o dia de fechar e de vencer.</> },
+      { term: "2. Cartões", text: <>Escolha seus cartões em <Link href="/cartoes">Cartões</Link>, com o dia de fechar e de vencer.</> },
       { term: "3. Lance", text: <>Use o botão <strong>Novo lançamento</strong> ou <Link href="/importar">importe o extrato</Link> do banco.</> },
     ],
   },
@@ -25,7 +25,7 @@ const SECTIONS: Section[] = [
       { term: "Gastos", text: "Tudo o que foi lançado no mês, com busca e filtros." },
       { term: "Acerto", text: "Quem deve a quem. Quando acertarem, registre o pagamento." },
       { term: "Metas", text: "O que querem juntar e até quando." },
-      { term: "Contas", text: "Saldo dos bancos e as faturas dos cartões." },
+      { term: "Cartões", text: "A fatura de cada cartão, a que falta pagar (com a borda tracejada girando) e a aberta." },
       { term: "A identificar", text: "Só aparece quando falta algo (categoria, quem pagou, quem deve). Complete e sai da lista." },
     ],
   },
@@ -36,7 +36,7 @@ const SECTIONS: Section[] = [
       { term: "Despesa", text: "Diga quem pagou e a parte de cada um. Quem não pagou fica devendo a sua parte." },
       { term: "Receita", text: "Dinheiro que entra. Fica “a receber” até você tocar em Recebi." },
       { term: "Parcelado e todo mês", text: "Um lançamento por mês, de hoje para frente. Para parar de repetir, abra o lançamento." },
-      { term: "Recebi / Paguei", text: "Abate a dívida. Pagou menos? O resto continua. Pagou mais? A diferença vira lucro." },
+      { term: "Recebi / Paguei", text: "Abate a dívida. Pagou menos? O resto continua. Pagou mais? A diferença vira excedente, no mesmo lançamento." },
     ],
   },
   {

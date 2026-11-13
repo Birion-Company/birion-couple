@@ -1217,3 +1217,57 @@ export async function monthCarry(viewer: Viewer, month: string): Promise<number>
     .where(txScope(viewer, isNull(t.settlesId), sql`${competenceSql} < ${`${month}-01`}::date`, sql`${t.kind} in ('expense', 'income')`));
   return Number(row?.income ?? 0) - Number(row?.spent ?? 0);
 }
+
+/**
+ * Painel do casal: o mês das duas pessoas juntas. Quanto cada uma consumiu (a sua parte nos gastos), quanto pagou
+ * de fato, o que foi dividido entre as duas e as maiores categorias.
+ */
+export async function getCoupleMonth(viewer: Viewer, month: string) {
+  const me = viewer.participantId;
+  if (!me) return null;
+  const db = getDb();
+  const members = await db
+    .select({ pid: schema.memberships.participantId })
+    .from(schema.memberships)
+    .where(and(eq(schema.memberships.householdId, viewer.householdId), isNotNull(schema.memberships.participantId)));
+  const partnerId = members.map((m) => m.pid!).find((p) => p !== me) ?? null;
+  await ensureRecurring(viewer.householdId);
+  const f = { ...parseFilters({}, "mes"), period: "mes" as const, month: null, competence: month, ...monthRange(month), everyone: true };
+  const rows = await attachSplits(
+    (await db.select(txColumns).from(t).where(whereFor(viewer, f)).orderBy(desc(t.date), desc(t.createdAt))) as BaseRow[],
+  );
+  const pair = [me, partnerId].filter(Boolean) as string[];
+  const expenses = rows.filter((r) => r.kind === "expense" && !r.blocked);
+  const refunds = rows.filter((r) => r.kind === "income" && r.cardId);
+  const share = (r: TxRow, id: string) => r.splits.find((s) => s.participantId === id)?.amountCents ?? 0;
+  const per = new Map<string, { consumed: number; paid: number }>(pair.map((id) => [id, { consumed: 0, paid: 0 }]));
+  const byCategory = new Map<string, number>();
+  let together = 0;
+  const shared: TxRow[] = [];
+  for (const r of expenses) {
+    let any = 0;
+    for (const id of pair) {
+      const c = share(r, id);
+      per.get(id)!.consumed += c;
+      any += c;
+      if (c > 0) byCategory.set(r.categoryId ?? "sem", (byCategory.get(r.categoryId ?? "sem") ?? 0) + c);
+    }
+    for (const id of pair) if (r.payerId === id) per.get(id)!.paid += r.amountCents;
+    if (any > 0 && pair.every((id) => share(r, id) > 0)) {
+      together += any;
+      shared.push(r);
+    }
+  }
+  for (const r of refunds) for (const id of pair) per.get(id)!.consumed -= share(r, id);
+  const totalConsumed = [...per.values()].reduce((a, v) => a + v.consumed, 0);
+  return {
+    me,
+    partnerId,
+    per: Object.fromEntries(per),
+    totalConsumed,
+    together,
+    sharedCount: shared.length,
+    recentShared: shared.slice(0, 6),
+    byCategory: [...byCategory].map(([id, cents]) => ({ id, cents })).sort((a, b) => b.cents - a.cents).slice(0, 6),
+  };
+}

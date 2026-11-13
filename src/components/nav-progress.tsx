@@ -42,5 +42,13 @@ export function NavProgress() {
     };
   }, [state, pathname]);
 
+  // O conteúdo antigo esmaece enquanto a tela nova não chega.
+  useEffect(() => {
+    const r = document.documentElement;
+    if (state.on) r.setAttribute("data-navigating", "");
+    else r.removeAttribute("data-navigating");
+    return () => r.removeAttribute("data-navigating");
+  }, [state.on]);
+
   return <div className={`nav-progress ${state.on ? "on" : ""}`} aria-hidden />;
 }

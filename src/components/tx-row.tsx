@@ -63,7 +63,7 @@ export function txProfit(tx: TxRow): number {
 export function ProfitAmount({ tx, currency }: { tx: TxRow; currency: string }) {
   const p = txProfit(tx);
   if (p <= 0) return null;
-  return <span className="tx-profit">+{formatMoney(p, currency)} de lucro</span>;
+  return <span className="tx-profit">+{formatMoney(p, currency)} de excedente</span>;
 }
 
 /**
