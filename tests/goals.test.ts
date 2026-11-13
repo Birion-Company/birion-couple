@@ -43,3 +43,15 @@ describe("missingDefaultRules", () => {
     expect(p).not.toContain("cinema");
   });
 });
+
+import { brandOf, cardMark } from "@/lib/card-brands";
+describe("card-brands", () => {
+  it("acha a marca sem diferenciar acento ou maiúsculas", () => {
+    expect(brandOf("NUBANK")?.mark).toBe("Nu");
+    expect(brandOf("itau")?.name).toBe("Itaú");
+    expect(brandOf("Cartão A")).toBeNull();
+  });
+  it("nome antigo usa as duas primeiras letras", () => {
+    expect(cardMark("Cartão A")).toBe("Ca");
+  });
+});

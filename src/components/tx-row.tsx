@@ -203,7 +203,7 @@ export function TxRowLink({ tx, lookups, currency, me = null }: { tx: TxRow; loo
   return (
     <Link href={`/transacoes/${tx.id}`} className={`row tx-row ${txProfit(tx) > 0 ? "has-profit" : ""}`}>
       <StatusDot status={status} />
-      <CategoryIcon icon={look.icon} color={look.color} title={look.name} />
+      <CategoryIcon icon={look.icon} color={look.color} title={look.name} card={tx.cardId ? lookups.cards.find((c) => c.id === tx.cardId) ?? null : null} />
       <div className="grow" style={{ minWidth: 0 }}>
         <p className="title tx-title">
           <span className={`tx-desc ${tx.kind === "expense" ? "neg" : ""}`} title={tx.description}>{tx.description}</span>

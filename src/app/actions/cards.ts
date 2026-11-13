@@ -6,6 +6,7 @@ import * as z from "zod";
 import { getDb, schema } from "@/db";
 import { canManageCard, isAdmin } from "@/lib/access";
 import { requireAuth } from "@/lib/auth";
+import { brandOf } from "@/lib/card-brands";
 import { CARDS_PER_PERSON_MAX } from "@/lib/defaults";
 import type { ActionResult } from "./settings";
 
@@ -77,8 +78,17 @@ export async function saveCard(id: string | null, input: CardInput): Promise<Act
 
   let savedId = id;
   if (current) {
-    await db.update(schema.creditCards).set({ ...data, ownerId }).where(eq(schema.creditCards.id, current.id));
+    // O nome (e a cor da marca) não mudam depois de cadastrado: só fechamento, vencimento, avisos e dono.
+    await db
+      .update(schema.creditCards)
+      .set({ closingDay: data.closingDay, dueDay: data.dueDay, alertDays: data.alertDays, ownerId })
+      .where(eq(schema.creditCards.id, current.id));
   } else {
+    // Cartão novo: o nome vem da lista de cartões prontos e a cor é a da marca.
+    const brand = brandOf(data.name);
+    if (!brand) return { ok: false, error: "Escolha o cartão na lista." };
+    data.name = brand.name;
+    data.color = brand.color;
     const [row] = await db
       .insert(schema.creditCards)
       .values({ ...data, ownerId, householdId: auth.householdId })

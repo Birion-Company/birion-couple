@@ -8838,3 +8838,21 @@ body.modal-open .new-fab {
 .history-fold[open] > summary {
   margin-bottom: 8px;
 }
+
+/* Bolinha do cartão em cima do ícone do lançamento. */
+.cat-icon {
+  position: relative;
+}
+.card-dot {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--surface, #fff);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  box-sizing: content-box;
+}

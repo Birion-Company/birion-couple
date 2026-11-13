@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { iconFor } from "@/lib/category-icons";
 import { formatMoney } from "@/lib/money";
+import { cardMark } from "@/lib/card-brands";
 
 export function Money({
   cents,
@@ -56,7 +57,29 @@ export function formatDate(iso: string, opts: Intl.DateTimeFormatOptions = { day
 }
 
 /** Ícone da categoria num quadradinho com a cor dela; sem categoria, um ícone neutro. */
-export function CategoryIcon({ icon, color, size = 30, title }: { icon?: string | null; color?: string | null; size?: number; title?: string }) {
+/** Bolinha do cartão (cor e sigla da marca), para marcar de qual cartão é um lançamento. */
+export function CardDot({ name, color, size = 16 }: { name: string; color: string; size?: number }) {
+  return (
+    <span
+      className="card-dot"
+      style={{ width: size, height: size, background: color, fontSize: Math.round(size * 0.5), color: cardDotInk(color) }}
+      title={`Cartão ${name}`}
+      role="img"
+      aria-label={`Cartão ${name}`}
+    >
+      {cardMark(name)}
+    </span>
+  );
+}
+
+/** Texto claro ou escuro, conforme a cor de fundo da bolinha. */
+function cardDotInk(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.62 ? "#1a1a1a" : "#fff";
+}
+
+export function CategoryIcon({ icon, color, size = 30, title, card }: { icon?: string | null; color?: string | null; size?: number; title?: string; card?: { name: string; color: string } | null }) {
   const c = color ?? "#94A3B8";
   return (
     <span
@@ -68,6 +91,7 @@ export function CategoryIcon({ icon, color, size = 30, title }: { icon?: string 
       aria-label={title}
     >
       {createElement(iconFor(icon), { size: Math.round(size * 0.55), strokeWidth: 1.9 })}
+      {card && <CardDot name={card.name} color={card.color} size={Math.max(16, Math.round(size * 0.55))} />}
     </span>
   );
 }

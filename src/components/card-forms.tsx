@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteCard, saveCard, setCardArchived } from "@/app/actions/cards";
+import { CARD_BRANDS, brandOf } from "@/lib/card-brands";
 import { suggestDueDay } from "@/lib/cards";
-import { ColorPicker } from "./list-editor";
 import { Select } from "./select";
 import { toastResult } from "./toaster";
 
@@ -32,9 +32,6 @@ const ALERTS = [
   { value: "7", label: "1 semana antes" },
 ];
 
-/** Cores comuns de cartões (roxo, laranja, vermelho, azul-claro, azul-escuro, verde, preto, dourado). */
-const CARD_COLORS = ["#8A05BE", "#EC7000", "#CC092F", "#1AC4DB", "#1E3A8A", "#3BAA7F", "#1F2937", "#B8860B"];
-
 function dayValue(v: string) {
   const n = Number(v);
   return Number.isInteger(n) && n >= 1 && n <= 31 ? n : null;
@@ -56,7 +53,6 @@ export function CardForm({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [name, setName] = useState(card?.name ?? "");
-  const [color, setColor] = useState(card?.color ?? CARD_COLORS[0]);
   const [closing, setClosing] = useState(card ? String(card.closingDay) : "");
   const [due, setDue] = useState(card ? String(card.dueDay) : "");
   // Enquanto a pessoa não mexer no vencimento, ele acompanha o fechamento.
@@ -76,7 +72,7 @@ export function CardForm({
     start(async () => {
       const r = await saveCard(card?.id ?? null, {
         name,
-        color,
+        color: card?.color ?? brandOf(name)?.color ?? "#64748B",
         closingDay: dayValue(closing) ?? 0,
         dueDay: dayValue(due) ?? 0,
         alertDays: alert === "none" ? null : Number(alert),
@@ -99,10 +95,20 @@ export function CardForm({
           <Select value={ownerId} onChange={setOwnerId} options={owners.map((o) => ({ value: o.id, label: o.name }))} placeholder="Escolha" />
         </label>
       )}
-      <label className="field">
-        <span>Nome do cartão</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Cartão A" maxLength={40} required autoFocus={!card} />
-      </label>
+      {/* O cartão vem de uma lista pronta (com pesquisa); depois de cadastrado o nome não muda. */}
+      {!card && (
+        <div className="field">
+          <span id="cartao-lista">Cartão</span>
+          <Select
+            value={name}
+            onChange={setName}
+            options={CARD_BRANDS.map((b) => ({ value: b.name, label: b.name, color: b.color }))}
+            placeholder="Escolha o cartão"
+            ariaLabel="Cartão"
+            searchable
+          />
+        </div>
+      )}
       <div className="field-row">
         <div className="field">
           <label htmlFor={`fecha-${fieldId}`}>Dia de fechamento da fatura</label>
@@ -148,15 +154,11 @@ export function CardForm({
         <span>Avisar a família antes do fechamento e do vencimento</span>
         <Select value={alert} onChange={setAlert} options={alertOptions} />
       </label>
-      <div className="field">
-        <span className="label-text">Cor</span>
-        <ColorPicker value={color} onChange={setColor} palette={CARD_COLORS} />
-      </div>
       <div className="actions" style={{ justifyContent: "flex-end" }}>
         <button type="button" className="btn ghost" onClick={onDone} disabled={pending}>
           Cancelar
         </button>
-        <button className="btn primary" disabled={pending}>
+        <button className="btn primary" disabled={pending || (!card && !brandOf(name))}>
           {pending ? "Salvando…" : card ? "Salvar" : "Cadastrar cartão"}
         </button>
       </div>

@@ -76,6 +76,8 @@ export function TxList({
   viewer: { userId: string; admin: boolean; participantId: string | null };
 }) {
   const canEdit = (r: TxRow) => viewer.admin || r.createdBy === viewer.userId;
+  // Bolinha do cartão em cima do lançamento (só dos cartões que a pessoa vê).
+  const cardOf = (r: TxRow) => (r.cardId ? lookups.cards.find((c) => c.id === r.cardId) ?? null : null);
   // Itens carregados depois (rolando). Quando a página recarrega (editou, mudou filtro), eles são
   // buscados de novo com os dados novos, mantendo a quantidade que a pessoa já tinha visto.
   const [extra, setExtra] = useState<TxRow[]>([]);
@@ -229,6 +231,7 @@ export function TxList({
                         icon={look.icon}
                         color={look.color}
                         title={look.name}
+                        card={cardOf(tx)}
                       />
                       <div className="grow" style={{ minWidth: 0 }}>
                         <p className="title tx-title">
