@@ -9899,3 +9899,17 @@ body.modal-open .new-fab {
   opacity: 0.35;
   cursor: default;
 }
+
+.pay-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-2);
+}
+.pay-extra label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}

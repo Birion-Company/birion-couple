@@ -61,6 +61,8 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   const [value, setValue] = useState(centsToInput(owedCents));
   const cents = parseAmountToCents(value, ",") ?? 0;
   const diff = cents - owedCents;
+  // Pagou a mais: o excedente vira lucro (padrão) ou um adiantamento que abate a próxima conta.
+  const [extra, setExtra] = useState<"keep" | "credit">("keep");
   if (!open) {
     return (
       <button type="button" className="btn small ghost" data-tour="debts-settle" onClick={() => setOpen(true)}>
@@ -73,7 +75,7 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
   const confirm = () => {
     if (cents <= 0) return toast("Digite quanto foi pago.", "error");
     start(async () => {
-      const r = await payDebt({ transactionId: txId, participantId, amountCents: cents });
+      const r = await payDebt({ transactionId: txId, participantId, amountCents: cents, extra: diff > 0 ? extra : undefined });
       toastResult(r);
       if (r.ok) {
         setOpen(false);
@@ -105,6 +107,16 @@ export function PayButton({ txId, participantId, owedCents, currency, label = "M
       <span className={`pay-diff ${diff > 0 ? "pos" : diff < 0 ? "neg" : "faint"}`}>
         {diff > 0 ? `+${formatMoney(diff, currency)} de lucro` : diff < 0 && cents > 0 ? `Ainda vai faltar ${formatMoney(-diff, currency)}` : cents > 0 ? "quita a dívida" : ""}
       </span>
+      {diff > 0 && (
+        <span className="pay-extra" role="radiogroup" aria-label={`O que fazer com os ${formatMoney(diff, currency)} a mais`}>
+          <label>
+            <input type="radio" name={`extra-${txId}-${participantId}`} checked={extra === "keep"} onChange={() => setExtra("keep")} /> Lucro
+          </label>
+          <label>
+            <input type="radio" name={`extra-${txId}-${participantId}`} checked={extra === "credit"} onChange={() => setExtra("credit")} /> Adiantamento (abate a próxima conta)
+          </label>
+        </span>
+      )}
       <button type="button" className="btn small primary" disabled={pending} onClick={confirm}>Confirmar</button>
       <button type="button" className="btn small ghost" onClick={() => setOpen(false)}>Cancelar</button>
     </div>
