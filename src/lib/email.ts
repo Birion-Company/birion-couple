@@ -53,7 +53,8 @@ export function esc(s: string) {
 }
 
 /** Endereço público do site (as imagens do e-mail precisam de endereço completo). */
-const SITE = process.env.SITE_URL || "https://birion.com.br";
+// O Birion Couple fica em couple.birion.com.br (o endereço birion.com.br é a landing page da empresa).
+const SITE = process.env.SITE_URL || "https://couple.birion.com.br";
 
 /** Caixa com o código de 4 números, para os e-mails de confirmação. */
 export function codeBox(code: string) {
@@ -90,7 +91,7 @@ export function emailLayout(title: string, body: string, opts: { eyebrow?: strin
 <div class="dark-text" style="font:18px/26px Arial,sans-serif;color:#1d1d1b;text-align:center">${body}</div>
 </td></tr>
 <tr><td class="dark-bg-footer" style="background:#e4e6e7;padding:24px 32px 28px;text-align:center">
-<p style="margin:0 0 6px;font:14px/20px Arial,sans-serif;color:#1d1d1b"><a class="dark-text" href="${SITE}" style="color:#1d1d1b;text-decoration:none">birion.com.br</a></p>
+<p style="margin:0 0 6px;font:14px/20px Arial,sans-serif;color:#1d1d1b"><a class="dark-text" href="${SITE}" style="color:#1d1d1b;text-decoration:none">couple.birion.com.br</a></p>
 <p style="margin:0;font:11px/15px Arial,sans-serif;color:#8e8e8e">Este e-mail foi enviado automaticamente pelo Birion Couple. Não precisa responder.</p>
 </td></tr></table></div></center></body></html>`;
 }

@@ -23,7 +23,7 @@ const SHARE_DESCRIPTION =
 
 export const metadata: Metadata = {
   // Endereço do site publicado (o Netlify define URL); serve para a imagem da prévia ter o link completo.
-  metadataBase: new URL(process.env.URL ?? "https://birion-finance.netlify.app"),
+  metadataBase: new URL(process.env.URL ?? "https://couple.birion.com.br"),
   title: { default: "Birion Couple", template: "%s - Birion Couple" },
   description: SHARE_DESCRIPTION,
   applicationName: "Birion Couple",

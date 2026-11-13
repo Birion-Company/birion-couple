@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         <p className="legal-date">Atualizada em {ATUALIZADA}</p>
 
         <p>
-          O Birion Couple (<strong>birion.com.br</strong>) é um site para organizar finanças e dividir contas entre duas pessoas, o casal. Esta página
+          O Birion Couple (<strong>couple.birion.com.br</strong>) é um site para organizar finanças e dividir contas entre duas pessoas, o casal. Esta página
           explica, de forma simples, quais dados guardamos, para que usamos e como você pode pedir para apagar. Seguimos a Lei Geral de Proteção de Dados
           (LGPD, Lei 13.709/2018).
         </p>

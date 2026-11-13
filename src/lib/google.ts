@@ -20,7 +20,7 @@ export function newPkce() {
 
 /**
  * Endereço público do site para o login com Google. No Netlify, o pedido chega com o endereço interno
- * do deploy (abc123--birion-finance.netlify.app); o certo é o domínio principal (URL = https://birion.com.br),
+ * do deploy (abc123--birion-finance.netlify.app); o certo é o domínio principal (URL = https://couple.birion.com.br),
  * que é o que está autorizado no Google.
  */
 export function publicOrigin(requestOrigin: string) {
