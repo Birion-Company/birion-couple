@@ -1,17 +1,10 @@
-// Gera o package.json do pacote da Hostinger: lista as dependências que o Next deixou em node_modules do pacote
-// (a Hostinger apaga node_modules e roda `npm install`, então elas precisam estar declaradas aqui).
-import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+// Gera o package.json do pacote da Hostinger (a Hostinger apaga node_modules e roda `npm install`).
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const dir = process.argv[2] ?? "dist";
-const nm = join(dir, "node_modules");
-const dependencies = {};
-const version = (p) => JSON.parse(readFileSync(join(p, "package.json"), "utf8")).version;
-for (const d of existsSync(nm) ? readdirSync(nm) : []) {
-  if (d.startsWith(".")) continue;
-  if (d.startsWith("@")) for (const s of readdirSync(join(nm, d))) dependencies[`${d}/${s}`] = version(join(nm, d, s));
-  else dependencies[d] = version(join(nm, d));
-}
+// As dependências do app (a Hostinger roda `npm install` com elas; o node_modules do pacote é descartado).
+const dependencies = JSON.parse(readFileSync("package.json", "utf8")).dependencies;
 const pkg = {
   name: "birion-couple",
   private: true,
