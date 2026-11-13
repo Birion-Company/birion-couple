@@ -32,7 +32,7 @@ jobs:
           cp -r public dist/public
           mkdir -p dist/netlify/database && cp -r netlify/database/migrations dist/netlify/database/migrations
           cat > dist/package.json <<'JSON'
-          { "name": "birion-couple", "private": true, "scripts": { "start": "node server.js" }, "engines": { "node": ">=20.9.0" } }
+          { "name": "birion-couple", "private": true, "scripts": { "build": "node -e \"console.log('pacote pronto, nada para compilar')\"", "start": "node server.js" }, "engines": { "node": ">=20.9.0" } }
           JSON
       - name: Publica na branch hostinger
         run: |
