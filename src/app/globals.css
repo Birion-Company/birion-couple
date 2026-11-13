@@ -9516,3 +9516,63 @@ body.modal-open .new-fab {
 .auth-theme-row .palette-pick {
   flex-wrap: nowrap;
 }
+
+/* ---------- Arte do nome "Couple" ---------- */
+.couple-word,
+.brand .brand-fin,
+.couple-title {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 600;
+}
+.brand .brand-fin {
+  font-size: 1.25rem;
+  letter-spacing: 0;
+  color: var(--brand);
+}
+.couple-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 250px;
+  margin: 0 0 22px;
+}
+.couple-art .ring {
+  position: absolute;
+  width: 210px;
+  height: 210px;
+  border-radius: 50%;
+  border: 3px solid var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+.couple-art .ring-b {
+  border-color: var(--text-3);
+  background: color-mix(in srgb, var(--text-3) 8%, transparent);
+  transform: translateX(86px);
+}
+.couple-art .ring-a {
+  transform: translateX(-86px);
+}
+.couple-title {
+  position: relative;
+  margin: 0;
+  font-size: 112px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--brand-strong);
+  text-shadow: 0 2px 0 color-mix(in srgb, var(--surface) 70%, transparent);
+}
+@media (max-width: 899px) {
+  .couple-art {
+    height: 140px;
+  }
+  .couple-art .ring {
+    width: 120px;
+    height: 120px;
+  }
+  .couple-art .ring-a { transform: translateX(-48px); }
+  .couple-art .ring-b { transform: translateX(48px); }
+  .couple-title {
+    font-size: 64px;
+  }
+}
