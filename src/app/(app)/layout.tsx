@@ -14,12 +14,8 @@ import { NavProgress } from "@/components/nav-progress";
 function Brand() {
   return (
     <div className="brand">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/mark.png" alt="" />
-      <span>
-        Birion Finance
-        
-      </span>
+      <i className="blogo" aria-hidden />
+      <span className="brand-fin">Finance</span>
     </div>
   );
 }

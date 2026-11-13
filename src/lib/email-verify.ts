@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, randomInt } from "node:crypto";
 import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { emailLayout, esc, sendEmail } from "./email";
+import { codeBox, emailLayout, esc, sendEmail } from "./email";
 
 /**
  * Confirmar o e-mail ao criar a conta: um código de 4 números (vale 30 minutos, 5 tentativas).
@@ -37,10 +37,10 @@ export async function sendVerifyCode(user: { id: string; name: string; email: st
     subject: `${code} é o seu código do Birion Finance`,
     text: `Olá, ${first}!\n\nPara confirmar seu e-mail no Birion Finance, use o código: ${code}\n\nEle vale por ${VERIFY_VALID_MIN} minutos. Se não foi você que criou a conta, ignore este e-mail.`,
     html: emailLayout(
-      "Confirme seu e-mail",
-      `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">Olá, ${esc(first)}! Para terminar de criar sua conta no Birion Finance, use este código:</p>
-<p style="margin:0 0 16px;text-align:center"><span style="display:inline-block;padding:14px 22px;border-radius:12px;background:#e6fbfd;color:#0f1d38;font-size:34px;font-weight:700;letter-spacing:12px">${code}</span></p>
-<p style="margin:0;font-size:13px;line-height:1.5;color:#475569">O código vale por ${VERIFY_VALID_MIN} minutos. Se não foi você que criou a conta, ignore este e-mail.</p>`,
+      "Seu código de acesso",
+      `<p style="margin:0 0 28px">Olá, ${esc(first)}! Use este código para terminar de criar sua conta:</p>${codeBox(code)}
+<p style="margin:0;font-size:14px;line-height:20px;color:#6b6b68">Vale por ${VERIFY_VALID_MIN} minutos. Se não foi você, ignore este e-mail.</p>`,
+      { eyebrow: "Confirme seu e-mail", preheader: `Seu código: ${code}` },
     ),
   });
   if (fail) {

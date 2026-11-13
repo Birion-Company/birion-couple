@@ -15,8 +15,8 @@ export default function PrivacyPage() {
     <main className="legal">
       <article className="legal-page">
         <Link href="/entrar" className="legal-brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/mark.png" alt="" width={32} height={32} /> Birion <span>Finance</span>
+          { }
+          <i className="blogo" aria-hidden /> <span>Finance</span>
         </Link>
         <h1>Política de privacidade</h1>
         <p className="legal-date">Atualizada em {ATUALIZADA}</p>

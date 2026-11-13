@@ -15,8 +15,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
             {/* Celular: o tema fica dentro do bloco, no canto. */}
             <div className="auth-theme auth-theme-mobile auth-theme-row"><PaletteToggle /><ThemeToggle className="icon-btn" /></div>
             <div className="auth-panel-logo" aria-hidden>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/mark.png" alt="" />
+              <i className="bmark" aria-hidden />
             </div>
             {/* Celular: a marca e a frase ficam no mesmo bloco do login (no computador estão no painel ao lado). */}
             <div className="auth-mobile-brand">

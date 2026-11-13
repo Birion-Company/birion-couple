@@ -9462,3 +9462,57 @@ body.modal-open .new-fab {
 :root[data-theme] .outlook {
   --ol-other: var(--brand);
 }
+
+/* ---------- Marca: B e logotipo em máscara, na cor do texto (preto no claro, branco no escuro) ---------- */
+.bmark,
+.blogo {
+  display: inline-block;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
+}
+.bmark {
+  width: 28px;
+  height: 28px;
+  -webkit-mask-image: url("/brand/b-mask.png");
+  mask-image: url("/brand/b-mask.png");
+}
+.blogo {
+  width: 84px;
+  height: 42px;
+  -webkit-mask-image: url("/brand/logo-mask.png");
+  mask-image: url("/brand/logo-mask.png");
+}
+.brand .blogo {
+  width: 74px;
+  height: 37px;
+}
+.brand .brand-fin {
+  font-weight: 500;
+  color: var(--brand-strong);
+  letter-spacing: 0.04em;
+}
+.brand-logo .blogo {
+  width: 150px;
+  height: 75px;
+  color: var(--au-text);
+}
+.auth-panel-logo .bmark {
+  width: 46px;
+  height: 46px;
+  color: var(--au-text);
+}
+@media (max-width: 899px) {
+  .brand-logo .blogo {
+    width: 96px;
+    height: 48px;
+  }
+}
+.auth-theme.auth-theme-row {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.auth-theme-row .palette-pick {
+  flex-wrap: nowrap;
+}

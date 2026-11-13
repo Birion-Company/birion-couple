@@ -8,8 +8,8 @@ export default function NotFound() {
   return (
     <main className="oops">
       <div className="oops-card">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/mark.png" alt="" width={48} height={48} />
+        { }
+        <i className="bmark" aria-hidden style={{ width: 48, height: 48 }} />
         <h1>Página não encontrada</h1>
         <p>Esse endereço não existe, ou é de algo que você não tem acesso.</p>
         <Link href="/painel" className="btn primary">

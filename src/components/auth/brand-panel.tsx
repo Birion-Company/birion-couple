@@ -3,10 +3,9 @@ export function BrandPanel() {
   return (
     <section className="brand-panel" aria-label="Birion Finance">
       <div className="brand-logo">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/mark.png" alt="" />
+        <i className="blogo" aria-hidden />
         <span>
-          Birion <em>Finance</em>
+          <em>Finance</em>
         </span>
       </div>
       <div className="brand-content">

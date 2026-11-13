@@ -5,7 +5,7 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import * as z from "zod";
 import { getDb, schema } from "@/db";
-import { emailConfigured, emailLayout, esc, sendEmail } from "@/lib/email";
+import { codeBox, emailConfigured, emailLayout, esc, sendEmail } from "@/lib/email";
 
 /**
  * "Esqueci minha senha":
@@ -65,10 +65,10 @@ export async function requestPasswordReset(rawEmail: string): Promise<ResetResul
     subject: `${code} é o seu código do Birion Finance`,
     text: `Olá, ${first}!\n\nSeu código para criar uma senha nova no Birion Finance é: ${code}\n\nEle vale por ${VALID_MIN} minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.`,
     html: emailLayout(
-      "Seu código para redefinir a senha",
-      `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">Olá, ${esc(first)}! Use este código no Birion Finance para criar uma senha nova:</p>
-<p style="margin:0 0 16px;text-align:center"><span style="display:inline-block;padding:14px 22px;border-radius:12px;background:#e6fbfd;color:#0f1d38;font-size:34px;font-weight:700;letter-spacing:12px">${code}</span></p>
-<p style="margin:0;font-size:13px;line-height:1.5;color:#475569">O código vale por ${VALID_MIN} minutos. Se não foi você que pediu, ignore este e-mail: sua senha continua a mesma.</p>`,
+      "Seu código de acesso",
+      `<p style="margin:0 0 28px">Olá, ${esc(first)}! Use este código para criar uma senha nova:</p>${codeBox(code)}
+<p style="margin:0;font-size:14px;line-height:20px;color:#6b6b68">Vale por ${VALID_MIN} minutos. Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>`,
+      { eyebrow: "Nova senha", preheader: `Seu código: ${code}` },
     ),
   });
   if (fail) {
