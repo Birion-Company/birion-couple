@@ -14,12 +14,12 @@ const KEY = "bf-theme";
 export const BAR_COLOR: Record<Theme, string> = { light: "#fbf6f0", dark: "#1c1613" };
 
 export const PALETTES = [
-  { id: "aconchego", name: "Aconchego", color: "#e07a5f" },
-  { id: "jardim", name: "Jardim", color: "#6f9c7c" },
-  { id: "lavanda", name: "Lavanda", color: "#8b7cf6" },
-  { id: "rose", name: "Rosé", color: "#e0728f" },
-  { id: "oceano", name: "Oceano", color: "#1ac4db" },
-  { id: "sobrio", name: "Sóbrio", color: "#5b6573" },
+  { id: "aconchego", blurb: "Macio e acolhedor, com letra serifada", name: "Aconchego", color: "#e07a5f" },
+  { id: "jardim", blurb: "Orgânico, redondo, com textura", name: "Jardim", color: "#6f9c7c" },
+  { id: "lavanda", blurb: "Vidro e degradê", name: "Lavanda", color: "#8b7cf6" },
+  { id: "rose", blurb: "Editorial, fino e elegante", name: "Rosé", color: "#e0728f" },
+  { id: "oceano", blurb: "Painel técnico e denso", name: "Oceano", color: "#1ac4db" },
+  { id: "sobrio", blurb: "Mínimo, reto, sem enfeite", name: "Sóbrio", color: "#5b6573" },
 ] as const;
 export type Palette = (typeof PALETTES)[number]["id"];
 const PALETTE_KEY = "bf-palette";

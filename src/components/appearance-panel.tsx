@@ -59,8 +59,8 @@ export function AppearancePanel() {
   return (
     <div className="grid">
       <section className="card form">
-        <h2>Tema</h2>
-        <div className="opt-row" role="group" aria-label="Tema">
+        <h2>Claro ou escuro</h2>
+        <div className="opt-row" role="group" aria-label="Claro ou escuro">
           <button type="button" className={`opt${theme === "light" ? " on" : ""}`} aria-pressed={theme === "light"} onClick={() => pickTheme("light")}>
             <Sun size={18} strokeWidth={1.7} /> Claro
           </button>
@@ -71,11 +71,16 @@ export function AppearancePanel() {
       </section>
 
       <section className="card form">
-        <h2>Cores</h2>
-        <div className="opt-row" role="group" aria-label="Cores">
+        <h2>Tema</h2>
+        <p className="faint">Cada tema muda o visual inteiro: letra, formas, cartões e menu.</p>
+        <div className="opt-row" role="group" aria-label="Tema">
           {PALETTES.map((p) => (
             <button key={p.id} type="button" className={`opt${palette === p.id ? " on" : ""}`} aria-pressed={palette === p.id} onClick={() => pickPalette(p.id)}>
-              <span className="opt-dot" style={{ background: p.color }} /> {p.name}
+              <span className="opt-dot" style={{ background: p.color }} />
+              <span>
+                <strong>{p.name}</strong>
+                <span className="faint"> {p.blurb}</span>
+              </span>
             </button>
           ))}
         </div>

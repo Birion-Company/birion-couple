@@ -1,7 +1,6 @@
 import { NewFab } from "@/components/new-fab";
 import { BottomNav, SideNav } from "@/components/nav";
 import { BellButton, NotificationCenter } from "@/components/notifications";
-import { PaletteToggle, ThemeToggle } from "@/components/theme-toggle";
 import { HelpButton, Tutorial } from "@/components/tutorial";
 import { UserMenu } from "@/components/user-menu";
 import { requireAuth } from "@/lib/auth";
@@ -47,10 +46,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           {/* Centro da barra: o seletor de mês das páginas que mostram um mês por vez. */}
           <div id="topbar-month" className="topbar-center" />
           <HelpButton />
-          <div className="wb-group" role="group" aria-label="Notificações e tema">
+          <div className="wb-group" role="group" aria-label="Notificações">
             <BellButton />
-            <PaletteToggle />
-            <ThemeToggle />
           </div>
           <span className="wb-user">
             <UserMenu name={auth.userName} avatarUrl={avatarUrl} compact />

@@ -1,0 +1,447 @@
+/* =========================================================
+   Um visual diferente para cada tema (não só a cor): letra, formato, cartões, menu e densidade.
+   Aconchego (padrão), Jardim, Lavanda, Rosé, Oceano, Sóbrio.
+   ========================================================= */
+
+/* ---------------- Aconchego: macio e acolhedor ---------------- */
+:root:not([data-palette]) {
+  --radius: 22px;
+  --radius-sm: 16px;
+  --shadow: 0 2px 4px rgba(120, 70, 50, 0.05), 0 10px 28px rgba(120, 70, 50, 0.08);
+}
+:root:not([data-palette]) body {
+  background-image: radial-gradient(900px 520px at 12% -8%, color-mix(in srgb, var(--brand) 13%, transparent), transparent 70%),
+    radial-gradient(700px 480px at 100% 0%, color-mix(in srgb, #f4c7a1 18%, transparent), transparent 70%);
+  background-attachment: fixed;
+}
+:root:not([data-palette]) h1,
+:root:not([data-palette]) h2,
+:root:not([data-palette]) .hero-title,
+:root:not([data-palette]) .accounts-total strong,
+:root:not([data-palette]) .st-value {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+:root:not([data-palette]) .card,
+:root:not([data-palette]) .stat,
+:root:not([data-palette]) .account-card {
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+:root:not([data-palette]) .btn,
+:root:not([data-palette]) .chip,
+:root:not([data-palette]) .input,
+:root:not([data-palette]) .select {
+  border-radius: 999px;
+}
+:root:not([data-palette]) .input {
+  padding-inline: 18px;
+}
+:root:not([data-palette]) .sidebar nav a {
+  border-radius: 999px;
+  padding-inline: 16px;
+}
+:root:not([data-palette]) .tabs a[aria-current="page"] {
+  border-bottom-width: 3px;
+}
+
+/* ---------------- Jardim: orgânico, redondo, com textura ---------------- */
+:root[data-palette="jardim"] {
+  --font-sans: var(--font-nunito);
+  --radius: 30px;
+  --radius-sm: 20px;
+  --shadow: none;
+}
+:root[data-palette="jardim"] body {
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--brand) 22%, transparent) 1.2px, transparent 1.6px);
+  background-size: 26px 26px;
+  font-weight: 500;
+}
+:root[data-palette="jardim"] h1,
+:root[data-palette="jardim"] h2,
+:root[data-palette="jardim"] h3 {
+  font-weight: 800;
+  letter-spacing: 0;
+}
+:root[data-palette="jardim"] .card,
+:root[data-palette="jardim"] .stat,
+:root[data-palette="jardim"] .account-card {
+  border: 2px solid color-mix(in srgb, var(--brand) 38%, var(--line));
+  box-shadow: 6px 6px 0 color-mix(in srgb, var(--brand) 16%, transparent);
+}
+:root[data-palette="jardim"] .btn,
+:root[data-palette="jardim"] .chip,
+:root[data-palette="jardim"] .input,
+:root[data-palette="jardim"] .select {
+  border-radius: 999px;
+  font-weight: 700;
+}
+:root[data-palette="jardim"] .btn.primary {
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--brand) 60%, #000);
+}
+@media (min-width: 900px) {
+  :root[data-palette="jardim"] .sidebar {
+    border-right: 2px solid color-mix(in srgb, var(--brand) 38%, var(--line));
+    background: var(--brand-tint);
+  }
+  :root[data-palette="jardim"] .sidebar nav a {
+    border-radius: 999px;
+    font-weight: 700;
+    padding: 11px 16px;
+  }
+  :root[data-palette="jardim"] .sidebar nav a[aria-current="page"] {
+    background: var(--brand);
+    color: var(--on-brand);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--brand) 60%, #000);
+  }
+}
+:root[data-palette="jardim"] .month-hero .hero-title {
+  font-weight: 800;
+}
+
+/* ---------------- Lavanda: vidro e degradê ---------------- */
+:root[data-palette="lavanda"] {
+  --font-sans: var(--font-jakarta);
+  --radius: 24px;
+  --radius-sm: 14px;
+}
+:root[data-palette="lavanda"] body {
+  background-image: radial-gradient(900px 600px at 0% 0%, rgba(139, 124, 246, 0.35), transparent 65%),
+    radial-gradient(800px 600px at 100% 10%, rgba(244, 143, 177, 0.28), transparent 65%),
+    radial-gradient(900px 700px at 50% 110%, rgba(96, 165, 250, 0.25), transparent 65%);
+  background-attachment: fixed;
+}
+:root[data-palette="lavanda"][data-theme="dark"] body {
+  background-image: radial-gradient(900px 600px at 0% 0%, rgba(124, 108, 240, 0.32), transparent 65%),
+    radial-gradient(800px 600px at 100% 10%, rgba(214, 90, 140, 0.22), transparent 65%),
+    radial-gradient(900px 700px at 50% 110%, rgba(59, 110, 200, 0.25), transparent 65%);
+}
+:root[data-palette="lavanda"] .card,
+:root[data-palette="lavanda"] .stat,
+:root[data-palette="lavanda"] .account-card,
+:root[data-palette="lavanda"] .st-cell,
+:root[data-palette="lavanda"] .sidebar,
+:root[data-palette="lavanda"] .topbar,
+:root[data-palette="lavanda"] .bottom-nav {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  box-shadow: 0 8px 32px rgba(90, 70, 190, 0.12);
+}
+:root[data-palette="lavanda"][data-theme="dark"] .card,
+:root[data-palette="lavanda"][data-theme="dark"] .stat,
+:root[data-palette="lavanda"][data-theme="dark"] .account-card,
+:root[data-palette="lavanda"][data-theme="dark"] .st-cell,
+:root[data-palette="lavanda"][data-theme="dark"] .sidebar,
+:root[data-palette="lavanda"][data-theme="dark"] .topbar {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+:root[data-palette="lavanda"] .btn.primary,
+:root[data-palette="lavanda"] .new-fab {
+  background: linear-gradient(135deg, #8b7cf6, #e879b9);
+  color: #fff;
+  border-color: transparent;
+}
+:root[data-palette="lavanda"] .sidebar nav a[aria-current="page"] {
+  background: linear-gradient(135deg, rgba(139, 124, 246, 0.9), rgba(232, 121, 185, 0.85));
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(139, 124, 246, 0.35);
+}
+:root[data-palette="lavanda"] h1,
+:root[data-palette="lavanda"] .hero-title,
+:root[data-palette="lavanda"] .accounts-total strong {
+  background: linear-gradient(120deg, var(--text), var(--brand-strong));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---------------- Rosé: editorial, fino e elegante ---------------- */
+:root[data-palette="rose"] {
+  --radius: 2px;
+  --radius-sm: 2px;
+  --shadow: none;
+}
+:root[data-palette="rose"] body {
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+:root[data-palette="rose"] h1,
+:root[data-palette="rose"] h2,
+:root[data-palette="rose"] .hero-title,
+:root[data-palette="rose"] .accounts-total strong,
+:root[data-palette="rose"] .st-value,
+:root[data-palette="rose"] .account-balance,
+:root[data-palette="rose"] .goal-nums strong {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 400;
+}
+:root[data-palette="rose"] h1 {
+  font-size: 2.1rem;
+  font-style: italic;
+}
+:root[data-palette="rose"] .card,
+:root[data-palette="rose"] .stat,
+:root[data-palette="rose"] .account-card,
+:root[data-palette="rose"] .st-cell {
+  border: 0;
+  border-top: 1px solid var(--text);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 4px;
+}
+:root[data-palette="rose"] .account-card::after {
+  display: none;
+}
+:root[data-palette="rose"] .st-label,
+:root[data-palette="rose"] .card-head h2,
+:root[data-palette="rose"] .stat .label,
+:root[data-palette="rose"] .tabs a {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 600;
+}
+:root[data-palette="rose"] .btn,
+:root[data-palette="rose"] .chip,
+:root[data-palette="rose"] .input,
+:root[data-palette="rose"] .select {
+  border-radius: 0;
+}
+:root[data-palette="rose"] .btn.primary,
+:root[data-palette="rose"] .new-fab {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+:root[data-palette="rose"] .month-hero {
+  padding-top: 40px;
+}
+:root[data-palette="rose"] .hero-title {
+  font-style: italic;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+}
+@media (min-width: 900px) {
+  :root[data-palette="rose"] .sidebar {
+    background: transparent;
+  }
+  :root[data-palette="rose"] .sidebar nav a {
+    border-radius: 0;
+    background: transparent;
+    padding-inline: 4px;
+    letter-spacing: 0.06em;
+  }
+  :root[data-palette="rose"] .sidebar nav a[aria-current="page"] {
+    background: transparent;
+    box-shadow: none;
+    border-bottom: 1px solid var(--brand);
+    font-style: italic;
+    font-family: var(--font-serif), serif;
+    font-size: 1.08rem;
+  }
+}
+
+/* ---------------- Oceano: painel técnico e denso ---------------- */
+:root[data-palette="oceano"] {
+  --font-sans: var(--font-grotesk);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow: none;
+}
+:root[data-palette="oceano"] .num,
+:root[data-palette="oceano"] .amount,
+:root[data-palette="oceano"] .st-value,
+:root[data-palette="oceano"] .account-balance,
+:root[data-palette="oceano"] .goal-nums strong,
+:root[data-palette="oceano"] .accounts-total strong,
+:root[data-palette="oceano"] .value {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: -0.03em;
+}
+:root[data-palette="oceano"] body {
+  font-size: 14px;
+  background-image: linear-gradient(color-mix(in srgb, var(--brand) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--brand) 6%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+:root[data-palette="oceano"] .card,
+:root[data-palette="oceano"] .stat,
+:root[data-palette="oceano"] .account-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  box-shadow: none;
+}
+:root[data-palette="oceano"] .row {
+  padding-block: 7px;
+}
+:root[data-palette="oceano"] .btn {
+  min-height: 36px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+:root[data-palette="oceano"] .btn.primary,
+:root[data-palette="oceano"] .new-fab {
+  background: var(--brand);
+  color: var(--on-brand, #04121d);
+  box-shadow: none;
+}
+:root[data-palette="oceano"] h1,
+:root[data-palette="oceano"] h2 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+:root[data-palette="oceano"] .st-label {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.08em;
+}
+/* menu e barra sempre azul-marinho, como um painel de controle */
+:root[data-palette="oceano"] .sidebar,
+:root[data-palette="oceano"] .topbar {
+  background: #0b1a2e;
+  color: #cfe6ee;
+  border-color: #17304a;
+}
+:root[data-palette="oceano"] .sidebar nav a {
+  color: #9db8c4;
+  border-radius: 4px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.82rem;
+}
+:root[data-palette="oceano"] .sidebar nav a:hover {
+  background: #12294a;
+}
+:root[data-palette="oceano"] .sidebar nav a[aria-current="page"] {
+  background: #12294a;
+  color: #5fdcec;
+  box-shadow: inset 3px 0 0 #1ac4db;
+}
+:root[data-palette="oceano"] .sidebar .brand,
+:root[data-palette="oceano"] .topbar .brand,
+:root[data-palette="oceano"] .sidebar .user-menu,
+:root[data-palette="oceano"] .sidebar .side-foot {
+  color: #e8f4f8;
+}
+
+/* ---------------- Sóbrio: mínimo, reto, sem enfeite ---------------- */
+:root[data-palette="sobrio"] {
+  --radius: 0px;
+  --radius-sm: 0px;
+  --shadow: none;
+}
+:root[data-palette="sobrio"] *,
+:root[data-palette="sobrio"] *::before,
+:root[data-palette="sobrio"] *::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+:root[data-palette="sobrio"] .avatar,
+:root[data-palette="sobrio"] .card-dot,
+:root[data-palette="sobrio"] .palette-dot,
+:root[data-palette="sobrio"] .dot,
+:root[data-palette="sobrio"] .status-dot {
+  border-radius: 50% !important;
+}
+:root[data-palette="sobrio"] body {
+  font-size: 14px;
+}
+:root[data-palette="sobrio"] .rise,
+:root[data-palette="sobrio"] .hero-statement .st-final {
+  animation: none !important;
+}
+:root[data-palette="sobrio"] .card,
+:root[data-palette="sobrio"] .stat,
+:root[data-palette="sobrio"] .account-card,
+:root[data-palette="sobrio"] .st-cell,
+:root[data-palette="sobrio"] .accounts-total {
+  background: transparent;
+  border: 1px solid var(--text-3);
+}
+:root[data-palette="sobrio"] .card {
+  padding: 12px;
+}
+:root[data-palette="sobrio"] .account-card::after {
+  display: none;
+}
+:root[data-palette="sobrio"] .btn,
+:root[data-palette="sobrio"] .chip {
+  background: transparent;
+  border: 1px solid var(--text);
+  color: var(--text);
+  min-height: 36px;
+}
+:root[data-palette="sobrio"] .btn.primary,
+:root[data-palette="sobrio"] .new-fab {
+  background: var(--text);
+  color: var(--bg);
+}
+:root[data-palette="sobrio"] .btn:hover {
+  background: var(--text);
+  color: var(--bg);
+}
+:root[data-palette="sobrio"] h1,
+:root[data-palette="sobrio"] h2 {
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+}
+:root[data-palette="sobrio"] h1 {
+  font-size: 1.15rem;
+}
+:root[data-palette="sobrio"] .hero-title {
+  text-transform: none;
+  font-size: clamp(1.4rem, 3.4vw, 2rem);
+}
+:root[data-palette="sobrio"] .sidebar,
+:root[data-palette="sobrio"] .topbar {
+  background: var(--bg);
+}
+:root[data-palette="sobrio"] .sidebar nav a {
+  padding-block: 6px;
+}
+:root[data-palette="sobrio"] .sidebar nav a[aria-current="page"] {
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: none;
+}
+
+/* Valores do extrato numa linha só, em qualquer tema */
+.hero-statement .st-value {
+  white-space: nowrap;
+  font-size: clamp(0.95rem, 1.75vw, 1.5rem);
+}
+@media (max-width: 640px) {
+  .hero-statement .st-value {
+    font-size: clamp(1.05rem, 5vw, 1.4rem);
+  }
+}
+
+/* Oceano: a barra e o menu são escuros nos dois modos, então o que está dentro usa cores claras */
+:root[data-palette="oceano"] .topbar,
+:root[data-palette="oceano"] .sidebar {
+  --text: #e8f4f8;
+  --text-2: #9db8c4;
+  --text-3: #7d98a6;
+  --surface: #12294a;
+  --surface-2: #17335a;
+  --line: #1f3a5c;
+  --line-strong: #26466e;
+  --field-bg: #12294a;
+  --field-edge: #26466e;
+}
+:root[data-palette="rose"] .topbar button,
+:root[data-palette="rose"] .topbar a,
+:root[data-palette="rose"] .wb-group,
+:root[data-palette="rose"] .icon-btn {
+  border-radius: 0;
+}

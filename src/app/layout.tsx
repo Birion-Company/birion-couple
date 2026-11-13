@@ -1,13 +1,20 @@
 import Script from "next/script";
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono, Nunito, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { THEME_SCRIPT } from "@/components/theme-toggle";
 import { Toaster } from "@/components/toaster";
 import "./globals.css";
+import "./themes.css";
 
 const inter = Inter({ variable: "--font-sans", subsets: ["latin"], display: "swap" });
 // Só para a palavra "Couple" na marca: itálico com serifa, em contraste com o logotipo geométrico.
 const fraunces = Fraunces({ variable: "--font-display", subsets: ["latin"], style: "italic", weight: "600", display: "swap" });
+// Uma letra para cada tema (só baixa a que estiver em uso).
+const serif = Fraunces({ variable: "--font-serif", subsets: ["latin"], weight: ["400", "600", "700"], display: "swap" });
+const nunito = Nunito({ variable: "--font-nunito", subsets: ["latin"], display: "swap" });
+const jakarta = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin"], display: "swap" });
+const grotesk = Space_Grotesk({ variable: "--font-grotesk", subsets: ["latin"], display: "swap" });
+const mono = JetBrains_Mono({ variable: "--font-mono", subsets: ["latin"], display: "swap" });
 
 // Prévia do link (WhatsApp, Instagram, iMessage…): a logo (opengraph-image.png) e o diferencial.
 const SHARE_TITLE = "Birion Couple - Finanças do casal, sem complicação";
@@ -42,7 +49,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${fraunces.variable}`} data-theme="dark" suppressHydrationWarning>
+    <html lang="pt-BR" className={`${inter.variable} ${fraunces.variable} ${serif.variable} ${nunito.variable} ${jakarta.variable} ${grotesk.variable} ${mono.variable}`} data-theme="dark" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#1c1613" />
         {/* Aplica o tema salvo antes de desenhar a página (sem piscar claro → escuro). */}
