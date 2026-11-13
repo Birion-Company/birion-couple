@@ -599,7 +599,7 @@ html.vt-reveal::view-transition-new(root) {
   height: calc(100% - 2px);
   rx: 13px;
   fill: none;
-  stroke: var(--brand);
+  stroke: var(--ants, var(--brand));
   stroke-width: 2px;
   stroke-dasharray: 9 7;
   stroke-linecap: round;

@@ -4770,33 +4770,6 @@ body:has(.bulkbar) .new-fab {
   }
 }
 
-/* Contas fixas (cadastradas como "Todo mês"): bloco recolhível acima da lista. */
-.fixed-bills {
-  margin-bottom: 14px;
-  padding: 12px 16px;
-}
-.fixed-bills summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  list-style: none;
-}
-.fixed-bills summary::-webkit-details-marker {
-  display: none;
-}
-.fixed-bills[open] .impact-chevron {
-  transform: rotate(180deg);
-}
-.fixed-bills .rows {
-  margin-top: 8px;
-}
-.fixed-bill {
-  flex-wrap: wrap;
-}
-.fixed-bill-text {
-  min-width: 0;
-}
 @media (max-width: 640px) {
   .fixed-bill > .fixed-bill-text {
     flex: 1 1 100%;

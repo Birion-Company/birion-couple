@@ -1,3 +1,4 @@
+import { brandOf } from "@/lib/card-brands";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -278,9 +279,15 @@ export default async function CardsPage() {
           ? 1
           : (names.get(a) ?? "").localeCompare(names.get(b) ?? ""),
   );
+  // Os cartões de cada pessoa em ordem de vencimento: o que vence primeiro fica à esquerda (primeiro da fila).
+  // Fatura já paga vai para o fim; vencida conta como a mais urgente.
+  const dueKey = (c: (typeof active)[number]) => {
+    const paid = c.invoices.find((i) => i.key === c.schedule.dueInvoice)?.paid ?? false;
+    return `${paid ? "1" : "0"}${c.schedule.dueDate}`;
+  };
   const groups = ownerIds.map((id) => ({
     id,
-    cards: active.filter((c) => (c.card.ownerId ?? "") === id),
+    cards: active.filter((c) => (c.card.ownerId ?? "") === id).sort((a, b) => (dueKey(a) < dueKey(b) ? -1 : dueKey(a) > dueKey(b) ? 1 : 0)),
   }));
   // Para quem dá para cadastrar mais um cartão.
   const owners = admin
@@ -418,6 +425,7 @@ export default async function CardsPage() {
                 Quando não há fatura fechada para pagar, fica só o bloco da aberta (sem repetir a mesma fatura). */}
                     {s.dueInvoice !== s.open && (
                       <div
+                        style={{ "--ants": brandOf(card.name)?.color ?? card.color } as React.CSSProperties}
                         className={`card-stat ${dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "pay-next " : ""}${s.overdue ? "overdue" : s.daysToDue <= (card.alertDays ?? -1) && dueTotal > 0 && !invoices.find((i) => i.key === s.dueInvoice)?.paid ? "warn" : ""}`}
                       >
                         {/* Borda tracejada que gira: chama atenção para a fatura que falta pagar. */}

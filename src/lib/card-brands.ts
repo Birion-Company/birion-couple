@@ -16,6 +16,7 @@ export const CARD_BRANDS: CardBrand[] = [
   { name: "BTG Pactual", color: "#0B2B4C", mark: "BT" },
   { name: "XP", color: "#1C1C1C", mark: "XP" },
   { name: "PicPay", color: "#21C25E", mark: "Pp" },
+  { name: "Mercado Livre", color: "#FFE600", mark: "ML" },
   { name: "Mercado Pago", color: "#00B1EA", mark: "MP" },
   { name: "Neon", color: "#00E5E5", mark: "Ne" },
   { name: "Next", color: "#00FF5F", mark: "Nx" },

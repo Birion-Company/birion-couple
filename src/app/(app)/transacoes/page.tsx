@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ListPlus, Search } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
-import { RecurringList } from "@/components/recurring-list";
 import { TxList } from "@/components/tx-list";
 import { Money } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
@@ -13,7 +12,6 @@ import { filtersToQuery, parseFilters } from "@/lib/filters";
 import {
   getDebtLedger,
   getLookupsFor,
-  getRecurringFor,
   listTransactions,
   navigableMonths,
 } from "@/lib/queries";
@@ -48,13 +46,10 @@ export default async function TransactionsPage({
     parsed.person && !parsed.role && !debtsTab
       ? { ...parsed, role: "dele" as const }
       : parsed;
-  // Em paralelo: as duas listas esperam a mesma manutenção (ensureRecurring, uma vez por requisição),
-  // então o "próximo em" das contas fixas já sai atualizado.
   const lookups = await getLookupsFor(auth);
-  const [{ rows, count, total, futureCount }, recurring, ledger] =
+  const [{ rows, count, total, futureCount }, ledger] =
     await Promise.all([
       listTransactions(auth, filters, PAGE),
-      getRecurringFor(auth, filters),
       // Dívidas (antes uma página): "Quem deve para quem" e o saldo com a pessoa escolhida.
       debtsTab || filters.person
         ? getDebtLedger(auth, lookups)
@@ -159,8 +154,6 @@ export default async function TransactionsPage({
           showStatus={!debtsTab}
         />
       </div>
-
-      <RecurringList items={recurring} currency={auth.currency} />
 
       <div data-tour={rows.length > 0 ? "tx-list" : "tx-list-empty"}>
         <TxList

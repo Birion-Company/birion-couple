@@ -17,7 +17,7 @@ import { BudgetBar } from "@/components/budget-editor";
 import { getBudgets } from "@/lib/budgets";
 import { goalPlan } from "@/lib/goals";
 import { position } from "@/lib/position";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { formatMoney } from "@/lib/money";
 import { MonthNav } from "@/components/month-nav";
@@ -87,6 +87,17 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
     receivableMonthCents: debtsDue.reduce((a, x) => a + x.leftCents, 0),
   });
   const carry = mode === "me" ? await monthCarry(auth, month) : 0;
+  // Contas fixas ainda sem lançamento no mês: levam ao último lançamento da mesma série, que se edita ("esta e as próximas").
+  const fixedSeries = [...new Set(data.planned.filter((t) => t.source === "projetado" && t.seriesId).map((t) => t.seriesId!))];
+  const editIds = new Map<string, string>();
+  if (fixedSeries.length > 0) {
+    const found = await getDb()
+      .selectDistinctOn([schema.transactions.seriesId], { seriesId: schema.transactions.seriesId, id: schema.transactions.id })
+      .from(schema.transactions)
+      .where(and(eq(schema.transactions.householdId, auth.householdId), inArray(schema.transactions.seriesId, fixedSeries)))
+      .orderBy(schema.transactions.seriesId, desc(schema.transactions.date));
+    for (const f of found) if (f.seriesId) editIds.set(f.seriesId, f.id);
+  }
   // Dívidas que envolvem você primeiro.
   const welcome = sp.bemvindo === "1";
 
@@ -286,16 +297,16 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
             <div className="rows">
               {data.planned.map((t) =>
                 t.source === "projetado" ? (
-                  <div key={t.id} className="row tx-row projected-row">
+                  <Link key={t.id} href={editIds.get(t.seriesId ?? "") ? `/transacoes/${editIds.get(t.seriesId ?? "")}` : "/transacoes"} className="row tx-row projected-row" title="Editar esta conta fixa (vale para esta e as próximas)">
                     <CategoryIcon icon={cats.get(t.categoryId ?? "")?.icon} color={cats.get(t.categoryId ?? "")?.color} size={30} />
                     <div className="grow" style={{ minWidth: 0 }}>
                       <p className="title">
                         <span className={t.kind === "expense" ? "neg" : ""}>{t.description}</span> <span className="tx-tag recurring">conta fixa</span>
                       </p>
-                      <p className="sub">{formatDate(t.date)} · conta fixa · entra sozinha</p>
+                      <p className="sub">{formatDate(t.date)} · conta fixa · toque para editar</p>
                     </div>
                     <div className="amount"><Money cents={t.amountCents} currency={cur} className={t.kind === "income" ? "pos" : t.kind === "expense" ? "neg" : ""} /></div>
-                  </div>
+                  </Link>
                 ) : (
                   <TxRowLink key={t.id} tx={t} lookups={lookups} currency={cur} me={me} />
                 ),

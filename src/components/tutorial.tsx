@@ -205,14 +205,6 @@ const STEPS: Step[] = [
   {
     chapter: "Lançamentos",
     route: "/transacoes",
-    targets: ["fixed-bills"],
-    title: "Contas fixas",
-    text: "Tudo que repete **todo mês**, com o valor e quando vem o próximo. É só para consulta: para mudar ou parar, abra o lançamento.",
-    emptyText: "Quando você cadastrar algo **Todo mês** (aluguel, assinatura, salário), aparece aqui o quadro **Contas fixas**, com cada uma e a data da próxima.",
-  },
-  {
-    chapter: "Lançamentos",
-    route: "/transacoes",
     targets: ["tx-actions"],
     title: "Lançar vários",
     text: "Para registrar muitos de uma vez (as compras do fim de semana, por exemplo), numa tabela rápida.",
