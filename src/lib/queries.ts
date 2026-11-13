@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { and, asc, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { cardsFor, isAdmin, txScope, type Viewer } from "./access";
+import { cardsFor, isAdmin, txScope, txScopeAny, type Viewer } from "./access";
 import { approvalContext, approvalKey, approvalStates, type ApprovalInput, type ApprovalState } from "./approvals";
 import { computeBalances, pairEffects, pairwiseFor, pairwiseSettlements, suggestSettlements, type Settlement, type TransactionKind } from "./balances";
 import { stateFromParam } from "./tx-state";
@@ -221,6 +221,8 @@ export type TxRow = {
   settles: { txId: string; description: string; owedCents: number; otherPaidCents: number; closes: boolean } | null;
   notes: string | null;
   source: string;
+  /** Compra recebida de fora, esperando "Confirmar" em A identificar. */
+  needsReview: boolean;
   cardId: string | null;
   seriesId: string | null;
   seriesKind: string | null;
@@ -367,6 +369,7 @@ const txColumns = {
   settlesId: t.settlesId,
   notes: t.notes,
   source: t.source,
+  needsReview: t.needsReview,
   cardId: t.cardId,
   seriesId: t.seriesId,
   seriesKind: t.seriesKind,
@@ -424,11 +427,17 @@ export async function listTransactions(viewer: Viewer, f: Filters, limit = 100, 
  * ou sem quem deveria pagar. Não confundir com o status "Pendente" (pagamento).
  */
 function unidentifiedWhere(viewer: Viewer): SQL {
-  return txScope(
+  return txScopeAny(
     viewer,
     inArray(t.kind, ["expense", "income"]),
-    lte(t.date, todayIn()),
-    or(and(eq(t.kind, "expense"), isNull(t.categoryId), eq(t.noCategory, false)), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
+    // Compra recebida de fora espera confirmação mesmo com tudo preenchido.
+    or(
+      eq(t.needsReview, true),
+      and(
+        lte(t.date, todayIn()),
+        or(and(eq(t.kind, "expense"), isNull(t.categoryId), eq(t.noCategory, false)), isNull(t.payerId), sql`not exists (select 1 from "transaction_splits" s where s."transactionId" = "transactions"."id")`),
+      ),
+    ),
   );
 }
 
@@ -462,6 +471,7 @@ export const getApprovalInbox = cache(async (viewer: Viewer) => {
     .where(
       and(
         eq(t.householdId, viewer.householdId),
+        eq(t.needsReview, false),
         gte(t.createdAt, ctx.from),
         // Só o que pode pedir aceite: o que outra pessoa lançou com você, ou o que você lançou com outro membro.
         // Lançamento só com contatos (sem login) nunca pede aceite e fica de fora: é a maior parte do histórico.
@@ -618,7 +628,7 @@ export async function getDebtsToReceive(viewer: Viewer, until: string) {
 /** Um lançamento, se esta pessoa puder vê-lo. */
 export async function getTransaction(viewer: Viewer, id: string): Promise<TxRow | null> {
   const db = getDb();
-  const rows = await db.select(txColumns).from(t).where(txScope(viewer, eq(t.id, id))).limit(1);
+  const rows = await db.select(txColumns).from(t).where(txScopeAny(viewer, eq(t.id, id))).limit(1);
   const [row] = await attachSplits(rows as BaseRow[]);
   return row ?? null;
 }
@@ -676,6 +686,7 @@ async function projectedRecurring(viewer: Viewer, f: Filters, from: string, to: 
         settles: null,
         notes: s.notes,
         source: "projetado",
+        needsReview: false,
         cardId: s.cardId,
         seriesId: s.id,
         seriesKind: "monthly",

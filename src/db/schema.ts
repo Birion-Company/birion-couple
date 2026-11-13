@@ -513,6 +513,8 @@ export const transactions = pgTable(
     notes: text(),
     source: text().notNull().default("manual"), // manual | ofx | csv
     externalId: text(),
+    /** Entrou de fora (compra recebida): só aparece em "A identificar" até a pessoa confirmar. */
+    needsReview: boolean().notNull().default(false),
     importBatchId: uuid().references(() => importBatches.id, { onDelete: "set null" }),
     createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
     createdAt: createdAt(),

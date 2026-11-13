@@ -30,6 +30,12 @@ export function visibleTx(v: Viewer): SQL | undefined {
 
 /** Lançamentos da família que esta pessoa pode ver, já com o filtro de acesso. */
 export function txScope(v: Viewer, ...extra: (SQL | undefined)[]): SQL {
+  // Compra recebida de fora e ainda não confirmada fica só em "A identificar" (não entra em listas, painel, faturas nem dívidas).
+  return and(eq(t.householdId, v.householdId), visibleTx(v), eq(t.needsReview, false), ...extra)!;
+}
+
+/** Igual a txScope, mas inclui as compras que ainda esperam confirmação (A identificar e abrir o lançamento). */
+export function txScopeAny(v: Viewer, ...extra: (SQL | undefined)[]): SQL {
   return and(eq(t.householdId, v.householdId), visibleTx(v), ...extra)!;
 }
 

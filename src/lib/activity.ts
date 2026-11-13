@@ -153,6 +153,11 @@ export async function logActivity(
   const since = new Date(Date.now() - 10_000);
   const job = async () => {
     // Regras de aceite automático: o que já tem regra entra como aceito antes de pedir confirmação.
+    // Compra de fora ainda não confirmada: ninguém além de quem é o dono do cartão é avisado.
+    if (entry.transactionId) {
+      const [hold] = await getDb().select({ r: schema.transactions.needsReview }).from(schema.transactions).where(eq(schema.transactions.id, entry.transactionId));
+      if (hold?.r) return;
+    }
     const auto = ["created", "batch", "imported"].includes(entry.action) ? await applyAutoAccept(viewer.householdId, viewer.userId, since).catch((e) => (console.error("aceite automático", e), new Set<string>())) : new Set<string>();
     await pushActivity(viewer.householdId, viewer.userId, { ...entry, autoAccepted: [...auto] } as Parameters<typeof pushActivity>[2]).catch((e) => console.error("push", e));
     // Orçamento por categoria: quem chegou perto do limite ou passou recebe um aviso.

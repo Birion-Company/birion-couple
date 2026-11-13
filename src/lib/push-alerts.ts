@@ -49,7 +49,7 @@ export async function runCardAlertPushes(): Promise<number> {
       invoicePaid: t.invoicePaid,
     })
     .from(t)
-    .where(and(inArray(t.cardId, cards.map((c) => c.id)), gte(t.date, since), eq(t.invoicePaid, false)));
+    .where(and(inArray(t.cardId, cards.map((c) => c.id)), gte(t.date, since), eq(t.invoicePaid, false), eq(t.needsReview, false)));
   const splits = rows.length
     ? await db.select().from(schema.transactionSplits).where(inArray(schema.transactionSplits.transactionId, rows.map((r) => r.id)))
     : [];

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Loader2, Pencil, Repeat, X } from "lucide-react";
 import { BulkEditDialog } from "./bulk-edit";
+import { confirmPurchase } from "@/app/actions/review";
 import {
   deleteTransactions,
   loadMoreTransactions,
@@ -272,6 +273,11 @@ export function TxList({
                           me={viewer.participantId}
                           currency={currency}
                         />
+                        {showMissing && tx.needsReview && (
+                          <p className="missing-line">
+                            <span className="missing-chip">Compra recebida do cartão: confira e confirme</span>
+                          </p>
+                        )}
                         {showMissing && missingInfo(tx).length > 0 && (
                           <p className="missing-line">
                             <span className="missing-chip">
@@ -288,6 +294,17 @@ export function TxList({
                         <ProfitAmount tx={tx} currency={currency} />
                       </span>
                     </Link>
+                    {showMissing && tx.needsReview && canEdit(tx) && (
+                      <button
+                        type="button"
+                        className="btn small skip-category"
+                        disabled={pending}
+                        onClick={() => run(() => confirmPurchase(tx.id))}
+                        title="Confirma que está certo: a compra passa a valer nas listas, na fatura e nas dívidas"
+                      >
+                        Confirmar
+                      </button>
+                    )}
                     {/* A identificar: despesa que não precisa de categoria sai da lista com um toque. */}
                     {showMissing && canEdit(tx) && missingInfo(tx).includes("categoria") && (
                       <button

@@ -5,9 +5,6 @@ import { getDb, schema } from "@/db";
 import { logActivity, snapshots } from "./activity";
 import { todayIn } from "./cards";
 import { formatMoney, splitEqually } from "./money";
-import { merchantKey } from "./import/patterns";
-import { learnedByMerchant } from "./patterns-server";
-import { usablePeople } from "./people-access";
 import { sendPush } from "./push-server";
 import { ruleCategory } from "./rules-server";
 import type { PurchaseInput } from "./purchase";
@@ -68,19 +65,19 @@ export async function recordPurchase(key: string, input: PurchaseInput): Promise
   }
 
   const categoryId = await ruleCategory(householdId, "expense", input.description, null);
-  const usable = await usablePeople(householdId, userId);
-  const learned = (await learnedByMerchant(householdId)).get(merchantKey(input.description))?.participantIds.filter((id) => usable.has(id));
-  const people = learned?.length ? learned : [me];
+  // A compra entra só em "A identificar", dividida só com quem tem o cartão: ninguém mais é avisado nem vê até a pessoa confirmar
+  // (ela pode querer atribuir a outra pessoa).
+  const people = [me];
   const parts = splitEqually(input.amountCents, people.length);
 
   const id = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(T)
-      .values({ householdId, date: input.date ?? todayIn(), description: input.description, amountCents: input.amountCents, kind: "expense", payerId: me, categoryId, cardId: card.id, source: SOURCE, externalId, createdBy: userId })
+      .values({ householdId, date: input.date ?? todayIn(), description: input.description, amountCents: input.amountCents, kind: "expense", payerId: me, categoryId, cardId: card.id, source: SOURCE, externalId, needsReview: true, createdBy: userId })
       .returning({ id: T.id });
     await tx.insert(schema.transactionSplits).values(people.map((pid, i) => ({ transactionId: row.id, participantId: pid, amountCents: parts[i] })));
     const snap = (await snapshots(tx, householdId, [row.id])).get(row.id)!;
-    await logActivity(tx, { userId, householdId, role: m.role === "owner" ? "owner" : "member", participantId: me } as never, { action: "created", transactionId: row.id, data: { tx: snap }, audience: [me, ...people] });
+    await logActivity(tx, { userId, householdId, role: m.role === "owner" ? "owner" : "member", participantId: me } as never, { action: "created", transactionId: row.id, data: { tx: snap }, audience: [me] });
     return row.id;
   });
 
@@ -89,8 +86,8 @@ export async function recordPurchase(key: string, input: PurchaseInput): Promise
   await db.update(schema.purchaseKeys).set({ lastUsedAt: new Date() }).where(eq(schema.purchaseKeys.userId, userId));
   await sendPush([userId], {
     title: "Compra no cartão",
-    body: `${input.description}: ${formatMoney(input.amountCents, house?.currency ?? "BRL")} no ${card.name}${cat ? ` · ${cat.name}` : " · sem categoria"}.`,
-    url: `/transacoes/${id}`,
+    body: `${input.description}: ${formatMoney(input.amountCents, house?.currency ?? "BRL")} no ${card.name}${cat ? ` · ${cat.name}` : " · sem categoria"}. Confirme em A identificar.`,
+    url: "/identificar",
   }).catch(() => {});
   return { ok: true, id, duplicate: false, category: cat?.name ?? null, card: card.name };
 }
