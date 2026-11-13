@@ -14,6 +14,7 @@ import { AwaitingIncome } from "@/components/awaiting-income";
 import { BudgetBar } from "@/components/budget-editor";
 import { getBudgets } from "@/lib/budgets";
 import { goalPlan } from "@/lib/goals";
+import { position } from "@/lib/position";
 import { asc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { formatMoney } from "@/lib/money";
@@ -76,6 +77,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
     ...g,
     plan: goalPlan(g.targetCents, g.savedCents, g.targetMonth, current),
   }));
+  const accountRows = await getDb().select({ id: schema.accounts.id, name: schema.accounts.name, balanceCents: schema.accounts.balanceCents }).from(schema.accounts).where(eq(schema.accounts.userId, auth.userId));
+  const pos = position({
+    accountsCents: accountRows.map((a) => a.balanceCents),
+    invoices: invoices.map((v) => ({ mineCents: v.mineCents, paid: v.paid, due: v.due })),
+    debts: debts.map((d) => ({ net: d.net })),
+    receivableMonthCents: debtsDue.reduce((a, x) => a + x.leftCents, 0),
+  });
   // Dívidas que envolvem você primeiro.
   const welcome = sp.bemvindo === "1";
 
@@ -316,6 +324,41 @@ export default async function DashboardPage({ searchParams }: PageProps<"/painel
                     </Link>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {mode === "me" && (accountRows.length > 0 || pos.payInvoices > 0 || pos.payDebts > 0 || pos.receive > 0) && (
+            <section className="card" aria-labelledby="posicao">
+              <div className="card-head">
+                <h2 id="posicao">Minha posição</h2>
+                <Link href="/ajustes/contas" className="faint">
+                  {accountRows.length > 0 ? "contas" : "cadastrar contas"}
+                </Link>
+              </div>
+              <div className="rows">
+                <div className="row pos-row">
+                  <span className="grow">Tenho agora{accountRows.length > 1 ? ` (${accountRows.length} contas)` : ""}</span>
+                  <Money cents={pos.have} currency={cur} />
+                </div>
+                <div className="row pos-row">
+                  <span className="grow">Preciso pagar{pos.nextDue ? ` · fatura vence ${shortDate(pos.nextDue)}` : ""}</span>
+                  <span className="num neg">
+                    <Money cents={pos.payInvoices + pos.payDebts} currency={cur} />
+                  </span>
+                </div>
+                {pos.payDebts > 0 && <p className="sub">Faturas {formatMoney(pos.payInvoices, cur)} + dívidas com outras pessoas {formatMoney(pos.payDebts, cur)}.</p>}
+                <div className="row pos-row">
+                  <span className="grow">Dependo de outros em {monthName}</span>
+                  <Money cents={pos.receive} currency={cur} />
+                </div>
+                <div className="row pos-row">
+                  <strong className="grow">Sobra depois de pagar</strong>
+                  <strong className={`num ${pos.projected < 0 ? "neg" : ""}`}>
+                    <Money cents={pos.projected} currency={cur} />
+                  </strong>
+                </div>
+                {pos.receive > 0 && <p className="sub">Se te pagarem o que devem: {formatMoney(pos.projectedWithReceive, cur)}.</p>}
               </div>
             </section>
           )}

@@ -8805,3 +8805,10 @@ body.modal-open .new-fab {
   margin-top: 16px;
   max-width: 420px;
 }
+
+/* Minha posição. */
+.pos-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

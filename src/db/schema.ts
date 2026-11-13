@@ -398,6 +398,18 @@ export const goals = pgTable("goals", {
   createdAt: createdAt(),
 });
 
+/** Contas (banco, carteira, poupança) de cada pessoa, com o saldo que ela informa. Entram na "posição" junto com cartões e dívidas. */
+export const accounts = pgTable("accounts", {
+  id: id(),
+  userId: uuid()
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text().notNull(),
+  balanceCents: integer().notNull().default(0),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+});
+
 export const importBatches = pgTable("import_batches", {
   id: id(),
   householdId: uuid()
